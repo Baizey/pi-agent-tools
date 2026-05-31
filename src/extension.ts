@@ -4,10 +4,12 @@ import {PiPathPolicy} from "./policy/PiPathPolicy";
 import {PathPolicyLogic} from "./policy/path/PathPolicyLogic";
 import {PathPolicyLogicStore} from "./policy/path/PathPolicyLogicStore";
 import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "./policy/types";
+import {brokerAccessType, WindowsBrokerRunner} from "./shell/WindowsBrokerRunner";
 
 export type PiExtensionApi = {
     on(event: "tool_call", handler: (event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallDecision | void> | ToolCallDecision | void): void;
     on(event: "user_bash", handler: (event: UserBashEvent, ctx: ExtensionContext) => Promise<UserBashDecision | void> | UserBashDecision | void): void;
+    registerTool?(definition: ToolDefinition): void;
 };
 
 type ToolCallEvent = {
@@ -18,6 +20,20 @@ type ToolCallEvent = {
 type ToolCallDecision = {
     block: true;
     reason: string;
+};
+
+type ToolDefinition = {
+    name: string;
+    label: string;
+    description: string;
+    parameters: Record<string, unknown>;
+    execute(
+        toolCallId: string,
+        params: Record<string, unknown>,
+        signal?: AbortSignal,
+        onUpdate?: unknown,
+        ctx?: ExtensionContext,
+    ): Promise<{ content: Array<{ type: "text"; text: string }>; details?: Record<string, unknown>; isError?: boolean }>;
 };
 
 type UserBashEvent = {
@@ -50,6 +66,38 @@ type PolicyRuntime = {
 
 export default function gantryPolicyExtension(pi: PiExtensionApi): void {
     const runtimes = new Map<string, PolicyRuntime>();
+    const broker = new WindowsBrokerRunner();
+
+    pi.registerTool?.({
+        name: "bash",
+        label: "Bash",
+        description: "Execute a shell command through the Pi.dev Windows path policy broker.",
+        parameters: {
+            type: "object",
+            properties: {
+                command: {type: "string", description: "Shell command to run."},
+                timeout: {type: "number", description: "Optional timeout in milliseconds."},
+            },
+            required: ["command"],
+            additionalProperties: false,
+        },
+        async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+            const command = typeof params.command === "string" ? params.command : "";
+            const cwd = ctx?.cwd ?? process.cwd();
+            const timeoutMs = typeof params.timeout === "number" ? params.timeout : undefined;
+
+            if (!command.trim()) {
+                return {content: [{type: "text", text: "Missing command."}], isError: true};
+            }
+
+            const result = await runBrokeredCommand(ctx ?? {cwd}, broker, runtimes, command, cwd, timeoutMs);
+            return {
+                content: [{type: "text", text: result.output}],
+                details: result,
+                isError: result.exitCode !== 0,
+            };
+        },
+    });
 
     pi.on("tool_call", async (event, ctx) => {
         const runtime = runtimeFor(ctx.cwd, runtimes);
@@ -63,7 +111,32 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
 
     pi.on("user_bash", async (event, ctx) => {
         const cwd = event.cwd || ctx.cwd;
-        const runtime = runtimeFor(cwd, runtimes);
+        return {result: await runBrokeredCommand(ctx, broker, runtimes, event.command, cwd)};
+    });
+}
+
+async function runBrokeredCommand(
+    ctx: ExtensionContext,
+    broker: WindowsBrokerRunner,
+    runtimes: Map<string, PolicyRuntime>,
+    command: string,
+    cwd: string,
+    timeoutMs?: number,
+): Promise<UserBashDecision["result"]> {
+    const runtime = runtimeFor(cwd, runtimes);
+    return broker.run({
+        command,
+        cwd,
+        timeoutMs,
+        onAccessRequest: async (request) => {
+            const accessType = brokerAccessType(request.accessType);
+            if (!accessType) {
+                return {allowed: false, reason: `Unknown broker access type: ${request.accessType}`};
+            }
+
+            const reason = await ensurePathAllowed({...ctx, cwd}, runtime, request.path, accessType, false);
+            return {allowed: reason === null, reason: reason ?? undefined};
+        },
     });
 }
 
