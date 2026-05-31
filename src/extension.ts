@@ -43,7 +43,7 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
         for (const candidatePath of pathsForToolCall(event.toolName, event.input)) {
             const result = runtime.policy.evaluate(candidatePath, accessType, false);
             if (result === null) {
-                const decision = await askForPolicy(ctx, runtime, candidatePath, accessType);
+                const decision = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
                 if (decision === "allowed") continue;
                 return {block: true, reason: decision};
             }
@@ -107,12 +107,13 @@ function runtimeFor(cwd: string, runtimes: Map<string, PolicyRuntime>): PolicyRu
     if (existing) return existing;
 
     const projectPiDir = path.join(key, ".pi");
+    const userPiDir = path.join(os.homedir(), ".pi", "agent");
     const policy = PiPathPolicy.create({
         cwd: key,
         projectPiDir,
-        globalPiDir: path.join(os.homedir(), ".pi", "agent"),
+        globalPiDir: userPiDir,
     });
-    const store = new PathPolicyLogicStore(path.join(projectPiDir, "path-policy.json"));
+    const store = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
     store.loadInto(policy);
 
     const runtime = {policy, store};
@@ -141,7 +142,7 @@ function pathScopes(evaluatedPath: string, cwd: string): string[] {
     const scopes: string[] = [];
     let current = evaluatedPath;
     const root = path.parse(current).root;
-    const standardizedCwd = path.resolve(cwd).normalize().replace(/[\\/]+$/g, "");
+    const standardizedCwd = standardizePath(cwd, ".");
 
     while (true) {
         scopes.push(current);
@@ -158,4 +159,8 @@ function stringValues(value: unknown): string[] {
     if (typeof value === "string" && value.trim()) return [value];
     if (Array.isArray(value)) return value.flatMap(stringValues);
     return [];
+}
+
+function standardizePath(cwd: string, input: string): string {
+    return path.resolve(cwd, input).normalize().replace(/[\\/]+$/g, "");
 }

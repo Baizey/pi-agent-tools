@@ -6,6 +6,7 @@ import {
   FsAccessType,
   PathPolicy,
   PathPolicyLogic,
+  PathPolicyResult,
   PolicyLifetime,
   PolicyStatus,
 } from "../../index";
@@ -40,11 +41,13 @@ const testPolicy = () => {
   return { base, agent, system, policy };
 };
 
-const assertAllowed = (result: { matchedStatus: PolicyStatus }): void => {
+const assertAllowed = (result: PathPolicyResult | null): void => {
+  assert.ok(result);
   assert.equal(result.matchedStatus, PolicyStatus.ALLOWED);
 };
 
-const assertDeniedOrUnknown = (result: { matchedStatus: PolicyStatus }): void => {
+const assertDeniedOrUnknown = (result: PathPolicyResult | null): void => {
+  assert.ok(result);
   assert.notEqual(result.matchedStatus, PolicyStatus.ALLOWED);
 };
 
