@@ -1,0 +1,133 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {
+  FsAccessType,
+  PathPolicy,
+  PathPolicyLogic,
+  PolicyLifetime,
+  PolicyStatus,
+} from "../../index";
+
+const test = (name: string, fn: () => void): void => {
+  try {
+    fn();
+    console.log(`✓ ${name}`);
+  } catch (error) {
+    console.error(`✗ ${name}`);
+    throw error;
+  }
+};
+
+const tempDir = (): string => fs.mkdtempSync(path.join(os.tmpdir(), "pidev-path-policy-"));
+
+const testPolicy = () => {
+  const base = path.join(tempDir(), ".gantry");
+  const agent = path.join(base, "agent");
+  const system = path.join(base, "system");
+  const policy = new PathPolicyLogic({
+    policies: [
+      PathPolicyLogic.createPolicy(system, PolicyStatus.DENIED, PolicyLifetime.SESSION, "System path is disallowed."),
+      PathPolicyLogic.createPolicy(agent, PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "Agent path is allowed."),
+    ],
+  });
+
+  return { base, agent, system, policy };
+};
+
+const assertAllowed = (result: { matchedStatus: PolicyStatus }): void => {
+  assert.equal(result.matchedStatus, PolicyStatus.ALLOWED);
+};
+
+const assertDeniedOrUnknown = (result: { matchedStatus: PolicyStatus }): void => {
+  assert.notEqual(result.matchedStatus, PolicyStatus.ALLOWED);
+};
+
+test("baseline agent path is allowed", () => {
+  const { agent, policy } = testPolicy();
+  assertAllowed(policy.evaluate(path.join(agent, "payload.txt"), FsAccessType.READ, true));
+});
+
+test("baseline system path is denied", () => {
+  const { system, policy } = testPolicy();
+  assertDeniedOrUnknown(policy.evaluate(path.join(system, "payload.txt"), FsAccessType.READ, true));
+});
+
+test("agent path cannot allow sibling with same prefix", () => {
+  const { base, policy } = testPolicy();
+  assertDeniedOrUnknown(policy.evaluate(path.join(base, "agent-secret", "payload.txt"), FsAccessType.READ, true));
+});
+
+test("system path cannot deny sibling with same prefix", () => {
+  const { base, policy } = testPolicy();
+  assertDeniedOrUnknown(policy.evaluate(path.join(base, "systematic", "payload.txt"), FsAccessType.READ, true));
+});
+
+test("parent traversal out of allowed path is standardized before evaluation", () => {
+  const { agent, policy } = testPolicy();
+  assertDeniedOrUnknown(policy.evaluate(path.join(agent, "..", "system", "payload.txt"), FsAccessType.WRITE, true));
+});
+
+test("custom allowed path cannot allow sibling with same prefix", () => {
+  const { base, policy } = testPolicy();
+  const allowedPath = path.join(base, "allowed");
+
+  policy.addPolicies([
+    PathPolicyLogic.createPolicy(allowedPath, PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "Test allowed path."),
+  ]);
+
+  assertDeniedOrUnknown(policy.evaluate(path.join(base, "allowed-but-not-really", "payload.txt"), FsAccessType.READ, true));
+});
+
+test("trailing separators are ignored", () => {
+  const { base, policy } = testPolicy();
+  const allowedPath = path.join(base, "allowed-with-trailing-separator");
+
+  policy.addPolicies([
+    PathPolicyLogic.createPolicy(`${allowedPath}\\`, PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "Test allowed path."),
+  ]);
+
+  assertAllowed(policy.evaluate(`${allowedPath}/`, FsAccessType.READ, true));
+  assertAllowed(policy.evaluate(path.join(allowedPath, "payload.txt"), FsAccessType.READ, true));
+});
+
+test("more specific denied child beats broader allowed parent", () => {
+  const { base, policy } = testPolicy();
+  const parent = path.join(base, "workspace");
+  const child = path.join(parent, "secrets");
+
+  policy.addPolicies([
+    PathPolicyLogic.createPolicy(parent, PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "Test workspace is allowed."),
+    PathPolicyLogic.createPolicy(child, PolicyStatus.DENIED, PolicyLifetime.SESSION, "Test secrets are denied."),
+  ]);
+
+  assertDeniedOrUnknown(policy.evaluate(path.join(child, "payload.txt"), FsAccessType.READ, true));
+});
+
+test("per-access deny beats same path allow for another access type", () => {
+  const { base, policy } = testPolicy();
+  const target = path.join(base, "mixed-access");
+  const pathPolicy: PathPolicy = {
+    path: target,
+    info: {
+      [FsAccessType.READ]: PathPolicyLogic.createStatus(
+        FsAccessType.READ,
+        PolicyLifetime.SESSION,
+        PolicyStatus.ALLOWED,
+        "Read is allowed.",
+      ),
+      [FsAccessType.WRITE]: PathPolicyLogic.createStatus(
+        FsAccessType.WRITE,
+        PolicyLifetime.SESSION,
+        PolicyStatus.DENIED,
+        "Write is denied.",
+      ),
+    },
+  };
+
+  policy.addPolicies([pathPolicy]);
+
+  assertAllowed(policy.evaluate(path.join(target, "payload.txt"), FsAccessType.READ, true));
+  assertDeniedOrUnknown(policy.evaluate(path.join(target, "payload.txt"), FsAccessType.WRITE, true));
+});
