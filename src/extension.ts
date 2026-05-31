@@ -56,7 +56,7 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
         const accessType = PiPathPolicy.accessTypeForTool(event.toolName);
         if (!accessType) return;
         for (const candidatePath of pathsForToolCall(event.toolName, event.input)) {
-            const reason = await ensurePathAllowed(ctx, runtime, candidatePath, accessType);
+            const reason = await ensurePathAllowed(ctx, runtime, candidatePath, accessType, false);
             if (reason) return {block: true, reason};
         }
     });
@@ -72,13 +72,12 @@ async function ensurePathAllowed(
     runtime: PolicyRuntime,
     candidatePath: string,
     accessType: FsAccessType,
+    denyByDefault: boolean,
 ): Promise<string | null> {
-    const result = runtime.pathPolicy.evaluate(candidatePath, accessType, false);
+    let result = runtime.pathPolicy.evaluate(candidatePath, accessType, denyByDefault);
     if (result === null) {
-        const decision = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
-        return decision === "allowed" ? null : decision;
+        result = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType)
     }
-
     if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
     return runtime.pathPolicy.toDenyReasonOrNull(result) ?? "Access denied.";
 }
@@ -88,10 +87,10 @@ async function askForPolicy(
     runtime: PolicyRuntime,
     evaluatedPath: string,
     accessType: FsAccessType,
-): Promise<"allowed" | string> {
-    const fallBack: (reason: string) => string =
+): Promise<PathPolicyResult> {
+    const failed: (reason: string) => PathPolicyResult =
         (reason: string) => {
-            const result = {
+            return {
                 evaluatedPath,
                 evaluatedAccessType: accessType,
                 matchedPattern: '(none)',
@@ -99,30 +98,29 @@ async function askForPolicy(
                 matchedStatus: PolicyStatus.DENIED,
                 matchedReason: reason,
             } satisfies PathPolicyResult
-            return runtime.pathPolicy.toDenyReasonOrNull(result)!!;
         };
 
     if (!ctx.ui || ctx.hasUI === false) {
-        return fallBack(`No policy matched '${evaluatedPath}' and interactive approval is unavailable.`);
+        return failed(`No policy matched '${evaluatedPath}' and interactive approval is unavailable.`);
     }
 
     const statusChoice = await ctx.ui.select(
         `No ${accessType} policy for ${evaluatedPath}`,
         ["Allow", "Deny"],
     );
-    if (!statusChoice) return fallBack(`Access denied: no policy decision selected.`);
+    if (!statusChoice) return failed(`Access denied: no policy decision selected.`);
 
     const lifetimeChoice = await ctx.ui.select(
         "Policy lifetime",
         [PolicyLifetime.ONCE, PolicyLifetime.SESSION, PolicyLifetime.FOREVER],
     );
-    if (!lifetimeChoice) return fallBack(`Access denied: no policy lifetime selected.`);
+    if (!lifetimeChoice) return failed(`Access denied: no policy lifetime selected.`);
 
     const scope = await ctx.ui.select(
         "Policy scope",
         pathScopes(evaluatedPath, ctx.cwd),
     );
-    if (!scope) return fallBack(`Access denied: no policy scope selected.`);
+    if (!scope) return failed(`Access denied: no policy scope selected.`);
 
     const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
     const lifetime = lifetimeChoice as PolicyLifetime;
@@ -143,8 +141,14 @@ async function askForPolicy(
     }
 
     if (lifetime === PolicyLifetime.FOREVER) runtime.pathPolicyStore.save(runtime.pathPolicy);
-    if (status === PolicyStatus.ALLOWED) return "allowed";
-    return `ACCESS DENIED\nUser denied ${accessType} access to '${evaluatedPath}'.`;
+    return {
+        evaluatedPath,
+        evaluatedAccessType: accessType,
+        matchedPattern: scope,
+        matchedLifetime: lifetime,
+        matchedStatus: status,
+        matchedReason: reason,
+    } satisfies PathPolicyResult;
 }
 
 function runtimeFor(cwd: string, runtimes: Map<string, PolicyRuntime>): PolicyRuntime {
