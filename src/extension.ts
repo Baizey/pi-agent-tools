@@ -212,8 +212,6 @@ async function askForPolicy(
             runtime.pathPolicyStore.save(runtime.pathPolicy);
         }
     }
-
-    if (lifetime === PolicyLifetime.FOREVER) runtime.pathPolicyStore.save(runtime.pathPolicy);
     return {
         evaluatedPath,
         evaluatedAccessType: accessType,
