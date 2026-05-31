@@ -44,8 +44,8 @@ type ExtensionContext = {
 };
 
 type PolicyRuntime = {
-    policy: PathPolicyLogic;
-    store: PathPolicyLogicStore;
+    pathPolicy: PathPolicyLogic;
+    pathPolicyStore: PathPolicyLogicStore;
 };
 
 export default function gantryPolicyExtension(pi: PiExtensionApi): void {
@@ -73,14 +73,14 @@ async function ensurePathAllowed(
     candidatePath: string,
     accessType: FsAccessType,
 ): Promise<string | null> {
-    const result = runtime.policy.evaluate(candidatePath, accessType, false);
+    const result = runtime.pathPolicy.evaluate(candidatePath, accessType, false);
     if (result === null) {
         const decision = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
         return decision === "allowed" ? null : decision;
     }
 
     if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
-    return runtime.policy.toDenyReasonOrNull(result) ?? "Access denied.";
+    return runtime.pathPolicy.toDenyReasonOrNull(result) ?? "Access denied.";
 }
 
 async function askForPolicy(
@@ -116,7 +116,7 @@ async function askForPolicy(
     const reason = `User selected ${status} for ${accessType}.`;
 
     if (lifetime !== PolicyLifetime.ONCE) {
-        runtime.policy.addPolicies([
+        runtime.pathPolicy.addPolicies([
             {
                 path: scope,
                 info: {
@@ -124,9 +124,10 @@ async function askForPolicy(
                 },
             },
         ]);
+        runtime.pathPolicyStore.save(runtime.pathPolicy);
     }
 
-    if (lifetime === PolicyLifetime.FOREVER) runtime.store.save(runtime.policy);
+    if (lifetime === PolicyLifetime.FOREVER) runtime.pathPolicyStore.save(runtime.pathPolicy);
     if (status === PolicyStatus.ALLOWED) return "allowed";
     return `ACCESS DENIED\nUser denied ${accessType} access to '${evaluatedPath}'.`;
 }
@@ -138,15 +139,15 @@ function runtimeFor(cwd: string, runtimes: Map<string, PolicyRuntime>): PolicyRu
 
     const projectPiDir = path.join(key, ".pi");
     const userPiDir = path.join(os.homedir(), ".pi", "agent");
-    const policy = PiPathPolicy.create({
+    const pathPolicy = PiPathPolicy.create({
         cwd: key,
         projectPiDir,
         globalPiDir: userPiDir,
     });
-    const store = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
-    store.loadInto(policy);
+    const pathPolicyStore = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
+    pathPolicyStore.loadInto(pathPolicy);
 
-    const runtime = {policy, store};
+    const runtime: PolicyRuntime = {pathPolicy, pathPolicyStore};
     runtimes.set(key, runtime);
     return runtime;
 }
