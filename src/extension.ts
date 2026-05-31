@@ -3,7 +3,7 @@ import path from "node:path";
 import {PiPathPolicy} from "./policy/PiPathPolicy";
 import {PathPolicyLogic} from "./policy/path/PathPolicyLogic";
 import {PathPolicyLogicStore} from "./policy/path/PathPolicyLogicStore";
-import {FsAccessType, PolicyLifetime, PolicyStatus} from "./policy/types";
+import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "./policy/types";
 
 export type PiExtensionApi = {
     on(event: "tool_call", handler: (event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallDecision | void> | ToolCallDecision | void): void;
@@ -89,27 +89,40 @@ async function askForPolicy(
     evaluatedPath: string,
     accessType: FsAccessType,
 ): Promise<"allowed" | string> {
+    const fallBack: (reason: string) => string =
+        (reason: string) => {
+            const result = ({
+                evaluatedPath,
+                evaluatedAccessType: accessType,
+                matchedPattern: '(none)',
+                matchedLifetime: PolicyLifetime.ONCE,
+                matchedStatus: PolicyStatus.DENIED,
+                matchedReason: reason,
+            } satisfies PathPolicyResult)
+            return runtime.pathPolicy.toDenyReasonOrNull(result)!!;
+        };
+
     if (!ctx.ui || ctx.hasUI === false) {
-        return `ACCESS DENIED\nNo policy matched '${evaluatedPath}' and interactive approval is unavailable.`;
+        return fallBack(`No policy matched '${evaluatedPath}' and interactive approval is unavailable.`);
     }
 
     const statusChoice = await ctx.ui.select(
         `No ${accessType} policy for ${evaluatedPath}`,
         ["Allow", "Deny"],
     );
-    if (!statusChoice) return "Access denied: no policy decision selected.";
+    if (!statusChoice) return fallBack(`Access denied: no policy decision selected.`);
 
     const lifetimeChoice = await ctx.ui.select(
         "Policy lifetime",
         [PolicyLifetime.ONCE, PolicyLifetime.SESSION, PolicyLifetime.FOREVER],
     );
-    if (!lifetimeChoice) return "Access denied: no policy lifetime selected.";
+    if (!lifetimeChoice) return fallBack(`Access denied: no policy lifetime selected.`);
 
     const scope = await ctx.ui.select(
         "Policy scope",
         pathScopes(evaluatedPath, ctx.cwd),
     );
-    if (!scope) return "Access denied: no policy scope selected.";
+    if (!scope) return fallBack(`Access denied: no policy scope selected.`);
 
     const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
     const lifetime = lifetimeChoice as PolicyLifetime;
@@ -124,7 +137,9 @@ async function askForPolicy(
                 },
             },
         ]);
-        runtime.pathPolicyStore.save(runtime.pathPolicy);
+        if (lifetime === PolicyLifetime.FOREVER) {
+            runtime.pathPolicyStore.save(runtime.pathPolicy);
+        }
     }
 
     if (lifetime === PolicyLifetime.FOREVER) runtime.pathPolicyStore.save(runtime.pathPolicy);
