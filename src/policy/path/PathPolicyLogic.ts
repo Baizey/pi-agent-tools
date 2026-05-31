@@ -53,11 +53,12 @@ export class PathPolicyLogic {
     if (options.policies) this.addPolicies(options.policies);
   }
 
-  evaluate(inputPath: string, accessType: FsAccessType, denyByDefault = false): PathPolicyResult {
+  evaluate(inputPath: string, accessType: FsAccessType, denyByDefault = false): PathPolicyResult | null {
     const evaluatedPath = this.standardizePath(inputPath);
     const policy = this.findPolicy(evaluatedPath, accessType);
 
     if (!policy) {
+      if(!denyByDefault) return null
       return {
         evaluatedPath,
         evaluatedAccessType: accessType,
