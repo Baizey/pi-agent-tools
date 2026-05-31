@@ -8,7 +8,7 @@ import {
   PathPolicyStatus,
   PolicyLifetime,
   PolicyStatus,
-} from "./types";
+} from "../types";
 
 export type PathStandardizer = (input: string) => string;
 

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { PathPolicyLogic } from "./path/PathPolicyLogic";
-import { FsAccessType, PolicyLifetime, PolicyStatus } from "./path/types";
+import { FsAccessType, PolicyLifetime, PolicyStatus } from "./types";
 
 export type PiPathPolicyOptions = {
   cwd: string;

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { PathPolicyLogic } from "./PathPolicyLogic";
-import { PathPolicySnapshot } from "./types";
+import { PathPolicySnapshot } from "../types";
 
 export class PathPolicyLogicStore {
   constructor(private readonly file: string) {}
