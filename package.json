@@ -1,8 +1,12 @@
 {
   "name": "pidev",
   "version": "1.0.0",
-  "description": "",
+  "description": "Pi.dev path policy extension",
   "main": "dist/index.js",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": ["./src/extension.ts"]
+  },
   "scripts": {
     "build": "tsc",
     "test": "npm run build && node scripts/run-tests.js"
