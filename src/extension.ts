@@ -76,7 +76,7 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
             type: "object",
             properties: {
                 command: {type: "string", description: "Shell command to run."},
-                timeout: {type: "number", description: "Optional timeout in milliseconds."},
+                timeout: {type: "number", description: "Optional timeout in seconds."},
             },
             required: ["command"],
             additionalProperties: false,
@@ -84,7 +84,7 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
         async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
             const command = typeof params.command === "string" ? params.command : "";
             const cwd = ctx?.cwd ?? process.cwd();
-            const timeoutMs = typeof params.timeout === "number" ? params.timeout : undefined;
+            const timeoutMs = typeof params.timeout === "number" ? params.timeout * 1000 : undefined;
 
             if (!command.trim()) {
                 return {content: [{type: "text", text: "Missing command."}], isError: true};
@@ -92,8 +92,8 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
 
             const result = await runBrokeredCommand(ctx ?? {cwd}, broker, runtimes, command, cwd, timeoutMs);
             return {
-                content: [{type: "text", text: result.output}],
-                details: result,
+                content: [{type: "text", text: result.output || "(no output)"}],
+                details: undefined,
                 isError: result.exitCode !== 0,
             };
         },
