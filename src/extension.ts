@@ -7,6 +7,7 @@ import {FsAccessType, PolicyLifetime, PolicyStatus} from "./policy/types";
 
 export type PiExtensionApi = {
     on(event: "tool_call", handler: (event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallDecision | void> | ToolCallDecision | void): void;
+    on(event: "user_bash", handler: (event: UserBashEvent, ctx: ExtensionContext) => Promise<UserBashDecision | void> | UserBashDecision | void): void;
 };
 
 type ToolCallEvent = {
@@ -17,6 +18,21 @@ type ToolCallEvent = {
 type ToolCallDecision = {
     block: true;
     reason: string;
+};
+
+type UserBashEvent = {
+    command: string;
+    cwd: string;
+    excludeFromContext: boolean;
+};
+
+type UserBashDecision = {
+    result: {
+        output: string;
+        exitCode: number;
+        cancelled: boolean;
+        truncated: boolean;
+    };
 };
 
 type ExtensionContext = {
@@ -36,21 +52,35 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
     const runtimes = new Map<string, PolicyRuntime>();
 
     pi.on("tool_call", async (event, ctx) => {
+        const runtime = runtimeFor(ctx.cwd, runtimes);
         const accessType = PiPathPolicy.accessTypeForTool(event.toolName);
         if (!accessType) return;
-
-        const runtime = runtimeFor(ctx.cwd, runtimes);
         for (const candidatePath of pathsForToolCall(event.toolName, event.input)) {
-            const result = runtime.policy.evaluate(candidatePath, accessType, false);
-            if (result === null) {
-                const decision = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
-                if (decision === "allowed") continue;
-                return {block: true, reason: decision};
-            }
-            if (result.matchedStatus === PolicyStatus.ALLOWED) continue;
-            return {block: true, reason: runtime.policy.toDenyReasonOrNull(result) ?? "Access denied."};
+            const reason = await ensurePathAllowed(ctx, runtime, candidatePath, accessType);
+            if (reason) return {block: true, reason};
         }
     });
+
+    pi.on("user_bash", async (event, ctx) => {
+        const cwd = event.cwd || ctx.cwd;
+        const runtime = runtimeFor(cwd, runtimes);
+    });
+}
+
+async function ensurePathAllowed(
+    ctx: ExtensionContext,
+    runtime: PolicyRuntime,
+    candidatePath: string,
+    accessType: FsAccessType,
+): Promise<string | null> {
+    const result = runtime.policy.evaluate(candidatePath, accessType, false);
+    if (result === null) {
+        const decision = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
+        return decision === "allowed" ? null : decision;
+    }
+
+    if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
+    return runtime.policy.toDenyReasonOrNull(result) ?? "Access denied.";
 }
 
 async function askForPolicy(
