@@ -91,14 +91,14 @@ async function askForPolicy(
 ): Promise<"allowed" | string> {
     const fallBack: (reason: string) => string =
         (reason: string) => {
-            const result = ({
+            const result = {
                 evaluatedPath,
                 evaluatedAccessType: accessType,
                 matchedPattern: '(none)',
                 matchedLifetime: PolicyLifetime.ONCE,
                 matchedStatus: PolicyStatus.DENIED,
                 matchedReason: reason,
-            } satisfies PathPolicyResult)
+            } satisfies PathPolicyResult
             return runtime.pathPolicy.toDenyReasonOrNull(result)!!;
         };
 
