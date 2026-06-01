@@ -4,12 +4,15 @@ import os from "node:os";
 import path from "node:path";
 import {agentEnv, denyByDefaultEnv} from "../../shared/env";
 import {
+  cleanupSubagentTreeDir,
   finishSubagentNode,
   readSubagentTreeContext,
   renderSubagentTreeFor,
+  renderSubagentTreeFromFiles,
   startSubagentNode,
   subagentTreeEnv,
   updateSubagentNode,
+  writeSubagentNodeFile,
 } from "./tree-ui";
 import {
   ResolvedSubagentProfiles,
@@ -31,6 +34,7 @@ export type SubagentRequest = {
   treeRootId?: string;
   treeParentId?: string;
   treeDepth?: number;
+  treeDir?: string;
 };
 
 export type SubagentUpdate = (partial: {content: Array<{type: "text"; text: string}>; details?: Record<string, unknown>}) => void;
@@ -43,6 +47,7 @@ export type SubagentResult = {
   stderr: string;
   messages: unknown[];
   profiles: ResolvedSubagentProfiles;
+  tree?: string[];
 };
 
 export async function runSubagent(
@@ -82,22 +87,31 @@ async function runSubagentProcess(
 ): Promise<SubagentResult> {
   const resolvedProfiles = resolveSubagentProfiles(request.profiles);
   const inheritedTree = readSubagentTreeContext();
+  const treeDir = request.treeDir ?? inheritedTree.treeDir ?? await fs.mkdtemp(path.join(os.tmpdir(), "pi-agent-subagent-tree-"));
+  const shouldCleanupTreeDir = !request.treeDir && !inheritedTree.treeDir;
+  const nodeIdentity = resolveNodeIdentity(request, inheritedTree);
   const node = startSubagentNode({
-    id: request.treeNodeId ?? inheritedTree.nodeId,
-    parentId: request.treeParentId ?? inheritedTree.parentId,
-    rootId: request.treeRootId ?? inheritedTree.rootId,
-    depth: request.treeDepth ?? inheritedTree.depth,
+    id: nodeIdentity.id,
+    parentId: nodeIdentity.parentId,
+    rootId: nodeIdentity.rootId,
+    depth: nodeIdentity.depth,
     mode: request.mode,
     task: request.task,
     profiles: request.profiles,
     tools: resolvedProfiles.tools,
   });
+  const renderTree = () => {
+    const fileTree = renderSubagentTreeFromFiles(treeDir, node.rootId);
+    return fileTree.length > 0 ? fileTree : renderSubagentTreeFor(node.rootId);
+  };
   const emitTreeUpdate = () => onUpdate?.({
-    content: [{type: "text", text: renderSubagentTreeFor(node.rootId).join("\n")}],
-    details: {rootId: node.rootId, nodeId: node.id},
+    content: [{type: "text", text: renderTree().join("\n")}],
+    details: {rootId: node.rootId, nodeId: node.id, treeDir},
   });
+  const publishNode = async () => writeSubagentNodeFile(treeDir, node);
 
   updateSubagentNode(node.id, {status: "running"});
+  await publishNode();
   emitTreeUpdate();
 
   const prompt = buildSubagentPrompt(request, resolvedProfiles);
@@ -105,17 +119,45 @@ async function runSubagentProcess(
   const args = buildPiArgs(request, resolvedProfiles, temp.filePath);
 
   try {
-    const result = await runPiProcess(args, request, resolvedProfiles, node, emitTreeUpdate, signal);
+    const result = await runPiProcess(args, request, resolvedProfiles, node, treeDir, publishNode, emitTreeUpdate, signal);
     finishSubagentNode(node.id, result.timedOut ? "timed_out" : result.exitCode === 0 ? "done" : "failed", result.output);
+    await publishNode();
     emitTreeUpdate();
-    return result;
+    return {...result, tree: renderTree()};
   } catch (error) {
     finishSubagentNode(node.id, "failed", error instanceof Error ? error.message : String(error));
+    await publishNode();
     emitTreeUpdate();
     throw error;
   } finally {
     await fs.rm(temp.dir, {recursive: true, force: true});
+    if (shouldCleanupTreeDir) await cleanupSubagentTreeDir(treeDir);
   }
+}
+
+function resolveNodeIdentity(
+  request: SubagentRequest,
+  inheritedTree: {rootId?: string; parentId?: string; nodeId?: string; depth: number},
+): {id: string | undefined; parentId: string | undefined; rootId: string | undefined; depth: number | undefined} {
+  if (request.treeNodeId) {
+    return {
+      id: request.treeNodeId,
+      parentId: request.treeParentId,
+      rootId: request.treeRootId,
+      depth: request.treeDepth,
+    };
+  }
+
+  if (inheritedTree.nodeId) {
+    return {
+      id: undefined,
+      parentId: inheritedTree.nodeId,
+      rootId: inheritedTree.rootId,
+      depth: inheritedTree.depth + 1,
+    };
+  }
+
+  return {id: undefined, parentId: undefined, rootId: undefined, depth: undefined};
 }
 
 function buildPiArgs(request: SubagentRequest, profiles: ResolvedSubagentProfiles, promptPath: string): string[] {
@@ -154,6 +196,8 @@ async function runPiProcess(
   request: SubagentRequest,
   profiles: ResolvedSubagentProfiles,
   node: {id: string; rootId: string; parentId?: string; depth: number},
+  treeDir: string,
+  publishNode: () => Promise<void>,
   emitTreeUpdate: () => void,
   signal?: AbortSignal,
 ): Promise<SubagentResult> {
@@ -166,7 +210,7 @@ async function runPiProcess(
       env: {
         ...process.env,
         ...denyByDefaultEnv(),
-        ...subagentTreeEnv({rootId: node.rootId, parentId: node.parentId, nodeId: node.id, depth: node.depth}),
+        ...subagentTreeEnv({rootId: node.rootId, parentId: node.parentId, nodeId: node.id, depth: node.depth, treeDir}),
         [agentEnv.subagentProfileCeiling]: serializeSubagentProfileCeiling(profiles.profiles),
       },
     });
@@ -176,14 +220,20 @@ async function runPiProcess(
     let stderr = "";
     let output = "";
     let timedOut = false;
+    const shadowSubagents: string[] = [];
+    const seenToolCalls = new Set<string>();
     let settled = false;
 
     const finish = (result: Omit<SubagentResult, "mode" | "profiles">): void => {
       settled = true;
       clearTimeout(timeout);
+      clearInterval(pollTree);
       signal?.removeEventListener("abort", abort);
       resolve({...result, mode: request.mode, profiles});
     };
+
+    const pollTree = setInterval(emitTreeUpdate, 250);
+    pollTree.unref();
 
     const timeout = setTimeout(() => {
       timedOut = true;
@@ -206,14 +256,36 @@ async function runPiProcess(
         const event = JSON.parse(line);
         if (event.message) messages.push(event.message);
         const toolCall = toolCallFromMessage(event.message);
-        if (toolCall) {
-          updateSubagentNode(node.id, {latestLine: `→ ${toolCall}`});
+        if (toolCall && !seenToolCalls.has(toolCall.key)) {
+          seenToolCalls.add(toolCall.key);
+          updateSubagentNode(node.id, {latestLine: `→ ${toolCall.name}`});
+          void publishNode();
+          if (toolCall.name === "subagent") {
+            const child = startSubagentNode({
+              parentId: node.id,
+              rootId: node.rootId,
+              depth: node.depth + 1,
+              mode: toolCall.mode,
+              task: toolCall.task,
+              profiles: [],
+              tools: [],
+            });
+            updateSubagentNode(child.id, {status: "running"});
+            shadowSubagents.push(child.id);
+          }
+          emitTreeUpdate();
+        }
+        const toolResult = toolResultFromMessage(event.message);
+        if (toolResult && shadowSubagents.length > 0) {
+          const childId = shadowSubagents.shift() as string;
+          finishSubagentNode(childId, toolResult.isError ? "failed" : "done", toolResult.text ?? "completed");
           emitTreeUpdate();
         }
         const text = textFromMessage(event.message);
         if (text) {
           output = text;
           updateSubagentNode(node.id, {latestLine: lastLine(text)});
+          void publishNode();
           emitTreeUpdate();
         }
       } catch {
@@ -234,6 +306,8 @@ async function runPiProcess(
 
     proc.on("close", (code) => {
       if (stdout.trim()) processLine(stdout);
+      for (const childId of shadowSubagents) finishSubagentNode(childId, "done", "completed");
+      if (shadowSubagents.length > 0) emitTreeUpdate();
       finish({
         output: output || stderr || "(no output)",
         exitCode: code ?? 0,
@@ -255,7 +329,7 @@ async function runPiProcess(
   });
 }
 
-function toolCallFromMessage(message: unknown): string | null {
+function toolCallFromMessage(message: unknown): {key: string; name: string; task: string; mode: "sync" | "async" | "conversation"} | null {
   if (!message || typeof message !== "object" || !("role" in message) || message.role !== "assistant") return null;
   const content = "content" in message ? message.content : undefined;
   if (!Array.isArray(content)) return null;
@@ -268,10 +342,29 @@ function toolCallFromMessage(message: unknown): string | null {
       "name" in part &&
       typeof part.name === "string"
     ) {
-      return part.name;
+      const args = "arguments" in part && part.arguments && typeof part.arguments === "object"
+        ? part.arguments as Record<string, unknown>
+        : {};
+      const mode = args.mode === "async" || args.mode === "conversation" ? args.mode : "sync";
+      const explicitId = "id" in part && typeof part.id === "string" ? part.id : undefined;
+      const key = explicitId ?? `${part.name}:${JSON.stringify(args)}`;
+      return {key, name: part.name, task: typeof args.task === "string" ? args.task : part.name, mode};
     }
   }
   return null;
+}
+
+function toolResultFromMessage(message: unknown): {text?: string; isError: boolean} | null {
+  if (!message || typeof message !== "object" || !("role" in message) || message.role !== "toolResult") return null;
+  const content = "content" in message ? message.content : undefined;
+  const isError = "isError" in message && message.isError === true;
+  if (!Array.isArray(content)) return {isError};
+  for (const part of content) {
+    if (part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part && typeof part.text === "string") {
+      return {text: lastLine(part.text), isError};
+    }
+  }
+  return {isError};
 }
 
 function lastLine(text: string): string {

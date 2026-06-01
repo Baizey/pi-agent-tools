@@ -36,4 +36,5 @@ export type SubagentTreeContext = {
   parentId?: string;
   nodeId?: string;
   depth: number;
+  treeDir?: string;
 };

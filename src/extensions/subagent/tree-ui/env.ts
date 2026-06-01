@@ -7,15 +7,17 @@ export function readSubagentTreeContext(env: NodeJS.ProcessEnv = process.env): S
     parentId: env[agentEnv.subagentParentId],
     nodeId: env[agentEnv.subagentNodeId],
     depth: parseDepth(env[agentEnv.subagentDepth]),
+    treeDir: env[agentEnv.subagentTreeDir],
   };
 }
 
-export function subagentTreeEnv(input: {rootId: string; parentId?: string; nodeId: string; depth: number}): Record<string, string> {
+export function subagentTreeEnv(input: {rootId: string; parentId?: string; nodeId: string; depth: number; treeDir?: string}): Record<string, string> {
   return {
     [agentEnv.subagentRootId]: input.rootId,
     [agentEnv.subagentParentId]: input.parentId ?? "",
     [agentEnv.subagentNodeId]: input.nodeId,
     [agentEnv.subagentDepth]: String(input.depth),
+    ...(input.treeDir ? {[agentEnv.subagentTreeDir]: input.treeDir} : {}),
   };
 }
 
