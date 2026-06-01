@@ -8,4 +8,5 @@ export * from "./policy/shell/ShellPolicyLogicStore";
 export * from "./extensions/delete";
 export * from "./extensions/file-tools";
 export * from "./extensions/path-policy";
+export * from "./extensions/policy-info";
 export * from "./extensions/shell-policy";

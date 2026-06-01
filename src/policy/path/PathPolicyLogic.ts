@@ -110,6 +110,18 @@ export class PathPolicyLogic {
     }
   }
 
+  policiesSnapshot(): PathPolicy[] {
+    return this.policies.map((policy) => {
+      const snapshot = {
+        path: policy.path,
+        info: Object.fromEntries(
+          Object.entries(policy.info).map(([accessType, status]) => [accessType, status ? { ...status } : status]),
+        ) satisfies PathPolicy["info"],
+      } satisfies PathPolicy;
+      return snapshot;
+    });
+  }
+
   persistedPolicies(): PathPolicy[] {
     return this.policies
       .map((policy) => ({

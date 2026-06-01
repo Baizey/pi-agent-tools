@@ -96,6 +96,10 @@ export class ShellPolicyLogic {
     for (const policy of policies) this.policies.removePolicy(this.standardizeDeleteRequest(policy));
   }
 
+  policiesSnapshot(): ShellPolicy[] {
+    return this.policies.policiesSnapshot();
+  }
+
   persistedPolicies(): ShellPolicy[] {
     return this.policies.persistedPolicies().sort((left, right) => {
       const byFirst = (left.commandArgs[0] ?? "").localeCompare(right.commandArgs[0] ?? "");
@@ -311,6 +315,10 @@ export class ShellPolicyLogic {
 
 class ShellPolicyTree {
   private readonly policies: ShellPolicy[] = [];
+
+  policiesSnapshot(): ShellPolicy[] {
+    return this.policies.map(clonePolicy);
+  }
 
   persistedPolicies(): ShellPolicy[] {
     return this.policies.flatMap((policy) => {
