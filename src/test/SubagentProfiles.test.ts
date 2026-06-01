@@ -43,6 +43,7 @@ test("spawn_subagent profile grants only delegation tooling", () => {
     "subagent_spawn",
     "subagent_status",
     "subagent_await",
+    "subagent_message",
     "subagent_cancel",
   ]);
 });

@@ -11,6 +11,7 @@ import {
   renderSubagentTreeFor,
   renderSubagentTreeFromFiles,
   startSubagentNode,
+  subagentNodeStatuses,
   subagentTreeEnv,
   updateSubagentNode,
   writeSubagentNodeFile,
@@ -59,17 +60,8 @@ export async function runSubagent(
   switch (request.mode) {
     case "sync":
     case "async":
-      return runSubagentProcess(request, signal, onUpdate);
     case "conversation":
-      return {
-        mode: request.mode,
-        output: `Subagent mode '${request.mode}' is planned but not implemented yet. Use mode 'sync' or 'async'.`,
-        exitCode: 1,
-        timedOut: false,
-        stderr: "",
-        messages: [],
-        profiles: resolveSubagentProfiles(request.profiles),
-      };
+      return runSubagentProcess(request, signal, onUpdate);
   }
 }
 
@@ -121,7 +113,7 @@ async function runSubagentProcess(
     await publishQueue.catch(() => undefined);
   };
 
-  updateSubagentNode(node.id, {status: "running"});
+  updateSubagentNode(node.id, {status: subagentNodeStatuses.running});
   await publishNode();
   emitTreeUpdate();
 
@@ -131,12 +123,16 @@ async function runSubagentProcess(
 
   try {
     const result = await runPiProcess(args, request, resolvedProfiles, node, treeDir, publishNode, emitTreeUpdate, signal);
-    finishSubagentNode(node.id, result.timedOut ? "timed_out" : result.exitCode === 0 ? "done" : "failed", result.output);
+    finishSubagentNode(
+      node.id,
+      result.timedOut ? subagentNodeStatuses.timedOut : result.exitCode === 0 ? subagentNodeStatuses.done : subagentNodeStatuses.failed,
+      result.output,
+    );
     await publishNode();
     emitTreeUpdate();
     return {...result, tree: renderTree()};
   } catch (error) {
-    finishSubagentNode(node.id, "failed", error instanceof Error ? error.message : String(error));
+    finishSubagentNode(node.id, subagentNodeStatuses.failed, error instanceof Error ? error.message : String(error));
     await publishNode();
     emitTreeUpdate();
     throw error;
@@ -282,7 +278,7 @@ async function runPiProcess(
               profiles: [],
               tools: [],
             });
-            updateSubagentNode(child.id, {status: "running"});
+            updateSubagentNode(child.id, {status: subagentNodeStatuses.running});
             shadowSubagents.push(child.id);
           }
           emitTreeUpdate();
@@ -290,7 +286,11 @@ async function runPiProcess(
         const toolResult = toolResultFromMessage(event.message);
         if (toolResult && shadowSubagents.length > 0) {
           const childId = shadowSubagents.shift() as string;
-          finishSubagentNode(childId, toolResult.isError ? "failed" : "done", toolResult.text ?? "completed");
+          finishSubagentNode(
+            childId,
+            toolResult.isError ? subagentNodeStatuses.failed : subagentNodeStatuses.done,
+            toolResult.text ?? "completed",
+          );
           emitTreeUpdate();
         }
         const text = textFromMessage(event.message);
@@ -318,7 +318,7 @@ async function runPiProcess(
 
     proc.on("close", (code) => {
       if (stdout.trim()) processLine(stdout);
-      for (const childId of shadowSubagents) finishSubagentNode(childId, "done", "completed");
+      for (const childId of shadowSubagents) finishSubagentNode(childId, subagentNodeStatuses.done, "completed");
       if (shadowSubagents.length > 0) emitTreeUpdate();
       finish({
         output: output || stderr || "(no output)",

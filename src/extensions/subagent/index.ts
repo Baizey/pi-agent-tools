@@ -8,6 +8,8 @@ import {
   getAsyncSubagentJob,
   getAsyncSubagentJobs,
   jobDetails,
+  sendConversationMessage,
+  subagentJobStatuses,
   startAsyncSubagentJob,
   unfinishedJobIds,
   waitForJobs,
@@ -21,6 +23,7 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
   registerSubagent(pi);
   registerSubagentStatus(pi);
   registerSubagentAwait(pi);
+  registerSubagentMessage(pi);
   registerSubagentCancel(pi);
 }
 
@@ -34,10 +37,12 @@ function registerSubagent(pi: PiExtensionApi): void {
       const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());
       if ("error" in request) return errorResult(request.error);
 
-      if (request.mode === subagentRunModes.async) {
+      if (request.mode === subagentRunModes.async || request.mode === subagentRunModes.conversation) {
         const job = startAsyncSubagentJob(request);
         return successResult(
-          `Started async subagent job ${job.id}. Use ${toolNames.subagentStatus} to check progress.`,
+          request.mode === subagentRunModes.conversation
+            ? `Started conversation subagent ${job.id}. Use ${toolNames.subagentMessage} to continue or ${toolNames.subagentCancel} when done.`
+            : `Started async subagent job ${job.id}. Use ${toolNames.subagentStatus} to check progress.`,
           jobDetails(job),
         );
       }
@@ -102,7 +107,7 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
       }
 
       const text = jobs.map(formatAwaitedJob).join("\n\n---\n\n");
-      const hasFailed = jobs.some((job) => job.status === "failed" || job.status === "cancelled");
+      const hasFailed = jobs.some((job) => job.status === subagentJobStatuses.failed || job.status === subagentJobStatuses.cancelled);
       return {
         content: [{type: "text" as const, text}],
         details,
@@ -111,6 +116,40 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
     },
     renderCall(args, theme) {
       return renderToolCallInput(toolNames.subagentAwait, args, theme as never);
+    },
+  });
+}
+
+function registerSubagentMessage(pi: PiExtensionApi): void {
+  pi.registerTool?.({
+    name: toolNames.subagentMessage,
+    label: "Message Subagent",
+    description: "Send another message to an idle conversation subagent.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      required: ["jobId", "task"],
+      properties: {
+        jobId: {type: "string", description: "Conversation subagent id returned by subagent."},
+        task: {type: "string", description: "Next message/task for the conversation subagent."},
+      },
+    },
+    async execute(_toolCallId, params) {
+      const input = params as RawJobParams & {task?: unknown};
+      const jobId = stringValue(input.jobId);
+      if (!jobId) return errorResult("Missing required parameter: jobId.");
+      const task = stringValue(input.task);
+      if (!task) return errorResult("Missing required parameter: task.");
+      const job = getAsyncSubagentJob(jobId);
+      if (!job) return errorResult(`Unknown subagent job: ${jobId}`);
+      if (job.request.mode !== subagentRunModes.conversation) return errorResult(`Subagent job ${jobId} is not a conversation.`);
+      if (job.status !== subagentJobStatuses.idle) return errorResult(`Conversation subagent ${jobId} is ${job.status}, not idle.`);
+
+      sendConversationMessage(job, task);
+      return successResult(`Sent message to conversation subagent ${job.id}.`, jobDetails(job));
+    },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.subagentMessage, args, theme as never);
     },
   });
 }
@@ -126,7 +165,7 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       if (!jobId) return errorResult("Missing required parameter: jobId.");
       const job = getAsyncSubagentJob(jobId);
       if (!job) return errorResult(`Unknown subagent job: ${jobId}`);
-      if (job.status !== "running") return successResult(`Subagent job ${job.id} is already ${job.status}.`, jobDetails(job));
+      if (job.status !== subagentJobStatuses.running) return successResult(`Subagent job ${job.id} is already ${job.status}.`, jobDetails(job));
 
       cancelAsyncSubagentJob(job);
       return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));

@@ -1,45 +1,34 @@
 export const toolNames = {
-  bash: "bash",
-  copy: "copy",
-  delete: "delete",
-  edit: "edit",
-  find: "find",
-  grep: "grep",
-  ls: "ls",
-  mkdir: "mkdir",
-  move: "move",
-  policyInfo: "policy_info",
-  read: "read",
-  rg: "rg",
-  stat: "stat",
-  subagentSpawn: "subagent_spawn",
-  subagentAwait: "subagent_await",
-  subagentCancel: "subagent_cancel",
-  subagentStatus: "subagent_status",
-  write: "write",
+    // builtin
+    bash: "bash",
+    write: "write",
+    edit: "edit",
+    read: "read",
 
-  dockerBuild: "docker_build",
-  dockerComposeDown: "docker_compose_down",
-  dockerComposeUp: "docker_compose_up",
-  dockerImages: "docker_images",
-  dockerInspect: "docker_inspect",
-  dockerLogs: "docker_logs",
-  dockerPs: "docker_ps",
-  dockerRm: "docker_rm",
-  dockerStop: "docker_stop",
-  gitAdd: "git_add",
-  gitBranch: "git_branch",
-  gitCheckout: "git_checkout",
-  gitCommit: "git_commit",
-  gitDiff: "git_diff",
-  gitLog: "git_log",
-  gitShow: "git_show",
-  gitStash: "git_stash",
-  gitStatus: "git_status",
-  nodeExec: "node_exec",
-  powershellExec: "powershell_exec",
-  pythonExec: "python_exec",
-  webLookup: "web_lookup",
+    // io expansion
+    copy: "copy",
+    delete: "delete",
+    mkdir: "mkdir",
+    move: "move",
+    stat: "stat",
+
+    // policy expansion
+    policyInfo: "policy_info",
+
+    // subagent expansion
+    subagentSpawn: "subagent_spawn",
+    subagentAwait: "subagent_await",
+    subagentCancel: "subagent_cancel",
+    subagentMessage: "subagent_message",
+    subagentStatus: "subagent_status",
+
+    // code execution expansion
+    nodeExec: "node_exec",
+    powershellExec: "powershell_exec",
+    pythonExec: "python_exec",
+
+    // web expansion
+    webLookup: "web_lookup",
 } as const;
 
 export type ToolName = typeof toolNames[keyof typeof toolNames];
