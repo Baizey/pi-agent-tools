@@ -66,6 +66,29 @@ export function isSubagentProfile(value: string): value is SubagentProfile {
     return Object.prototype.hasOwnProperty.call(subagentProfiles, value);
 }
 
+export function applySubagentProfileCeiling(
+    requestedProfiles: SubagentProfile[],
+    ceilingProfiles: SubagentProfile[] | null,
+): SubagentProfile[] {
+    if (!ceilingProfiles) return requestedProfiles;
+    const ceiling = new Set(ceilingProfiles);
+    const allowed = requestedProfiles.filter((profile) => ceiling.has(profile));
+    return allowed.length > 0 ? allowed : ["none"];
+}
+
+export function serializeSubagentProfileCeiling(profiles: SubagentProfile[]): string {
+    return profiles.join(",");
+}
+
+export function parseSubagentProfileCeiling(value: string | undefined): SubagentProfile[] | null {
+    if (!value) return null;
+    const profiles = value
+        .split(",")
+        .map((profile) => profile.trim())
+        .filter(isSubagentProfile);
+    return profiles.length > 0 ? profiles : ["none"];
+}
+
 export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSubagentProfiles {
     const tools = new Set<string>();
     const instructions: string[] = [];

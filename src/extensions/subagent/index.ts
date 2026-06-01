@@ -1,8 +1,11 @@
 import {PiExtensionApi} from "../../pi/types";
+import {agentEnv} from "../../shared/env";
 import {stringValue} from "../../shared/values";
 import {
+  applySubagentProfileCeiling,
   defaultTimeoutSecondsForMode,
   normalizeSubagentProfiles,
+  parseSubagentProfileCeiling,
   SubagentRunMode,
   subagentProfiles,
 } from "./profiles";
@@ -96,10 +99,13 @@ function parseSubagentRequest(params: RawSubagentParams, defaultCwd: string): Su
   const task = stringValue(params.task);
   if (!task) return {error: "Missing required parameter: task."};
 
+  const requestedProfiles = normalizeSubagentProfiles(params.profiles);
+  const ceilingProfiles = parseSubagentProfileCeiling(process.env[agentEnv.subagentProfileCeiling]);
+
   return {
     mode,
     task,
-    profiles: normalizeSubagentProfiles(params.profiles),
+    profiles: applySubagentProfileCeiling(requestedProfiles, ceilingProfiles),
     cwd: stringValue(params.cwd) ?? defaultCwd,
     timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),
     systemPrompt: stringValue(params.systemPrompt) ?? undefined,

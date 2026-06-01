@@ -2,12 +2,13 @@ import {spawn} from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {denyByDefaultEnv} from "../../shared/env";
+import {agentEnv, denyByDefaultEnv} from "../../shared/env";
 import {
   ResolvedSubagentProfiles,
   SubagentProfile,
   SubagentRunMode,
   resolveSubagentProfiles,
+  serializeSubagentProfileCeiling,
 } from "./profiles";
 
 export type SubagentRequest = {
@@ -114,6 +115,7 @@ async function runPiProcess(
       env: {
         ...process.env,
         ...denyByDefaultEnv(),
+        [agentEnv.subagentProfileCeiling]: serializeSubagentProfileCeiling(profiles.profiles),
       },
     });
 
