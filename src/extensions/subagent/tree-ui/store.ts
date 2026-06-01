@@ -1,5 +1,5 @@
 import {renderSubagentTree} from "./render";
-import {StartSubagentNodeInput, SubagentNode, SubagentNodeStatus, SubagentNodeUpdate} from "./types";
+import {StartSubagentNodeInput, SubagentNode, subagentNodeStatuses, SubagentNodeStatus, SubagentNodeUpdate} from "./types";
 
 const nodes = new Map<string, SubagentNode>();
 const rootCounters = new Map<string, number>();
@@ -17,7 +17,7 @@ export function startSubagentNode(input: StartSubagentNodeInput): SubagentNode {
     task: input.task,
     profiles: input.profiles,
     tools: input.tools,
-    status: "starting",
+    status: subagentNodeStatuses.starting,
     latestLine: input.task,
     startedAt: Date.now(),
     children: [],

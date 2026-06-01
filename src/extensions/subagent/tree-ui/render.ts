@@ -1,12 +1,12 @@
-import {SubagentNode} from "./types";
+import {SubagentNode, subagentNodeStatuses} from "./types";
 
 const statusIcons: Record<SubagentNode["status"], string> = {
-  starting: "…",
-  running: "⏳",
-  done: "✓",
-  failed: "✗",
-  cancelled: "⏹",
-  timed_out: "⌛",
+  [subagentNodeStatuses.starting]: "…",
+  [subagentNodeStatuses.running]: "⏳",
+  [subagentNodeStatuses.done]: "✓",
+  [subagentNodeStatuses.failed]: "✗",
+  [subagentNodeStatuses.cancelled]: "⏹",
+  [subagentNodeStatuses.timedOut]: "⌛",
 };
 
 export function renderSubagentTree(root: SubagentNode, nodeFor: (id: string) => SubagentNode | undefined): string[] {

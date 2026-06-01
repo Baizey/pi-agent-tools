@@ -1,6 +1,15 @@
 import {SubagentProfile, SubagentRunMode} from "../profiles";
 
-export type SubagentNodeStatus = "starting" | "running" | "done" | "failed" | "cancelled" | "timed_out";
+export const subagentNodeStatuses = {
+  starting: "starting",
+  running: "running",
+  done: "done",
+  failed: "failed",
+  cancelled: "cancelled",
+  timedOut: "timed_out",
+} as const;
+
+export type SubagentNodeStatus = typeof subagentNodeStatuses[keyof typeof subagentNodeStatuses];
 
 export type SubagentNode = {
   id: string;
