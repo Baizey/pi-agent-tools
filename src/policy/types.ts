@@ -47,6 +47,49 @@ export type PathPolicyResult = {
   matchedReason: string;
 };
 
+export type ShellFlagPolicyStatus = {
+  flag: string;
+  lifetime: PolicyLifetime;
+  status: PolicyStatus;
+  reason: string;
+};
+
+export type ShellPolicy = {
+  commandArgs: string[];
+  flags: Record<string, ShellFlagPolicyStatus>;
+  lifetime: PolicyLifetime;
+  status: PolicyStatus;
+  reason: string;
+};
+
+export type ShellPolicyDeleteRequest = {
+  commandArgs: string[];
+  removeEntirePolicy: boolean;
+  flags: string[];
+};
+
+export type ShellPolicySnapshot = {
+  policies: ShellPolicy[];
+};
+
+export type ShellSegmentPolicyResult = {
+  rawSegment: string;
+  commandPrefix: string[];
+  flags: ShellFlagPolicyStatus[];
+  lifetime: PolicyLifetime;
+  status: PolicyStatus;
+  reason: string;
+  allowed: boolean;
+  denied: boolean;
+};
+
+export type ShellPolicyResult = {
+  command: string;
+  segmentResults: ShellSegmentPolicyResult[];
+  allowed: boolean;
+  denied: boolean;
+};
+
 export const isPersistedLifetime = (lifetime: PolicyLifetime): boolean =>
   lifetime === PolicyLifetime.FOREVER;
 

@@ -3,7 +3,9 @@ import path from "node:path";
 import {PiPathPolicy} from "./policy/PiPathPolicy";
 import {PathPolicyLogic} from "./policy/path/PathPolicyLogic";
 import {PathPolicyLogicStore} from "./policy/path/PathPolicyLogicStore";
-import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "./policy/types";
+import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus, ShellPolicy} from "./policy/types";
+import {ShellPolicyLogic} from "./policy/shell/ShellPolicyLogic";
+import {ShellPolicyLogicStore} from "./policy/shell/ShellPolicyLogicStore";
 
 export type PiExtensionApi = {
     on(event: "tool_call", handler: (event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallDecision | void> | ToolCallDecision | void): void;
@@ -65,6 +67,8 @@ type ExtensionContext = {
 type PolicyRuntime = {
     pathPolicy: PathPolicyLogic;
     pathPolicyStore: PathPolicyLogicStore;
+    shellPolicy: ShellPolicyLogic;
+    shellPolicyStore: ShellPolicyLogicStore;
 };
 
 export default function gantryPolicyExtension(pi: PiExtensionApi): void {
@@ -78,6 +82,16 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
             if (reason) return {block: true, reason};
         }
     });
+
+    pi.on("tool_call", async (event, ctx) => {
+            if (event.toolName !== "bash") return;
+            const runtime = runtimeFor(ctx.cwd, runtimes);
+            const command = (event.input.command || "") as string
+            const result = runtime.shellPolicy.evaluate(command)
+            const response = runtime.shellPolicy.toDenyReasonOrNull(result)
+            if (response) return {block: true, reason: response}
+        }
+    )
 }
 
 async function ensurePathAllowed(
@@ -169,15 +183,23 @@ function runtimeFor(cwd: string, runtimes: Map<string, PolicyRuntime>): PolicyRu
 
     const projectPiDir = path.join(key, ".pi");
     const userPiDir = path.join(os.homedir(), ".pi", "agent");
+
     const pathPolicy = PiPathPolicy.create({
         cwd: key,
         projectPiDir,
         globalPiDir: userPiDir,
     });
     const pathPolicyStore = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
+    const shellPolicy = new ShellPolicyLogic()
+    const shellPolicyStore = new ShellPolicyLogicStore(path.join(userPiDir, "shell-policy.json"));
     pathPolicyStore.loadInto(pathPolicy);
 
-    const runtime: PolicyRuntime = {pathPolicy, pathPolicyStore};
+    const runtime: PolicyRuntime = {
+        pathPolicy: pathPolicy,
+        pathPolicyStore: pathPolicyStore,
+        shellPolicy: shellPolicy,
+        shellPolicyStore: shellPolicyStore
+    };
     runtimes.set(key, runtime);
     return runtime;
 }
