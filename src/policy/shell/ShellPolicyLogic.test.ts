@@ -80,8 +80,56 @@ test("policy scope options provide dynamic approval scopes", () => {
   const logic = new ShellPolicyLogic();
 
   assert.deepEqual(logic.policyScopeOptions("git commit -m message"), [
-    { label: "git commit", commandArgs: ["git", "commit"], flags: ["-m"] },
+    { label: "git commit", commandArgs: ["git", "commit"], flags: [] },
     { label: "git", commandArgs: ["git"], flags: [] },
+    { label: "git commit flag -m", commandArgs: ["git", "commit"], flags: ["-m"] },
+  ]);
+});
+
+test("pending policy scope options ask for command base before flags", () => {
+  const logic = new ShellPolicyLogic();
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git --version"), [
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+
+  logic.addPolicies([allowCommand("git")]);
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git --version"), [
+    { label: "git flag --version", commandArgs: ["git"], flags: ["--version"] },
+  ]);
+});
+
+test("pending policy scope options target the first unknown segment only", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("git")] });
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git --version && pwd"), [
+    { label: "git flag --version", commandArgs: ["git"], flags: ["--version"] },
+  ]);
+
+  logic.addPolicies([
+    ShellPolicyLogic.createPolicy("git", PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "git allowed", [
+      allowFlag("--version"),
+    ]),
+  ]);
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git --version && pwd"), [
+    { label: "pwd", commandArgs: ["pwd"], flags: [] },
+  ]);
+});
+
+
+test("flags are scoped to exact command context", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("git")] });
+
+  logic.addPolicies([
+    ShellPolicyLogic.createPolicy("git", PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "git allowed", [allowFlag("-m")]),
+  ]);
+
+  assertAllowed(logic.evaluate("git -m message", false));
+  assert.equal(logic.evaluate("git status -m message", false), null);
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git status -m message"), [
+    { label: "git status flag -m", commandArgs: ["git", "status"], flags: ["-m"] },
   ]);
 });
 
@@ -113,6 +161,21 @@ test("runtime addPolicies merges flags into an existing exact command policy", (
   ]);
 
   assertAllowed(logic.evaluate("git commit -m message", true));
+});
+
+test("adding a denied flag policy can preserve an existing allowed command policy", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("git", "commit")] });
+  const existing = logic.findExactPolicy(["git", "commit"]);
+  assert.ok(existing);
+
+  logic.addPolicies([
+    ShellPolicyLogic.createPolicy("git commit", existing.status, existing.lifetime, existing.reason, [
+      ShellPolicyLogic.createFlagStatus("--amend", PolicyStatus.DENIED, PolicyLifetime.SESSION, "--amend denied"),
+    ]),
+  ]);
+
+  assertAllowed(logic.evaluate("git commit", true));
+  assertDenied(logic.evaluate("git commit --amend", true));
 });
 
 test("runtime removePolicies can remove flags or entire command policies", () => {

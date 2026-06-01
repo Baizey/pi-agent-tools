@@ -61,28 +61,35 @@ export class ShellPolicyLogic {
     const options = new Map<string, ShellPolicyScopeOption>();
     const segments = splitShellSegments(command);
     for (const segment of segments.length === 0 ? [command] : segments) {
-      const tokens = tokenizeShellSegment(segment);
-      const commandPrefix = takeWhile(tokens, (token) => !isFlag(token));
-      if (commandPrefix.length === 0 || hasUnsafeShellSyntax(segment, tokens)) continue;
-
-      const flags = tokens.slice(commandPrefix.length).filter(isFlag);
-      for (let size = commandPrefix.length; size >= 1; size--) {
-        const scopedCommand = commandPrefix.slice(0, size);
-        const key = scopedCommand.join("\0");
-        if (!options.has(key)) {
-          options.set(key, {
-            label: scopedCommand.join(" "),
-            commandArgs: scopedCommand,
-            flags: size === commandPrefix.length ? [...new Set(flags)] : [],
-          });
-        }
+      for (const option of this.policyScopeOptionsForSegment(segment)) {
+        const key = `${option.commandArgs.join("\0")}\0${option.flags.join("\0")}`;
+        if (!options.has(key)) options.set(key, option);
       }
     }
     return [...options.values()];
   }
 
+  pendingPolicyScopeOptions(command: string): ShellPolicyScopeOption[] {
+    const segments = splitShellSegments(command);
+    for (const segment of segments.length === 0 ? [command] : segments) {
+      const options = this.pendingPolicyScopeOptionsForSegment(segment);
+      if (options.length > 0) return options;
+    }
+    return [];
+  }
+
   addPolicies(policies: ShellPolicy[]): void {
     this.policies.addPolicies(policies.map((policy) => this.standardizePolicy(policy)));
+  }
+
+  findCommandPolicy(commandArgs: string[]): ShellPolicy | undefined {
+    const policy = this.policies.findCommandPolicy(commandArgs.map((it) => it.trim()).filter(Boolean));
+    return policy ? clonePolicy(policy) : undefined;
+  }
+
+  findExactPolicy(commandArgs: string[]): ShellPolicy | undefined {
+    const policy = this.policies.findExactPolicy(commandArgs.map((it) => it.trim()).filter(Boolean));
+    return policy ? clonePolicy(policy) : undefined;
   }
 
   removePolicies(policies: ShellPolicyDeleteRequest[]): void {
@@ -110,6 +117,61 @@ export class ShellPolicyLogic {
 
   private evaluateSegment(rawSegment: string, denyByDefault: boolean): ShellSegmentPolicyResult | null {
     return this.evaluateTokens(rawSegment, tokenizeShellSegment(rawSegment), denyByDefault);
+  }
+
+  private policyScopeOptionsForSegment(segment: string): ShellPolicyScopeOption[] {
+    const parsed = this.parseSafeSegment(segment);
+    if (!parsed) return [];
+
+    return [
+      ...this.commandScopeOptions(parsed.commandPrefix),
+      ...this.flagScopeOptions(parsed.commandPrefix, parsed.flags),
+    ];
+  }
+
+  private pendingPolicyScopeOptionsForSegment(segment: string): ShellPolicyScopeOption[] {
+    const parsed = this.parseSafeSegment(segment);
+    if (!parsed) return [];
+
+    const commandPolicy = this.policies.findCommandPolicy(parsed.commandPrefix);
+    if (!commandPolicy) return this.commandScopeOptions(parsed.commandPrefix);
+    if (commandPolicy.status === PolicyStatus.DENIED) return [];
+
+    const exactFlagPolicy = this.policies.findExactPolicy(parsed.commandPrefix);
+    const unknownFlags = parsed.flags.filter((flag) => !exactFlagPolicy?.flags[flag]);
+    if (unknownFlags.length === 0) return [];
+    return this.flagScopeOptions(parsed.commandPrefix, unknownFlags);
+  }
+
+  private parseSafeSegment(segment: string): { commandPrefix: string[]; flags: string[] } | null {
+    const tokens = tokenizeShellSegment(segment);
+    const commandPrefix = takeWhile(tokens, (token) => !isFlag(token));
+    if (commandPrefix.length === 0 || hasUnsafeShellSyntax(segment, tokens)) return null;
+    return {
+      commandPrefix,
+      flags: [...new Set(tokens.slice(commandPrefix.length).filter(isFlag))],
+    };
+  }
+
+  private commandScopeOptions(commandPrefix: string[]): ShellPolicyScopeOption[] {
+    const options: ShellPolicyScopeOption[] = [];
+    for (let size = commandPrefix.length; size >= 1; size--) {
+      const scopedCommand = commandPrefix.slice(0, size);
+      options.push({
+        label: scopedCommand.join(" "),
+        commandArgs: scopedCommand,
+        flags: [],
+      });
+    }
+    return options;
+  }
+
+  private flagScopeOptions(commandPrefix: string[], flags: string[]): ShellPolicyScopeOption[] {
+    return flags.map((flag) => ({
+      label: `${commandPrefix.join(" ")} flag ${flag}`,
+      commandArgs: commandPrefix,
+      flags: [flag],
+    }));
   }
 
   private evaluateTokens(rawSegment: string, tokens: string[], denyByDefault: boolean): ShellSegmentPolicyResult | null {
