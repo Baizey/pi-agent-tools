@@ -34,12 +34,12 @@ export type SubagentResult = {
 export async function runSubagent(request: SubagentRequest, signal?: AbortSignal): Promise<SubagentResult> {
   switch (request.mode) {
     case "sync":
-      return runSubagentProcess(request, signal);
     case "async":
+      return runSubagentProcess(request, signal);
     case "conversation":
       return {
         mode: request.mode,
-        output: `Subagent mode '${request.mode}' is planned but not implemented yet. Use mode 'sync'.`,
+        output: `Subagent mode '${request.mode}' is planned but not implemented yet. Use mode 'sync' or 'async'.`,
         exitCode: 1,
         timedOut: false,
         stderr: "",

@@ -13,6 +13,9 @@ export const toolNames = {
   rg: "rg",
   stat: "stat",
   subagent: "subagent",
+  subagentAwait: "subagent_await",
+  subagentCancel: "subagent_cancel",
+  subagentStatus: "subagent_status",
   write: "write",
 
   dockerBuild: "docker_build",

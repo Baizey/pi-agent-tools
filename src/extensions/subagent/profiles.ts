@@ -52,7 +52,7 @@ export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instru
         instructions: ["You have access to web lookup and searching tools"],
     },
     [subagentProfileNames.spawnSubagent]: {
-        tools: [toolNames.subagent],
+        tools: [toolNames.subagent, toolNames.subagentStatus, toolNames.subagentAwait, toolNames.subagentCancel],
         instructions: ["You have access to subagent delegation tools"],
     },
 };
