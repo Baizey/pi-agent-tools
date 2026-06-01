@@ -229,6 +229,21 @@ test("redirection is denied even when command is allowed", () => {
   assertDenied(logic.evaluate("git status>>leak.txt", true));
 });
 
+test("quoted and escaped search patterns are not treated as shell control syntax", () => {
+  const logic = new ShellPolicyLogic({
+    policies: [
+      allowCommand("rg"),
+      ShellPolicyLogic.createPolicy("grep", PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "grep allowed", [
+        allowFlag("-R"),
+        allowFlag("-n"),
+      ]),
+    ],
+  });
+
+  assertAllowed(logic.evaluate('rg "PiPathPolicy|createServices|extension" src/test src', true));
+  assertAllowed(logic.evaluate("grep -R PiPathPolicy\\|createServices\\|extension -n src/test src", true));
+});
+
 test("bash expansion syntax is denied even when command is allowed", () => {
   const logic = new ShellPolicyLogic({ policies: [allowCommand("echo")] });
 

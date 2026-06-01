@@ -449,25 +449,44 @@ const tokenizeShellSegment = (input: string): string[] => {
 const isFlag = (input: string): boolean => input.startsWith("-") && input !== "-";
 
 const hasUnsafeShellSyntax = (rawSegment: string, tokens: string[]): boolean =>
-  rawSegment.includes("$") ||
-  rawSegment.includes("`") ||
-  rawSegment.includes("(") ||
-  rawSegment.includes(")") ||
-  rawSegment.includes("{") ||
-  rawSegment.includes("}") ||
-  rawSegment.includes("*") ||
-  rawSegment.includes("?") ||
-  tokens.some(isRedirectionOperator) ||
-  tokens.some(hasShellControlOperator) ||
-  hasUnsafeBashCommand(tokens);
+  hasUnsafeRawShellSyntax(rawSegment) || hasUnsafeBashCommand(tokens);
 
-const isRedirectionOperator = (input: string): boolean => {
-  const trimmed = input.trim();
-  if ([">", ">>", "<", "<<", ">&", "<&", "&>", "&>>"].includes(trimmed)) return true;
-  return /.*\d*(>>?|<<?|>&|<&).*/.test(trimmed);
+const hasUnsafeRawShellSyntax = (input: string): boolean => {
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+
+  for (const char of input) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if (quote === "'") {
+      if (char === quote) quote = null;
+      continue;
+    }
+
+    if (quote === '"') {
+      if (char === quote) quote = null;
+      else if (char === "$" || char === "`") return true;
+      continue;
+    }
+
+    if (char === "'" || char === '"') {
+      quote = char;
+      continue;
+    }
+
+    if ("$`(){}*?;|&<>".includes(char)) return true;
+  }
+
+  return false;
 };
-
-const hasShellControlOperator = (input: string): boolean => /[;|&]/.test(input);
 
 const hasUnsafeBashCommand = (tokens: string[]): boolean => {
   const executable = tokens[0]?.split(/[\\/]/).pop()?.toLowerCase();
