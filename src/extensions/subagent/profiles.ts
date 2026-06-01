@@ -50,7 +50,7 @@ export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instru
 };
 
 export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
-    if (input === undefined || input === null) return ["io_read"];
+    if (input === undefined || input === null) return ["none"];
     const values = Array.isArray(input) ? input : [input];
     const profiles: SubagentProfile[] = [];
 
@@ -59,7 +59,7 @@ export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
         if (isSubagentProfile(value) && !profiles.includes(value)) profiles.push(value);
     }
 
-    return profiles.length > 0 ? profiles : ["io_read"];
+    return profiles.length > 0 ? profiles : ["none"];
 }
 
 export function isSubagentProfile(value: string): value is SubagentProfile {

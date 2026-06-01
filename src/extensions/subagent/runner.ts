@@ -3,9 +3,15 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {denyByDefaultEnv} from "../../shared/env";
-import {ResolvedSubagentProfiles, SubagentProfile, resolveSubagentProfiles} from "./profiles";
+import {
+  ResolvedSubagentProfiles,
+  SubagentProfile,
+  SubagentRunMode,
+  resolveSubagentProfiles,
+} from "./profiles";
 
-export type SyncSubagentInput = {
+export type SubagentRequest = {
+  mode: SubagentRunMode;
   task: string;
   profiles: SubagentProfile[];
   cwd: string;
@@ -14,7 +20,8 @@ export type SyncSubagentInput = {
   contextPaths?: string[];
 };
 
-export type SyncSubagentResult = {
+export type SubagentResult = {
+  mode: SubagentRunMode;
   output: string;
   exitCode: number;
   timedOut: boolean;
@@ -23,41 +30,65 @@ export type SyncSubagentResult = {
   profiles: ResolvedSubagentProfiles;
 };
 
-export async function runSyncSubagent(input: SyncSubagentInput, signal?: AbortSignal): Promise<SyncSubagentResult> {
-  const resolvedProfiles = resolveSubagentProfiles(input.profiles);
-  const prompt = buildSubagentPrompt(input, resolvedProfiles);
+export async function runSubagent(request: SubagentRequest, signal?: AbortSignal): Promise<SubagentResult> {
+  switch (request.mode) {
+    case "sync":
+      return runSubagentProcess(request, signal);
+    case "async":
+    case "conversation":
+      return {
+        mode: request.mode,
+        output: `Subagent mode '${request.mode}' is planned but not implemented yet. Use mode 'sync'.`,
+        exitCode: 1,
+        timedOut: false,
+        stderr: "",
+        messages: [],
+        profiles: resolveSubagentProfiles(request.profiles),
+      };
+  }
+}
+
+export async function runSyncSubagent(
+  input: Omit<SubagentRequest, "mode">,
+  signal?: AbortSignal,
+): Promise<SubagentResult> {
+  return runSubagent({...input, mode: "sync"}, signal);
+}
+
+async function runSubagentProcess(request: SubagentRequest, signal?: AbortSignal): Promise<SubagentResult> {
+  const resolvedProfiles = resolveSubagentProfiles(request.profiles);
+  const prompt = buildSubagentPrompt(request, resolvedProfiles);
   const temp = await writeTempPrompt(prompt);
-  const args = [
-    "--mode",
-    "json",
-    "-p",
-    "--no-session",
-    "--append-system-prompt",
-    temp.filePath,
-    "--tools",
-    resolvedProfiles.tools.join(","),
-    `Task: ${input.task}`,
-  ];
+  const args = buildPiArgs(request, resolvedProfiles, temp.filePath);
 
   try {
-    return await runPiProcess(args, input.cwd, input.timeoutSeconds, resolvedProfiles, signal);
+    return await runPiProcess(args, request, resolvedProfiles, signal);
   } finally {
     await fs.rm(temp.dir, {recursive: true, force: true});
   }
 }
 
-function buildSubagentPrompt(input: SyncSubagentInput, profiles: ResolvedSubagentProfiles): string {
+function buildPiArgs(request: SubagentRequest, profiles: ResolvedSubagentProfiles, promptPath: string): string[] {
+  const args = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptPath];
+  if (profiles.tools.length > 0) args.push("--tools", profiles.tools.join(","));
+  else args.push("--tools", "");
+  args.push(`Task: ${request.task}`);
+  return args;
+}
+
+function buildSubagentPrompt(request: SubagentRequest, profiles: ResolvedSubagentProfiles): string {
   return [
     "You are a scoped subagent running for a parent coding agent.",
     "Return a concise answer to the delegated task. Do not mention implementation details of being spawned unless relevant.",
     "You cannot request additional interactive permissions. If a policy blocks access, report what was blocked and continue with available information.",
+    "Run mode: " + request.mode,
     "Active profiles: " + profiles.profiles.join(", "),
     "Profile instructions:",
     ...profiles.instructions.map((instruction) => `- ${instruction}`),
-    input.contextPaths && input.contextPaths.length > 0
-      ? `Context paths suggested by parent: ${input.contextPaths.join(", ")}`
+    request.contextPaths && request.contextPaths.length > 0
+      ? `Context paths suggested by parent: ${request.contextPaths.join(", ")}`
       : "",
-    input.systemPrompt ?? "",
+    request.systemPrompt ?? "",
   ].filter(Boolean).join("\n");
 }
 
@@ -70,15 +101,14 @@ async function writeTempPrompt(prompt: string): Promise<{dir: string; filePath: 
 
 async function runPiProcess(
   args: string[],
-  cwd: string,
-  timeoutSeconds: number,
+  request: SubagentRequest,
   profiles: ResolvedSubagentProfiles,
   signal?: AbortSignal,
-): Promise<SyncSubagentResult> {
+): Promise<SubagentResult> {
   return new Promise((resolve) => {
     const invocation = getPiInvocation(args);
     const proc = spawn(invocation.command, invocation.args, {
-      cwd,
+      cwd: request.cwd,
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
       env: {
@@ -94,13 +124,20 @@ async function runPiProcess(
     let timedOut = false;
     let settled = false;
 
+    const finish = (result: Omit<SubagentResult, "mode" | "profiles">): void => {
+      settled = true;
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+      resolve({...result, mode: request.mode, profiles});
+    };
+
     const timeout = setTimeout(() => {
       timedOut = true;
       proc.kill("SIGTERM");
       setTimeout(() => {
         if (!settled) proc.kill("SIGKILL");
       }, 5000).unref();
-    }, Math.max(1, timeoutSeconds) * 1000);
+    }, Math.max(1, request.timeoutSeconds) * 1000);
     timeout.unref();
 
     const abort = () => {
@@ -133,31 +170,23 @@ async function runPiProcess(
     });
 
     proc.on("close", (code) => {
-      settled = true;
-      clearTimeout(timeout);
-      signal?.removeEventListener("abort", abort);
       if (stdout.trim()) processLine(stdout);
-      resolve({
+      finish({
         output: output || stderr || "(no output)",
         exitCode: code ?? 0,
         timedOut,
         stderr,
         messages,
-        profiles,
       });
     });
 
     proc.on("error", (error) => {
-      settled = true;
-      clearTimeout(timeout);
-      signal?.removeEventListener("abort", abort);
-      resolve({
+      finish({
         output: error.message,
         exitCode: 1,
         timedOut,
         stderr: error.message,
         messages,
-        profiles,
       });
     });
   });
@@ -168,7 +197,14 @@ function textFromMessage(message: unknown): string | null {
   const content = "content" in message ? message.content : undefined;
   if (!Array.isArray(content)) return null;
   for (const part of content) {
-    if (part && typeof part === "object" && "type" in part && part.type === "text" && "text" in part && typeof part.text === "string") {
+    if (
+      part &&
+      typeof part === "object" &&
+      "type" in part &&
+      part.type === "text" &&
+      "text" in part &&
+      typeof part.text === "string"
+    ) {
       return part.text;
     }
   }

@@ -1,9 +1,14 @@
 import {PiExtensionApi} from "../../pi/types";
 import {stringValue} from "../../shared/values";
-import {defaultTimeoutSecondsForMode, normalizeSubagentProfiles, SubagentRunMode} from "./profiles";
-import {runSyncSubagent} from "./runner";
+import {
+  defaultTimeoutSecondsForMode,
+  normalizeSubagentProfiles,
+  SubagentRunMode,
+  subagentProfiles,
+} from "./profiles";
+import {runSubagent, SubagentRequest} from "./runner";
 
-type SubagentParams = {
+type RawSubagentParams = Record<string, unknown> & {
   mode?: unknown;
   task?: unknown;
   profiles?: unknown;
@@ -37,17 +42,9 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
           type: "array",
           items: {
             type: "string",
-            enum: [
-              "summary_only",
-              "read_only",
-              "io",
-              "bash",
-              "execute",
-              "web",
-              "subagent",
-            ],
+            enum: Object.keys(subagentProfiles),
           },
-          description: "Capability profiles. Defaults to [read_only]. Profiles are additive.",
+          description: "Capability profiles. Defaults to ['none']. Profiles are additive.",
         },
         cwd: {
           type: "string",
@@ -55,7 +52,7 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
         },
         timeoutSeconds: {
           type: "number",
-          description: "Timeout for sync run. Defaults based on mode.",
+          description: "Timeout for this subagent run. Defaults based on mode.",
         },
         systemPrompt: {
           type: "string",
@@ -69,36 +66,18 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
       },
     },
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      const input = params as SubagentParams;
-      const mode = normalizeMode(input.mode);
-      const task = stringValue(input.task);
-      if (!task) return errorResult("Missing required parameter: task.");
+      const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());
+      if ("error" in request) return errorResult(request.error);
 
-      const timeoutSeconds = normalizeTimeout(input.timeoutSeconds, defaultTimeoutSecondsForMode(mode));
-      const profiles = normalizeSubagentProfiles(input.profiles);
-      const cwd = stringValue(input.cwd) ?? ctx?.cwd ?? process.cwd();
-      const systemPrompt = stringValue(input.systemPrompt) ?? undefined;
-      const contextPaths = Array.isArray(input.contextPaths)
-        ? input.contextPaths.filter((it): it is string => typeof it === "string" && it.trim().length > 0)
-        : undefined;
-
-      if (mode !== "sync") {
-        return errorResult(`Subagent mode '${mode}' is planned but not implemented yet. Use mode 'sync'.`, {
-          mode,
-          timeoutSeconds,
-          profiles,
-        });
-      }
-
-      const result = await runSyncSubagent({task, profiles, cwd, timeoutSeconds, systemPrompt, contextPaths}, signal);
+      const result = await runSubagent(request, signal);
       const isError = result.exitCode !== 0 || result.timedOut;
       return {
         content: [{type: "text" as const, text: result.timedOut ? `Subagent timed out.\n${result.output}` : result.output}],
         details: {
-          mode,
-          task,
-          cwd,
-          timeoutSeconds,
+          mode: result.mode,
+          task: request.task,
+          cwd: request.cwd,
+          timeoutSeconds: request.timeoutSeconds,
           profiles: result.profiles.profiles,
           tools: result.profiles.tools,
           exitCode: result.exitCode,
@@ -112,6 +91,22 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
   });
 }
 
+function parseSubagentRequest(params: RawSubagentParams, defaultCwd: string): SubagentRequest | {error: string} {
+  const mode = normalizeMode(params.mode);
+  const task = stringValue(params.task);
+  if (!task) return {error: "Missing required parameter: task."};
+
+  return {
+    mode,
+    task,
+    profiles: normalizeSubagentProfiles(params.profiles),
+    cwd: stringValue(params.cwd) ?? defaultCwd,
+    timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),
+    systemPrompt: stringValue(params.systemPrompt) ?? undefined,
+    contextPaths: normalizeContextPaths(params.contextPaths),
+  };
+}
+
 function normalizeMode(value: unknown): SubagentRunMode {
   if (value === "async" || value === "conversation") return value;
   return "sync";
@@ -119,6 +114,12 @@ function normalizeMode(value: unknown): SubagentRunMode {
 
 function normalizeTimeout(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.min(value, 3600) : fallback;
+}
+
+function normalizeContextPaths(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const paths = value.filter((it): it is string => typeof it === "string" && it.trim().length > 0);
+  return paths.length > 0 ? paths : undefined;
 }
 
 function errorResult(message: string, details: Record<string, unknown> = {}) {
@@ -129,5 +130,5 @@ function errorResult(message: string, details: Record<string, unknown> = {}) {
   };
 }
 
-export {runSyncSubagent} from "./runner";
+export {runSubagent, runSyncSubagent} from "./runner";
 export * from "./profiles";
