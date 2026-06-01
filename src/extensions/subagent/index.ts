@@ -165,7 +165,9 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       if (!jobId) return errorResult("Missing required parameter: jobId.");
       const job = getAsyncSubagentJob(jobId);
       if (!job) return errorResult(`Unknown subagent job: ${jobId}`);
-      if (job.status !== subagentJobStatuses.running) return successResult(`Subagent job ${job.id} is already ${job.status}.`, jobDetails(job));
+      if (job.status !== subagentJobStatuses.running && job.status !== subagentJobStatuses.idle) {
+        return successResult(`Subagent job ${job.id} is already ${job.status}.`, jobDetails(job));
+      }
 
       cancelAsyncSubagentJob(job);
       return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));

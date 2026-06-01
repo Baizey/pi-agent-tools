@@ -32,7 +32,7 @@ export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instru
         instructions: ["You have access to no tools. Yet your persist"],
     },
     [subagentProfileNames.ioRead]: {
-        tools: [toolNames.read, toolNames.ls, toolNames.find, toolNames.grep, toolNames.rg, toolNames.stat, toolNames.policyInfo],
+        tools: [toolNames.read, toolNames.stat, toolNames.policyInfo],
         instructions: ["You have access to read-only IO tools"],
     },
     [subagentProfileNames.ioWrite]: {

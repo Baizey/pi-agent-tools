@@ -112,13 +112,8 @@ type PathAccess = {
 function pathAccessesForToolCall(toolName: string, input: Record<string, unknown>): PathAccess[] {
   switch (toolName) {
     case toolNames.read:
-    case toolNames.ls:
     case toolNames.stat:
       return accesses(input.path, FsAccessType.READ);
-
-    case toolNames.grep:
-    case toolNames.find:
-      return accesses(input.path ?? input.directory ?? input.cwd ?? ".", FsAccessType.READ);
 
     case toolNames.write:
     case toolNames.mkdir:
