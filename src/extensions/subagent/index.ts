@@ -26,7 +26,7 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
 
 function registerSubagent(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagent,
+    name: toolNames.subagentSpawn,
     label: "Subagent",
     description: "Run a scoped subagent. Supports sync one-shot and async job modes; conversation mode is reserved.",
     parameters: subagentParameters(),
@@ -50,7 +50,7 @@ function registerSubagent(pi: PiExtensionApi): void {
       return subagentResultResponse(request, result);
     },
     renderCall(args, theme) {
-      return renderToolCallInput(toolNames.subagent, args, theme as never);
+      return renderToolCallInput(toolNames.subagentSpawn, args, theme as never);
     },
   });
 }

@@ -40,7 +40,7 @@ test("subagent profile ceiling serialization round-trips without granting defaul
 
 test("spawn_subagent profile grants only delegation tooling", () => {
   assert.deepEqual(resolveSubagentProfiles(["spawn_subagent"]).tools, [
-    "subagent",
+    "subagent_spawn",
     "subagent_status",
     "subagent_await",
     "subagent_cancel",

@@ -12,7 +12,7 @@ export const toolNames = {
   read: "read",
   rg: "rg",
   stat: "stat",
-  subagent: "subagent",
+  subagentSpawn: "subagent_spawn",
   subagentAwait: "subagent_await",
   subagentCancel: "subagent_cancel",
   subagentStatus: "subagent_status",

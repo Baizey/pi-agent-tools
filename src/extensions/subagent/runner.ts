@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {agentEnv, denyByDefaultEnv} from "../../shared/env";
+import {toolNames} from "../../shared/toolNames";
 import {
   cleanupSubagentTreeDir,
   finishSubagentNode,
@@ -108,7 +109,17 @@ async function runSubagentProcess(
     content: [{type: "text", text: renderTree().join("\n")}],
     details: {rootId: node.rootId, nodeId: node.id, treeDir},
   });
-  const publishNode = async () => writeSubagentNodeFile(treeDir, node);
+  let publishQueue = Promise.resolve();
+  const publishNode = async () => {
+    publishQueue = publishQueue
+      .catch(() => undefined)
+      .then(() => writeSubagentNodeFile(treeDir, node))
+      .catch(() => undefined);
+    await publishQueue;
+  };
+  const settlePendingPublishes = async () => {
+    await publishQueue.catch(() => undefined);
+  };
 
   updateSubagentNode(node.id, {status: "running"});
   await publishNode();
@@ -130,6 +141,7 @@ async function runSubagentProcess(
     emitTreeUpdate();
     throw error;
   } finally {
+    await settlePendingPublishes();
     await fs.rm(temp.dir, {recursive: true, force: true});
     if (shouldCleanupTreeDir) await cleanupSubagentTreeDir(treeDir);
   }
@@ -260,7 +272,7 @@ async function runPiProcess(
           seenToolCalls.add(toolCall.key);
           updateSubagentNode(node.id, {latestLine: `→ ${toolCall.name}`});
           void publishNode();
-          if (toolCall.name === "subagent") {
+          if (toolCall.name === toolNames.subagentSpawn) {
             const child = startSubagentNode({
               parentId: node.id,
               rootId: node.rootId,

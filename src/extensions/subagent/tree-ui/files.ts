@@ -8,7 +8,7 @@ export async function writeSubagentNodeFile(treeDir: string | undefined, node: S
   if (!treeDir) return;
   await fsp.mkdir(treeDir, {recursive: true});
   const target = nodeFile(treeDir, node.id);
-  const temp = `${target}.${process.pid}.tmp`;
+  const temp = `${target}.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`;
   await fsp.writeFile(temp, `${JSON.stringify(node)}\n`, "utf8");
   await fsp.rename(temp, target);
 }
