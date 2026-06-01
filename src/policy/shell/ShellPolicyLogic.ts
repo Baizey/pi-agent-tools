@@ -1,5 +1,4 @@
 import {
-  FsAccessType,
   isPersistedLifetime,
   PolicyLifetime,
   PolicyStatus,
@@ -7,28 +6,79 @@ import {
   ShellPolicy,
   ShellPolicyDeleteRequest,
   ShellPolicyResult,
+  ShellPolicyScopeOption,
   ShellSegmentPolicyResult,
 } from "../types";
-import { PathPolicyLogic } from "../path/PathPolicyLogic";
 
 export type ShellPolicyLogicOptions = {
   policies?: ShellPolicy[];
 };
 
 export class ShellPolicyLogic {
+  static createPolicy(
+    commandArgs: string | string[],
+    status: PolicyStatus,
+    lifetime: PolicyLifetime,
+    reason: string,
+    flags: ShellFlagPolicyStatus[] = [],
+  ): ShellPolicy {
+    const normalizedCommandArgs = Array.isArray(commandArgs) ? commandArgs : tokenizeShellSegment(commandArgs);
+    return {
+      commandArgs: normalizedCommandArgs,
+      flags: Object.fromEntries(flags.map((flag) => [flag.flag, { ...flag }])),
+      lifetime,
+      status,
+      reason,
+    };
+  }
+
+  static createFlagStatus(
+    flag: string,
+    status: PolicyStatus,
+    lifetime: PolicyLifetime,
+    reason: string,
+  ): ShellFlagPolicyStatus {
+    return { flag, lifetime, status, reason };
+  }
+
   private readonly policies = new ShellPolicyTree();
 
   constructor(options: ShellPolicyLogicOptions = {}) {
     if (options.policies) this.addPolicies(options.policies);
   }
 
-  evaluate(command: string, denyByDefault = false): ShellPolicyResult {
+  evaluate(command: string, denyByDefault = false): ShellPolicyResult | null {
     const segments = splitShellSegments(command);
     const segmentResults = segments.length === 0
       ? [this.evaluateSegment(command, denyByDefault)]
       : segments.map((segment) => this.evaluateSegment(segment, denyByDefault));
 
-    return this.result(command, segmentResults);
+    if (segmentResults.some((it) => it === null)) return null;
+    return this.result(command, segmentResults as ShellSegmentPolicyResult[]);
+  }
+
+  policyScopeOptions(command: string): ShellPolicyScopeOption[] {
+    const options = new Map<string, ShellPolicyScopeOption>();
+    const segments = splitShellSegments(command);
+    for (const segment of segments.length === 0 ? [command] : segments) {
+      const tokens = tokenizeShellSegment(segment);
+      const commandPrefix = takeWhile(tokens, (token) => !isFlag(token));
+      if (commandPrefix.length === 0 || hasUnsafeShellSyntax(segment, tokens)) continue;
+
+      const flags = tokens.slice(commandPrefix.length).filter(isFlag);
+      for (let size = commandPrefix.length; size >= 1; size--) {
+        const scopedCommand = commandPrefix.slice(0, size);
+        const key = scopedCommand.join("\0");
+        if (!options.has(key)) {
+          options.set(key, {
+            label: scopedCommand.join(" "),
+            commandArgs: scopedCommand,
+            flags: size === commandPrefix.length ? [...new Set(flags)] : [],
+          });
+        }
+      }
+    }
+    return [...options.values()];
   }
 
   addPolicies(policies: ShellPolicy[]): void {
@@ -58,11 +108,11 @@ export class ShellPolicyLogic {
     ].join("\n");
   }
 
-  private evaluateSegment(rawSegment: string, denyByDefault: boolean): ShellSegmentPolicyResult {
+  private evaluateSegment(rawSegment: string, denyByDefault: boolean): ShellSegmentPolicyResult | null {
     return this.evaluateTokens(rawSegment, tokenizeShellSegment(rawSegment), denyByDefault);
   }
 
-  private evaluateTokens(rawSegment: string, tokens: string[], denyByDefault: boolean): ShellSegmentPolicyResult {
+  private evaluateTokens(rawSegment: string, tokens: string[], denyByDefault: boolean): ShellSegmentPolicyResult | null {
     const commandPrefix = takeWhile(tokens, (token) => !isFlag(token));
     if (commandPrefix.length === 0) {
       return this.deniedSegment(rawSegment, commandPrefix, [], denyByDefault, "No command found in shell segment.");
@@ -88,6 +138,7 @@ export class ShellPolicyLogic {
     );
 
     if (!commandPolicy) {
+      if (!denyByDefault) return null;
       return this.deniedSegment(
         rawSegment,
         commandPrefix,
@@ -95,6 +146,10 @@ export class ShellPolicyLogic {
         denyByDefault,
         "No matching shell command policy found.",
       );
+    }
+
+    if (commandPolicy.status !== PolicyStatus.DENIED && !denyByDefault && resolvedFlagResults.some((flag) => flag.status === PolicyStatus.DENIED && !exactFlagPolicy?.flags[flag.flag])) {
+      return null;
     }
 
     return this.segmentResult({

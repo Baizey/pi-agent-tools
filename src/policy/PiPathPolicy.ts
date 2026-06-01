@@ -7,7 +7,6 @@ import fs from "node:fs";
 export type PiPathPolicyOptions = {
     cwd: string;
     globalPiDir: string;
-    projectPiDir?: string;
 };
 
 export class PiPathPolicy {

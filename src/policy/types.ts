@@ -90,6 +90,12 @@ export type ShellPolicyResult = {
   denied: boolean;
 };
 
+export type ShellPolicyScopeOption = {
+  label: string;
+  commandArgs: string[];
+  flags: string[];
+};
+
 export const isPersistedLifetime = (lifetime: PolicyLifetime): boolean =>
   lifetime === PolicyLifetime.FOREVER;
 
