@@ -204,18 +204,7 @@ async function askForShellPolicy(
     const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
     const lifetime = lifetimeChoice as PolicyLifetime;
     const reason = `User selected ${status} for shell command.`;
-    const existingCommandPolicy = runtime.shellPolicy.findExactPolicy(scope.commandArgs)
-        ?? runtime.shellPolicy.findCommandPolicy(scope.commandArgs);
-    const commandStatus = existingCommandPolicy && scope.flags.length > 0 ? existingCommandPolicy.status : status;
-    const commandLifetime = existingCommandPolicy && scope.flags.length > 0 ? existingCommandPolicy.lifetime : lifetime;
-    const commandReason = existingCommandPolicy && scope.flags.length > 0 ? existingCommandPolicy.reason : reason;
-    const policy = ShellPolicyLogic.createPolicy(
-        scope.commandArgs,
-        commandStatus,
-        commandLifetime,
-        commandReason,
-        scope.flags.map((flag) => ShellPolicyLogic.createFlagStatus(flag, status, lifetime, reason)),
-    );
+    const policy = runtime.shellPolicy.createPolicyForScope(scope, status, lifetime, reason);
 
     runtime.shellPolicy.addPolicies([policy]);
     if (lifetime === PolicyLifetime.ONCE) {

@@ -58,7 +58,7 @@ export class PathPolicyLogic {
     const policy = this.findPolicy(evaluatedPath, accessType);
 
     if (!policy) {
-      if(!denyByDefault) return null
+      if (!denyByDefault) return null;
       return {
         evaluatedPath,
         evaluatedAccessType: accessType,

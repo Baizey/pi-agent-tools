@@ -48,13 +48,16 @@ export class ShellPolicyLogic {
   }
 
   evaluate(command: string, denyByDefault = false): ShellPolicyResult | null {
+    const segmentResults: ShellSegmentPolicyResult[] = [];
     const segments = splitShellSegments(command);
-    const segmentResults = segments.length === 0
-      ? [this.evaluateSegment(command, denyByDefault)]
-      : segments.map((segment) => this.evaluateSegment(segment, denyByDefault));
 
-    if (segmentResults.some((it) => it === null)) return null;
-    return this.result(command, segmentResults as ShellSegmentPolicyResult[]);
+    for (const segment of segments.length === 0 ? [command] : segments) {
+      const result = this.evaluateSegment(segment, denyByDefault);
+      if (result === null) return null;
+      segmentResults.push(result);
+    }
+
+    return this.result(command, segmentResults);
   }
 
   pendingPolicyScopeOptions(command: string): ShellPolicyScopeOption[] {
@@ -70,14 +73,23 @@ export class ShellPolicyLogic {
     this.policies.addPolicies(policies.map((policy) => this.standardizePolicy(policy)));
   }
 
-  findCommandPolicy(commandArgs: string[]): ShellPolicy | undefined {
-    const policy = this.policies.findCommandPolicy(commandArgs.map((it) => it.trim()).filter(Boolean));
-    return policy ? clonePolicy(policy) : undefined;
-  }
+  createPolicyForScope(
+    scope: ShellPolicyScopeOption,
+    status: PolicyStatus,
+    lifetime: PolicyLifetime,
+    reason: string,
+  ): ShellPolicy {
+    const existingCommandPolicy = scope.flags.length > 0
+      ? this.policies.findExactPolicy(scope.commandArgs) ?? this.policies.findCommandPolicy(scope.commandArgs)
+      : undefined;
 
-  findExactPolicy(commandArgs: string[]): ShellPolicy | undefined {
-    const policy = this.policies.findExactPolicy(commandArgs.map((it) => it.trim()).filter(Boolean));
-    return policy ? clonePolicy(policy) : undefined;
+    return ShellPolicyLogic.createPolicy(
+      scope.commandArgs,
+      existingCommandPolicy?.status ?? status,
+      existingCommandPolicy?.lifetime ?? lifetime,
+      existingCommandPolicy?.reason ?? reason,
+      scope.flags.map((flag) => ShellPolicyLogic.createFlagStatus(flag, status, lifetime, reason)),
+    );
   }
 
   removePolicies(policies: ShellPolicyDeleteRequest[]): void {
@@ -188,9 +200,10 @@ export class ShellPolicyLogic {
       );
     }
 
-    if (commandPolicy.status !== PolicyStatus.DENIED && !denyByDefault && resolvedFlagResults.some((flag) => flag.status === PolicyStatus.DENIED && !exactFlagPolicy?.flags[flag.flag])) {
-      return null;
-    }
+    const hasUnknownFlags = resolvedFlagResults.some(
+      (flag) => flag.status === PolicyStatus.DENIED && !exactFlagPolicy?.flags[flag.flag],
+    );
+    if (commandPolicy.status !== PolicyStatus.DENIED && !denyByDefault && hasUnknownFlags) return null;
 
     return this.segmentResult({
       rawSegment,
@@ -296,7 +309,7 @@ export class ShellPolicyLogic {
   }
 }
 
-export class ShellPolicyTree {
+class ShellPolicyTree {
   private readonly policies: ShellPolicy[] = [];
 
   persistedPolicies(): ShellPolicy[] {

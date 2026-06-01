@@ -146,13 +146,14 @@ test("runtime addPolicies merges flags into an existing exact command policy", (
 
 test("adding a denied flag policy can preserve an existing allowed command policy", () => {
   const logic = new ShellPolicyLogic({ policies: [allowCommand("git", "commit")] });
-  const existing = logic.findExactPolicy(["git", "commit"]);
-  assert.ok(existing);
 
   logic.addPolicies([
-    ShellPolicyLogic.createPolicy("git commit", existing.status, existing.lifetime, existing.reason, [
-      ShellPolicyLogic.createFlagStatus("--amend", PolicyStatus.DENIED, PolicyLifetime.SESSION, "--amend denied"),
-    ]),
+    logic.createPolicyForScope(
+      { label: "git commit flag --amend", commandArgs: ["git", "commit"], flags: ["--amend"] },
+      PolicyStatus.DENIED,
+      PolicyLifetime.SESSION,
+      "--amend denied",
+    ),
   ]);
 
   assertAllowed(logic.evaluate("git commit", true));
