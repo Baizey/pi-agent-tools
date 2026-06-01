@@ -8,7 +8,6 @@ export * from "./policy/shell/ShellPolicyLogicStore";
 export * from "./shared/env";
 export * from "./shared/toolNames";
 export * from "./shared/toolRendering";
-export * from "./extensions/delete";
 export * from "./extensions/file-tools";
 export * from "./extensions/path-policy";
 export * from "./extensions/policy-info";

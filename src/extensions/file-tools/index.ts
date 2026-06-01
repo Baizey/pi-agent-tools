@@ -9,6 +9,22 @@ type Params = Record<string, unknown>;
 
 export function registerFileTools(pi: PiExtensionApi): void {
   pi.registerTool?.({
+    name: toolNames.delete,
+    label: "Delete",
+    description: "Delete a file or empty directory. Set recursive to true to delete a directory and its contents.",
+    parameters: objectSchema({
+      path: stringParam("Path to the file or directory to delete."),
+      recursive: booleanParam("Delete directories recursively. Defaults to false.", false),
+    }, ["path"]),
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      return deletePath(params, signal, ctx);
+    },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.delete, args, theme as never);
+    },
+  });
+
+  pi.registerTool?.({
     name: toolNames.copy,
     label: "Copy",
     description: "Copy a file or directory. Set recursive to true to copy directories.",
@@ -74,6 +90,21 @@ export function registerFileTools(pi: PiExtensionApi): void {
     },
   });
 
+}
+
+async function deletePath(params: Params, signal: AbortSignal | undefined, ctx?: ExtensionContext) {
+  const target = targetPath(params, ctx);
+  if ("error" in target) return errorResult(target.error);
+  if (signal?.aborted) return errorResult("Delete cancelled before it started.");
+
+  const recursive = params.recursive === true;
+
+  try {
+    await fs.rm(target.path, {recursive, force: false});
+    return successResult(`Deleted ${recursive ? "recursively " : ""}${target.path}`, {path: target.path, recursive});
+  } catch (error) {
+    return errorResult(`Error deleting ${target.path}: ${errorMessage(error)}`, {path: target.path, recursive});
+  }
 }
 
 async function copyPath(params: Params, signal: AbortSignal | undefined, ctx?: ExtensionContext) {
