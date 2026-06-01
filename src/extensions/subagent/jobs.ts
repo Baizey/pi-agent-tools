@@ -1,3 +1,4 @@
+import {readSubagentTreeContext, nextChildId, nextRootSubagentId} from "./tree-ui";
 import {runSubagent, SubagentRequest, SubagentResult} from "./runner";
 
 export type AsyncSubagentJob = {
@@ -12,10 +13,13 @@ export type AsyncSubagentJob = {
 };
 
 const asyncJobs = new Map<string, AsyncSubagentJob>();
-let nextJobId = 1;
-
 export function startAsyncSubagentJob(request: SubagentRequest): AsyncSubagentJob {
-  const id = `subagent-${nextJobId++}`;
+  const context = readSubagentTreeContext();
+  const id = context.nodeId ? nextChildId(context.nodeId) : nextRootSubagentId();
+  request.treeNodeId = id;
+  request.treeParentId = context.nodeId;
+  request.treeRootId = context.rootId ?? id;
+  request.treeDepth = context.nodeId ? context.depth + 1 : 0;
   const controller = new AbortController();
   const job: AsyncSubagentJob = {
     id,

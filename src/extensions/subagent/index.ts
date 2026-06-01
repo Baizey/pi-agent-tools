@@ -30,7 +30,7 @@ function registerSubagent(pi: PiExtensionApi): void {
     label: "Subagent",
     description: "Run a scoped subagent. Supports sync one-shot and async job modes; conversation mode is reserved.",
     parameters: subagentParameters(),
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());
       if ("error" in request) return errorResult(request.error);
 
@@ -42,7 +42,11 @@ function registerSubagent(pi: PiExtensionApi): void {
         );
       }
 
-      const result = await runSubagent(request, signal);
+      const result = await runSubagent(
+        request,
+        signal,
+        typeof onUpdate === "function" ? (onUpdate as never) : undefined,
+      );
       return subagentResultResponse(request, result);
     },
     renderCall(args, theme) {

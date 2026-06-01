@@ -4,6 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import {agentEnv, denyByDefaultEnv} from "../../shared/env";
 import {
+  finishSubagentNode,
+  readSubagentTreeContext,
+  renderSubagentTreeFor,
+  startSubagentNode,
+  subagentTreeEnv,
+  updateSubagentNode,
+} from "./tree-ui";
+import {
   ResolvedSubagentProfiles,
   SubagentProfile,
   SubagentRunMode,
@@ -19,7 +27,13 @@ export type SubagentRequest = {
   timeoutSeconds: number;
   systemPrompt?: string;
   contextPaths?: string[];
+  treeNodeId?: string;
+  treeRootId?: string;
+  treeParentId?: string;
+  treeDepth?: number;
 };
+
+export type SubagentUpdate = (partial: {content: Array<{type: "text"; text: string}>; details?: Record<string, unknown>}) => void;
 
 export type SubagentResult = {
   mode: SubagentRunMode;
@@ -31,11 +45,15 @@ export type SubagentResult = {
   profiles: ResolvedSubagentProfiles;
 };
 
-export async function runSubagent(request: SubagentRequest, signal?: AbortSignal): Promise<SubagentResult> {
+export async function runSubagent(
+  request: SubagentRequest,
+  signal?: AbortSignal,
+  onUpdate?: SubagentUpdate,
+): Promise<SubagentResult> {
   switch (request.mode) {
     case "sync":
     case "async":
-      return runSubagentProcess(request, signal);
+      return runSubagentProcess(request, signal, onUpdate);
     case "conversation":
       return {
         mode: request.mode,
@@ -52,18 +70,49 @@ export async function runSubagent(request: SubagentRequest, signal?: AbortSignal
 export async function runSyncSubagent(
   input: Omit<SubagentRequest, "mode">,
   signal?: AbortSignal,
+  onUpdate?: SubagentUpdate,
 ): Promise<SubagentResult> {
-  return runSubagent({...input, mode: "sync"}, signal);
+  return runSubagent({...input, mode: "sync"}, signal, onUpdate);
 }
 
-async function runSubagentProcess(request: SubagentRequest, signal?: AbortSignal): Promise<SubagentResult> {
+async function runSubagentProcess(
+  request: SubagentRequest,
+  signal?: AbortSignal,
+  onUpdate?: SubagentUpdate,
+): Promise<SubagentResult> {
   const resolvedProfiles = resolveSubagentProfiles(request.profiles);
+  const inheritedTree = readSubagentTreeContext();
+  const node = startSubagentNode({
+    id: request.treeNodeId ?? inheritedTree.nodeId,
+    parentId: request.treeParentId ?? inheritedTree.parentId,
+    rootId: request.treeRootId ?? inheritedTree.rootId,
+    depth: request.treeDepth ?? inheritedTree.depth,
+    mode: request.mode,
+    task: request.task,
+    profiles: request.profiles,
+    tools: resolvedProfiles.tools,
+  });
+  const emitTreeUpdate = () => onUpdate?.({
+    content: [{type: "text", text: renderSubagentTreeFor(node.rootId).join("\n")}],
+    details: {rootId: node.rootId, nodeId: node.id},
+  });
+
+  updateSubagentNode(node.id, {status: "running"});
+  emitTreeUpdate();
+
   const prompt = buildSubagentPrompt(request, resolvedProfiles);
   const temp = await writeTempPrompt(prompt);
   const args = buildPiArgs(request, resolvedProfiles, temp.filePath);
 
   try {
-    return await runPiProcess(args, request, resolvedProfiles, signal);
+    const result = await runPiProcess(args, request, resolvedProfiles, node, emitTreeUpdate, signal);
+    finishSubagentNode(node.id, result.timedOut ? "timed_out" : result.exitCode === 0 ? "done" : "failed", result.output);
+    emitTreeUpdate();
+    return result;
+  } catch (error) {
+    finishSubagentNode(node.id, "failed", error instanceof Error ? error.message : String(error));
+    emitTreeUpdate();
+    throw error;
   } finally {
     await fs.rm(temp.dir, {recursive: true, force: true});
   }
@@ -104,6 +153,8 @@ async function runPiProcess(
   args: string[],
   request: SubagentRequest,
   profiles: ResolvedSubagentProfiles,
+  node: {id: string; rootId: string; parentId?: string; depth: number},
+  emitTreeUpdate: () => void,
   signal?: AbortSignal,
 ): Promise<SubagentResult> {
   return new Promise((resolve) => {
@@ -115,6 +166,7 @@ async function runPiProcess(
       env: {
         ...process.env,
         ...denyByDefaultEnv(),
+        ...subagentTreeEnv({rootId: node.rootId, parentId: node.parentId, nodeId: node.id, depth: node.depth}),
         [agentEnv.subagentProfileCeiling]: serializeSubagentProfileCeiling(profiles.profiles),
       },
     });
@@ -153,8 +205,17 @@ async function runPiProcess(
       try {
         const event = JSON.parse(line);
         if (event.message) messages.push(event.message);
+        const toolCall = toolCallFromMessage(event.message);
+        if (toolCall) {
+          updateSubagentNode(node.id, {latestLine: `→ ${toolCall}`});
+          emitTreeUpdate();
+        }
         const text = textFromMessage(event.message);
-        if (text) output = text;
+        if (text) {
+          output = text;
+          updateSubagentNode(node.id, {latestLine: lastLine(text)});
+          emitTreeUpdate();
+        }
       } catch {
         // Ignore non-JSON output from child process.
       }
@@ -192,6 +253,30 @@ async function runPiProcess(
       });
     });
   });
+}
+
+function toolCallFromMessage(message: unknown): string | null {
+  if (!message || typeof message !== "object" || !("role" in message) || message.role !== "assistant") return null;
+  const content = "content" in message ? message.content : undefined;
+  if (!Array.isArray(content)) return null;
+  for (const part of content) {
+    if (
+      part &&
+      typeof part === "object" &&
+      "type" in part &&
+      part.type === "toolCall" &&
+      "name" in part &&
+      typeof part.name === "string"
+    ) {
+      return part.name;
+    }
+  }
+  return null;
+}
+
+function lastLine(text: string): string {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  return lines.length > 0 ? lines[lines.length - 1] : text;
 }
 
 function textFromMessage(message: unknown): string | null {
