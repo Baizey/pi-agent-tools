@@ -255,6 +255,42 @@ test("search command arguments are not treated as command policy scope", () => {
   ]);
 });
 
+test("command core inference stops before quoted path file and flag arguments", () => {
+  const logic = new ShellPolicyLogic();
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions('git "status"'), [
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git package.json"), [
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git ./status"), [
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git --no-pager status"), [
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+});
+
+test("double dash stops flag inference", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("rg")] });
+
+  assertAllowed(logic.evaluate("rg -- -literal-pattern", true));
+});
+
+test("known command core words remain minimal and explicit", () => {
+  const logic = new ShellPolicyLogic();
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions("git ls-files"), [
+    { label: "git ls-files", commandArgs: ["git", "ls-files"], flags: [] },
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+  assert.deepEqual(logic.pendingPolicyScopeOptions("gh clone owner/repo"), [
+    { label: "gh clone", commandArgs: ["gh", "clone"], flags: [] },
+    { label: "gh", commandArgs: ["gh"], flags: [] },
+  ]);
+});
+
 test("bash expansion syntax is denied even when command is allowed", () => {
   const logic = new ShellPolicyLogic({ policies: [allowCommand("echo")] });
 

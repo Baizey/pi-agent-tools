@@ -7,11 +7,13 @@ import {registerShellPolicy} from "./extensions/shell-policy";
 import {registerSubagentTool} from "./extensions/subagent";
 
 export default function agentToolsExtension(pi: PiExtensionApi): void {
-  const services = createServices();
+    const services = createServices();
 
-  registerFileTools(pi);
-  registerPolicyInfoTool(pi, services);
-  registerSubagentTool(pi);
-  registerShellPolicy(pi, services);
-  registerPathPolicy(pi, services);
+    registerFileTools(pi);
+
+    registerSubagentTool(pi);
+
+    registerPolicyInfoTool(pi, services);
+    registerShellPolicy(pi, services);
+    registerPathPolicy(pi, services);
 }

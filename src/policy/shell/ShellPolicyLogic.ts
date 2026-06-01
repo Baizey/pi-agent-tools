@@ -22,7 +22,7 @@ export class ShellPolicyLogic {
     reason: string,
     flags: ShellFlagPolicyStatus[] = [],
   ): ShellPolicy {
-    const normalizedCommandArgs = Array.isArray(commandArgs) ? commandArgs : tokenizeShellSegment(commandArgs);
+    const normalizedCommandArgs = Array.isArray(commandArgs) ? commandArgs : tokenizeShellSegment(commandArgs).map((token) => token.value);
     return {
       commandArgs: normalizedCommandArgs,
       flags: Object.fromEntries(flags.map((flag) => [flag.flag, { ...flag }])),
@@ -143,7 +143,7 @@ export class ShellPolicyLogic {
     if (commandPrefix.length === 0 || hasUnsafeShellSyntax(segment, tokens)) return null;
     return {
       commandPrefix,
-      flags: [...new Set(tokens.slice(commandPrefix.length).filter(isFlag))],
+      flags: flagsForTokens(tokens, commandPrefix.length),
     };
   }
 
@@ -168,13 +168,13 @@ export class ShellPolicyLogic {
     }));
   }
 
-  private evaluateTokens(rawSegment: string, tokens: string[], denyByDefault: boolean): ShellSegmentPolicyResult | null {
+  private evaluateTokens(rawSegment: string, tokens: ShellToken[], denyByDefault: boolean): ShellSegmentPolicyResult | null {
     const commandPrefix = commandPrefixFor(tokens);
     if (commandPrefix.length === 0) {
       return this.deniedSegment(rawSegment, commandPrefix, [], denyByDefault, "No command found in shell segment.");
     }
 
-    const flagTokens = tokens.slice(commandPrefix.length).filter(isFlag);
+    const flagTokens = flagsForTokens(tokens, commandPrefix.length);
     const flagResults = flagTokens.map((flag) => this.defaultFlagStatus(flag, denyByDefault));
 
     if (hasUnsafeShellSyntax(rawSegment, tokens)) {
@@ -418,16 +418,23 @@ const splitShellSegments = (input: string): string[] => {
   return segments;
 };
 
-const tokenizeShellSegment = (input: string): string[] => {
-  const tokens: string[] = [];
+type ShellToken = {
+  value: string;
+  quoted: boolean;
+};
+
+const tokenizeShellSegment = (input: string): ShellToken[] => {
+  const tokens: ShellToken[] = [];
   let current = "";
   let quote: string | null = null;
   let escaped = false;
+  let quoted = false;
 
   const flush = (): void => {
-    if (current.length > 0) {
-      tokens.push(current);
+    if (current.length > 0 || quoted) {
+      tokens.push({value: current, quoted});
       current = "";
+      quoted = false;
     }
   };
 
@@ -446,17 +453,19 @@ const tokenizeShellSegment = (input: string): string[] => {
       else current += char;
       continue;
     }
-    if (char === '"' || char === "'") quote = char;
-    else if (/\s/.test(char)) flush();
+    if (char === '"' || char === "'") {
+      quote = char;
+      quoted = true;
+    } else if (/\s/.test(char)) flush();
     else current += char;
   }
   flush();
   return tokens;
 };
 
-const isFlag = (input: string): boolean => input.startsWith("-") && input !== "-";
+const isFlag = (input: string): boolean => input.startsWith("-") && input !== "-" && input !== "--";
 
-const hasUnsafeShellSyntax = (rawSegment: string, tokens: string[]): boolean =>
+const hasUnsafeShellSyntax = (rawSegment: string, tokens: ShellToken[]): boolean =>
   hasUnsafeRawShellSyntax(rawSegment) || hasUnsafeBashCommand(tokens);
 
 const hasUnsafeRawShellSyntax = (input: string): boolean => {
@@ -496,10 +505,10 @@ const hasUnsafeRawShellSyntax = (input: string): boolean => {
   return false;
 };
 
-const hasUnsafeBashCommand = (tokens: string[]): boolean => {
-  const executable = tokens[0]?.split(/[\\/]/).pop()?.toLowerCase();
+const hasUnsafeBashCommand = (tokens: ShellToken[]): boolean => {
+  const executable = tokens[0]?.value.split(/[\\/]/).pop()?.toLowerCase();
   if (!executable) return false;
-  const args = tokens.slice(1).map((it) => it.toLowerCase());
+  const args = tokens.slice(1).map((it) => it.value.toLowerCase());
 
   if (["bash", "sh", "dash", "zsh", "ksh"].includes(executable)) {
     return args.some((it) => it === "-c" || it.startsWith("-c"));
@@ -515,6 +524,37 @@ const hasUnsafeBashCommand = (tokens: string[]): boolean => {
 
   return false;
 };
+
+const flagsForTokens = (tokens: ShellToken[], startIndex: number): string[] => {
+  const flags: string[] = [];
+  for (const token of tokens.slice(startIndex)) {
+    if (token.value === "--") break;
+    if (!token.quoted && isFlag(token.value)) flags.push(token.value);
+  }
+  return [...new Set(flags)];
+};
+
+const isCommandCoreArgument = (token: ShellToken | undefined): token is ShellToken => {
+  if (!token) return false;
+  if (token.quoted) return false;
+  if (isFlag(token.value)) return false;
+  if (token.value === "--") return false;
+  if (isPathLikeArgument(token.value)) return false;
+  if (isFileLikeArgument(token.value)) return false;
+  if (!isSimpleCommandWord(token.value)) return false;
+  return true;
+};
+
+const isPathLikeArgument = (value: string): boolean =>
+  value.includes("/") ||
+  value.includes("\\") ||
+  value.startsWith("./") ||
+  value.startsWith("../") ||
+  /^[a-zA-Z]:/.test(value);
+
+const isFileLikeArgument = (value: string): boolean => /(?:^|[^.])\.[a-zA-Z0-9]{1,12}$/.test(value);
+
+const isSimpleCommandWord = (value: string): boolean => /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value);
 
 const knownSubcommandsByExecutable: Record<string, Set<string>> = {
   git: new Set([
@@ -534,6 +574,7 @@ const knownSubcommandsByExecutable: Record<string, Set<string>> = {
     "grep",
     "init",
     "log",
+    "ls-files",
     "merge",
     "mv",
     "pull",
@@ -552,13 +593,14 @@ const knownSubcommandsByExecutable: Record<string, Set<string>> = {
     "tag",
     "worktree",
   ]),
+  gh: new Set(["auth", "browse", "clone", "gist", "issue", "pr", "repo", "release", "run", "workflow"]),
   npm: new Set(["ci", "exec", "install", "link", "publish", "run", "test", "uninstall", "update"]),
   pnpm: new Set(["add", "build", "dlx", "exec", "install", "publish", "remove", "run", "test", "update"]),
   yarn: new Set(["add", "build", "dlx", "exec", "install", "publish", "remove", "run", "test", "upgrade"]),
 };
 
-const commandPrefixFor = (tokens: string[]): string[] => {
-  const executable = tokens[0];
+const commandPrefixFor = (tokens: ShellToken[]): string[] => {
+  const executable = tokens[0]?.value;
   if (!executable) return [];
 
   const commandPrefix = [executable];
@@ -566,8 +608,8 @@ const commandPrefixFor = (tokens: string[]): string[] => {
   const knownSubcommands = knownSubcommandsByExecutable[executableName];
   const firstArgument = tokens[1];
 
-  if (firstArgument && !isFlag(firstArgument) && knownSubcommands?.has(firstArgument.toLowerCase())) {
-    commandPrefix.push(firstArgument);
+  if (isCommandCoreArgument(firstArgument) && knownSubcommands?.has(firstArgument.value.toLowerCase())) {
+    commandPrefix.push(firstArgument.value);
   }
 
   return commandPrefix;

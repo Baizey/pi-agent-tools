@@ -7,6 +7,10 @@ export type PiExtensionApi = {
     event: "user_bash",
     handler: (event: UserBashEvent, ctx: ExtensionContext) => Promise<UserBashDecision | void> | UserBashDecision | void,
   ): void;
+  on(
+    event: "before_agent_start",
+    handler: (event: BeforeAgentStartEvent, ctx: ExtensionContext) => Promise<BeforeAgentStartDecision | void> | BeforeAgentStartDecision | void,
+  ): void;
   registerTool?(definition: ToolDefinition): void;
 };
 
@@ -52,6 +56,19 @@ export type UserBashDecision = {
     cancelled: boolean;
     truncated: boolean;
   };
+};
+
+export type BeforeAgentStartEvent = {
+  prompt: string;
+  systemPrompt: string;
+  systemPromptOptions?: {
+    selectedTools?: Array<string | {name?: string}>;
+  };
+};
+
+export type BeforeAgentStartDecision = {
+  systemPrompt?: string;
+  message?: Record<string, unknown>;
 };
 
 export type ExtensionContext = {
