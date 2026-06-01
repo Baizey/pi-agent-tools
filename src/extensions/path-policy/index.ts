@@ -1,7 +1,6 @@
 import path from "node:path";
 import {PiExtensionApi, ExtensionContext} from "../../pi/types";
 import {PiDevRuntime, PiDevServices} from "../../pi/runtime";
-import {PiPathPolicy} from "../../policy/PiPathPolicy";
 import {PathPolicyLogic} from "../../policy/path/PathPolicyLogic";
 import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../../policy/types";
 import {standardizePath} from "../../shared/paths";
@@ -9,7 +8,7 @@ import {stringValues} from "../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: PiDevServices): void {
   pi.on("tool_call", async (event, ctx) => {
-    const accessType = PiPathPolicy.accessTypeForTool(event.toolName);
+    const accessType = accessTypeForTool(event.toolName);
     if (!accessType || event.toolName === "bash") return;
 
     const runtime = services.runtimeFor(ctx.cwd);
@@ -95,6 +94,24 @@ async function askForPolicy(
     matchedStatus: status,
     matchedReason: reason,
   };
+}
+
+function accessTypeForTool(toolName: string): FsAccessType | null {
+  switch (toolName) {
+    case "read":
+    case "grep":
+    case "find":
+    case "ls":
+      return FsAccessType.READ;
+    case "write":
+      return FsAccessType.WRITE;
+    case "edit":
+      return FsAccessType.EDIT;
+    case "bash":
+      return FsAccessType.EXECUTE;
+    default:
+      return null;
+  }
 }
 
 function pathsForToolCall(toolName: string, input: Record<string, unknown>): string[] {

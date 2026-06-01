@@ -4,7 +4,7 @@ import {PathPolicyLogic} from "../policy/path/PathPolicyLogic";
 import {PathPolicyLogicStore} from "../policy/path/PathPolicyLogicStore";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";
 import {ShellPolicyLogicStore} from "../policy/shell/ShellPolicyLogicStore";
-import {PiPathPolicy} from "../policy/PiPathPolicy";
+import {standardizePath} from "../shared/paths";
 
 export type PiDevRuntime = {
   pathPolicy: PathPolicyLogic;
@@ -29,9 +29,10 @@ export function createServices(): PiDevServices {
       const userPiDir = path.join(os.homedir(), ".pi", "agent");
       const pathPolicyStore = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
       const shellPolicyStore = new ShellPolicyLogicStore(path.join(userPiDir, "shell-policy.json"));
-      const pathPolicy = PiPathPolicy.create({cwd: key, globalPiDir: userPiDir});
+      const pathPolicy = new PathPolicyLogic({standardizePath: (input) => standardizePath(key, input)});
       const shellPolicy = new ShellPolicyLogic();
 
+      pathPolicyStore.loadInto(pathPolicy);
       shellPolicyStore.loadInto(shellPolicy);
 
       const runtime: PiDevRuntime = {
