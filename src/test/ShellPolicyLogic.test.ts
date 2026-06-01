@@ -240,8 +240,19 @@ test("quoted and escaped search patterns are not treated as shell control syntax
     ],
   });
 
-  assertAllowed(logic.evaluate('rg "PiPathPolicy|createServices|extension" src/test src', true));
+  const rgResult = logic.evaluate('rg "PiPathPolicy|createServices|extension" src/test src', true);
+  assertAllowed(rgResult);
+  assert.ok(rgResult);
+  assert.deepEqual(rgResult.segmentResults[0].commandPrefix, ["rg"]);
   assertAllowed(logic.evaluate("grep -R PiPathPolicy\\|createServices\\|extension -n src/test src", true));
+});
+
+test("search command arguments are not treated as command policy scope", () => {
+  const logic = new ShellPolicyLogic();
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions('rg "somepattern" src'), [
+    { label: "rg", commandArgs: ["rg"], flags: [] },
+  ]);
 });
 
 test("bash expansion syntax is denied even when command is allowed", () => {

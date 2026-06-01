@@ -135,7 +135,7 @@ export class ShellPolicyLogic {
 
   private parseSafeSegment(segment: string): { commandPrefix: string[]; flags: string[] } | null {
     const tokens = tokenizeShellSegment(segment);
-    const commandPrefix = takeWhile(tokens, (token) => !isFlag(token));
+    const commandPrefix = commandPrefixFor(tokens);
     if (commandPrefix.length === 0 || hasUnsafeShellSyntax(segment, tokens)) return null;
     return {
       commandPrefix,
@@ -165,7 +165,7 @@ export class ShellPolicyLogic {
   }
 
   private evaluateTokens(rawSegment: string, tokens: string[], denyByDefault: boolean): ShellSegmentPolicyResult | null {
-    const commandPrefix = takeWhile(tokens, (token) => !isFlag(token));
+    const commandPrefix = commandPrefixFor(tokens);
     if (commandPrefix.length === 0) {
       return this.deniedSegment(rawSegment, commandPrefix, [], denyByDefault, "No command found in shell segment.");
     }
@@ -508,13 +508,61 @@ const hasUnsafeBashCommand = (tokens: string[]): boolean => {
   return false;
 };
 
-const takeWhile = <T>(items: T[], predicate: (item: T) => boolean): T[] => {
-  const result: T[] = [];
-  for (const item of items) {
-    if (!predicate(item)) break;
-    result.push(item);
+const knownSubcommandsByExecutable: Record<string, Set<string>> = {
+  git: new Set([
+    "add",
+    "am",
+    "apply",
+    "bisect",
+    "blame",
+    "branch",
+    "checkout",
+    "cherry-pick",
+    "clean",
+    "clone",
+    "commit",
+    "diff",
+    "fetch",
+    "grep",
+    "init",
+    "log",
+    "merge",
+    "mv",
+    "pull",
+    "push",
+    "rebase",
+    "remote",
+    "reset",
+    "restore",
+    "revert",
+    "rm",
+    "show",
+    "stash",
+    "status",
+    "submodule",
+    "switch",
+    "tag",
+    "worktree",
+  ]),
+  npm: new Set(["ci", "exec", "install", "link", "publish", "run", "test", "uninstall", "update"]),
+  pnpm: new Set(["add", "build", "dlx", "exec", "install", "publish", "remove", "run", "test", "update"]),
+  yarn: new Set(["add", "build", "dlx", "exec", "install", "publish", "remove", "run", "test", "upgrade"]),
+};
+
+const commandPrefixFor = (tokens: string[]): string[] => {
+  const executable = tokens[0];
+  if (!executable) return [];
+
+  const commandPrefix = [executable];
+  const executableName = executable.split(/[\\/]/).pop()?.toLowerCase() ?? executable.toLowerCase();
+  const knownSubcommands = knownSubcommandsByExecutable[executableName];
+  const firstArgument = tokens[1];
+
+  if (firstArgument && !isFlag(firstArgument) && knownSubcommands?.has(firstArgument.toLowerCase())) {
+    commandPrefix.push(firstArgument);
   }
-  return result;
+
+  return commandPrefix;
 };
 
 const startsWithWords = (words: string[], prefix: string[]): boolean =>
