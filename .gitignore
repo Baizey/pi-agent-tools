@@ -8,4 +8,11 @@ yarn-error.log*
 /.pnp
 .pnp.js
 /dist
+
+# Local/editor state
+.DS_Store
+.idea/
 .vscode/*
+
+# Project-local Pi settings used for development overrides
+/.pi/

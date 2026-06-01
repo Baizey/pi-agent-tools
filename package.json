@@ -1,9 +1,23 @@
 {
   "name": "pi-agent-tools",
-  "version": "1.0.0",
-  "description": "Pi.dev path policy extension",
+  "version": "0.1.0",
+  "description": "Pi package with policy-aware file tools, shell checks, policy introspection, and scoped subagents.",
   "main": "dist/index.js",
-  "keywords": ["pi-package"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Baizey/pi-agent-tools.git"
+  },
+  "homepage": "https://github.com/Baizey/pi-agent-tools#readme",
+  "bugs": {
+    "url": "https://github.com/Baizey/pi-agent-tools/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "agent-tools",
+    "subagents",
+    "policy"
+  ],
   "pi": {
     "extensions": ["./src/extension.ts"]
   },
