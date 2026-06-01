@@ -1,5 +1,5 @@
 import {PiExtensionApi} from "../../pi/types";
-import {PiDevServices} from "../../pi/runtime";
+import {AgentServices} from "../../pi/runtime";
 import {FsAccessType, PolicyStatus} from "../../policy/types";
 import {stringValue} from "../../shared/values";
 
@@ -12,7 +12,7 @@ type PolicyInfoParams = {
 
 const fsAccessTypes = Object.values(FsAccessType);
 
-export function registerPolicyInfoTool(pi: PiExtensionApi, services: PiDevServices): void {
+export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
     name: "policy_info",
     label: "Policy Info",
@@ -60,7 +60,7 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: PiDevServic
   });
 }
 
-function pathPolicyInfo(runtime: ReturnType<PiDevServices["runtimeFor"]>, input: PolicyInfoParams) {
+function pathPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
   const candidatePath = stringValue(input.path);
   if (!candidatePath) return errorResult("Missing required parameter for path policy lookup: path.");
 
@@ -93,7 +93,7 @@ function pathPolicyInfo(runtime: ReturnType<PiDevServices["runtimeFor"]>, input:
   return successResult(JSON.stringify(evaluations, null, 2), {evaluations});
 }
 
-function shellPolicyInfo(runtime: ReturnType<PiDevServices["runtimeFor"]>, input: PolicyInfoParams) {
+function shellPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
   const command = stringValue(input.command);
   if (!command) return errorResult("Missing required parameter for shell policy lookup: command.");
 

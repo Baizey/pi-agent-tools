@@ -1,22 +1,23 @@
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
-import {PiDevRuntime, PiDevServices} from "../../pi/runtime";
+import {AgentRuntime, AgentServices} from "../../pi/runtime";
 import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
+import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {stringValue} from "../../shared/values";
 
-export function registerShellPolicy(pi: PiExtensionApi, services: PiDevServices): void {
+export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices): void {
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== "bash") return;
 
     const runtime = services.runtimeFor(ctx.cwd);
     const command = stringValue(event.input.command) ?? "";
-    const reason = await ensureShellAllowed(ctx, runtime, command, false);
+    const reason = await ensureShellAllowed(ctx, runtime, command, isAgentEnvEnabled(agentEnv.shellDenyByDefault));
     if (reason) return {block: true, reason};
   });
 }
 
 async function ensureShellAllowed(
   ctx: ExtensionContext,
-  runtime: PiDevRuntime,
+  runtime: AgentRuntime,
   command: string,
   denyByDefault: boolean,
 ): Promise<string | null> {
@@ -43,7 +44,7 @@ async function ensureShellAllowed(
 
 async function askForShellPolicy(
   ctx: ExtensionContext,
-  runtime: PiDevRuntime,
+  runtime: AgentRuntime,
   command: string,
   oneShotPolicies: ShellPolicyDeleteRequest[],
 ): Promise<ShellPolicyResult | null> {

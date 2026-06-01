@@ -5,13 +5,15 @@ import {registerFileTools} from "./extensions/file-tools";
 import {registerPathPolicy} from "./extensions/path-policy";
 import {registerPolicyInfoTool} from "./extensions/policy-info";
 import {registerShellPolicy} from "./extensions/shell-policy";
+import {registerSubagentTool} from "./extensions/subagent";
 
-export default function piDevExtension(pi: PiExtensionApi): void {
+export default function agentToolsExtension(pi: PiExtensionApi): void {
   const services = createServices();
 
   registerDeleteTool(pi);
   registerFileTools(pi);
   registerPolicyInfoTool(pi, services);
+  registerSubagentTool(pi);
   registerShellPolicy(pi, services);
   registerPathPolicy(pi, services);
 }

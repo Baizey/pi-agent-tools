@@ -11,7 +11,7 @@ import {
 } from "../index";
 
 const testPolicy = () => {
-  const base = path.join(tempDir("pidev-path-policy-"), ".gantry");
+  const base = path.join(tempDir("pi-agent-path-policy-"), ".gantry");
   const agent = path.join(base, "agent");
   const system = path.join(base, "system");
   const policy = new PathPolicyLogic({

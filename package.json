@@ -1,5 +1,5 @@
 {
-  "name": "pidev",
+  "name": "pi-agent-tools",
   "version": "1.0.0",
   "description": "Pi.dev path policy extension",
   "main": "dist/index.js",

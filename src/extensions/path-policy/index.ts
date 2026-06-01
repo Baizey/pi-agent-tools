@@ -1,19 +1,26 @@
 import path from "node:path";
 import {PiExtensionApi, ExtensionContext} from "../../pi/types";
-import {PiDevRuntime, PiDevServices} from "../../pi/runtime";
+import {AgentRuntime, AgentServices} from "../../pi/runtime";
 import {PathPolicyLogic} from "../../policy/path/PathPolicyLogic";
 import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../../policy/types";
+import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {standardizePath} from "../../shared/paths";
 import {stringValues} from "../../shared/values";
 
-export function registerPathPolicy(pi: PiExtensionApi, services: PiDevServices): void {
+export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {
   pi.on("tool_call", async (event, ctx) => {
     const pathAccesses = pathAccessesForToolCall(event.toolName, event.input);
     if (pathAccesses.length === 0) return;
 
     const runtime = services.runtimeFor(ctx.cwd);
     for (const pathAccess of pathAccesses) {
-      const reason = await ensurePathAllowed(ctx, runtime, pathAccess.path, pathAccess.accessType, false);
+      const reason = await ensurePathAllowed(
+        ctx,
+        runtime,
+        pathAccess.path,
+        pathAccess.accessType,
+        isAgentEnvEnabled(agentEnv.pathDenyByDefault),
+      );
       if (reason) return {block: true, reason};
     }
   });
@@ -21,7 +28,7 @@ export function registerPathPolicy(pi: PiExtensionApi, services: PiDevServices):
 
 async function ensurePathAllowed(
   ctx: ExtensionContext,
-  runtime: PiDevRuntime,
+  runtime: AgentRuntime,
   candidatePath: string,
   accessType: FsAccessType,
   denyByDefault: boolean,
@@ -37,7 +44,7 @@ async function ensurePathAllowed(
 
 async function askForPolicy(
   ctx: ExtensionContext,
-  runtime: PiDevRuntime,
+  runtime: AgentRuntime,
   evaluatedPath: string,
   accessType: FsAccessType,
 ): Promise<PathPolicyResult> {

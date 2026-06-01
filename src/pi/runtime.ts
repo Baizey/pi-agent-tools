@@ -6,22 +6,22 @@ import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";
 import {ShellPolicyLogicStore} from "../policy/shell/ShellPolicyLogicStore";
 import {standardizePath} from "../shared/paths";
 
-export type PiDevRuntime = {
+export type AgentRuntime = {
   pathPolicy: PathPolicyLogic;
   pathPolicyStore: PathPolicyLogicStore;
   shellPolicy: ShellPolicyLogic;
   shellPolicyStore: ShellPolicyLogicStore;
 };
 
-export type PiDevServices = {
-  runtimeFor(cwd: string): PiDevRuntime;
+export type AgentServices = {
+  runtimeFor(cwd: string): AgentRuntime;
 };
 
-export function createServices(): PiDevServices {
-  const runtimes = new Map<string, PiDevRuntime>();
+export function createServices(): AgentServices {
+  const runtimes = new Map<string, AgentRuntime>();
 
   return {
-    runtimeFor(cwd: string): PiDevRuntime {
+    runtimeFor(cwd: string): AgentRuntime {
       const key = path.resolve(cwd);
       const existing = runtimes.get(key);
       if (existing) return existing;
@@ -35,7 +35,7 @@ export function createServices(): PiDevServices {
       pathPolicyStore.loadInto(pathPolicy);
       shellPolicyStore.loadInto(shellPolicy);
 
-      const runtime: PiDevRuntime = {
+      const runtime: AgentRuntime = {
         pathPolicy,
         pathPolicyStore,
         shellPolicy,
