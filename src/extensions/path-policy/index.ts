@@ -8,12 +8,12 @@ import {stringValues} from "../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: PiDevServices): void {
   pi.on("tool_call", async (event, ctx) => {
-    const accessType = accessTypeForTool(event.toolName);
-    if (!accessType || event.toolName === "bash") return;
+    const pathAccesses = pathAccessesForToolCall(event.toolName, event.input);
+    if (pathAccesses.length === 0) return;
 
     const runtime = services.runtimeFor(ctx.cwd);
-    for (const candidatePath of pathsForToolCall(event.toolName, event.input)) {
-      const reason = await ensurePathAllowed(ctx, runtime, candidatePath, accessType, false);
+    for (const pathAccess of pathAccesses) {
+      const reason = await ensurePathAllowed(ctx, runtime, pathAccess.path, pathAccess.accessType, false);
       if (reason) return {block: true, reason};
     }
   });
@@ -96,42 +96,52 @@ async function askForPolicy(
   };
 }
 
-function accessTypeForTool(toolName: string): FsAccessType | null {
-  switch (toolName) {
-    case "read":
-    case "grep":
-    case "find":
-    case "ls":
-      return FsAccessType.READ;
-    case "write":
-      return FsAccessType.WRITE;
-    case "edit":
-      return FsAccessType.EDIT;
-    case "delete":
-      return FsAccessType.DELETE;
-    case "bash":
-      return FsAccessType.EXECUTE;
-    default:
-      return null;
-  }
-}
+type PathAccess = {
+  path: string;
+  accessType: FsAccessType;
+};
 
-function pathsForToolCall(toolName: string, input: Record<string, unknown>): string[] {
+function pathAccessesForToolCall(toolName: string, input: Record<string, unknown>): PathAccess[] {
   switch (toolName) {
     case "read":
-    case "write":
     case "ls":
-    case "edit":
-    case "delete":
-      return stringValues(input.path);
+    case "stat":
+      return accesses(input.path, FsAccessType.READ);
 
     case "grep":
     case "find":
-      return stringValues(input.path ?? input.directory ?? input.cwd ?? ".");
+      return accesses(input.path ?? input.directory ?? input.cwd ?? ".", FsAccessType.READ);
+
+    case "write":
+    case "mkdir":
+      return accesses(input.path, FsAccessType.WRITE);
+
+    case "edit":
+      return accesses(input.path, FsAccessType.EDIT);
+
+    case "delete":
+      return accesses(input.path, FsAccessType.DELETE);
+
+    case "copy":
+      return [
+        ...accesses(input.from, FsAccessType.READ),
+        ...accesses(input.to, FsAccessType.WRITE),
+      ];
+
+    case "move":
+      return [
+        ...accesses(input.from, FsAccessType.DELETE),
+        ...accesses(input.to, FsAccessType.WRITE),
+        ...(input.overwrite === true ? accesses(input.to, FsAccessType.DELETE) : []),
+      ];
 
     default:
       return [];
   }
+}
+
+function accesses(value: unknown, accessType: FsAccessType): PathAccess[] {
+  return stringValues(value).map((path) => ({path, accessType}));
 }
 
 function pathScopes(evaluatedPath: string, cwd: string): string[] {
