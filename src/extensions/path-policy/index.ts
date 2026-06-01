@@ -107,6 +107,8 @@ function accessTypeForTool(toolName: string): FsAccessType | null {
       return FsAccessType.WRITE;
     case "edit":
       return FsAccessType.EDIT;
+    case "delete":
+      return FsAccessType.DELETE;
     case "bash":
       return FsAccessType.EXECUTE;
     default:
@@ -120,6 +122,7 @@ function pathsForToolCall(toolName: string, input: Record<string, unknown>): str
     case "write":
     case "ls":
     case "edit":
+    case "delete":
       return stringValues(input.path);
 
     case "grep":
