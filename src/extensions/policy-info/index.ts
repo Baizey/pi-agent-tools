@@ -70,13 +70,24 @@ function pathPolicyInfo(runtime: ReturnType<PiDevServices["runtimeFor"]>, input:
   if (invalid) return errorResult(`Invalid path accessType: ${invalid}`);
 
   const evaluations = accessTypes.map((accessType) => {
-    const result = runtime.pathPolicy.evaluate(candidatePath, accessType as FsAccessType, false);
-    return result ?? {
-      evaluatedPath: candidatePath,
-      evaluatedAccessType: accessType,
-      matchedStatus: "UNKNOWN",
-      matchedReason: "No matching path policy found.",
-    };
+    const result = runtime.pathPolicy.evaluate(candidatePath, accessType as FsAccessType, true);
+    if (!result) {
+      return {
+        evaluatedPath: candidatePath,
+        evaluatedAccessType: accessType,
+        matchedStatus: "UNKNOWN",
+        matchedReason: "No matching path policy found.",
+      };
+    }
+    if (result.matchedReason.startsWith("No matching policy found.")) {
+      return {
+        evaluatedPath: result.evaluatedPath,
+        evaluatedAccessType: result.evaluatedAccessType,
+        matchedStatus: "UNKNOWN",
+        matchedReason: "No matching path policy found.",
+      };
+    }
+    return result;
   });
 
   return successResult(JSON.stringify(evaluations, null, 2), {evaluations});
