@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { test } from "./TestHarness";
 import {
   PolicyLifetime,
   PolicyStatus,
@@ -6,17 +7,7 @@ import {
   ShellPolicy,
   ShellPolicyLogic,
   ShellPolicyResult,
-} from "../../index";
-
-const test = (name: string, fn: () => void): void => {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    throw error;
-  }
-};
+} from "../index";
 
 const allowCommand = (...commandArgs: string[]): ShellPolicy =>
   ShellPolicyLogic.createPolicy(
@@ -74,16 +65,6 @@ test("unknown command returns null when not denying by default", () => {
   const logic = new ShellPolicyLogic();
 
   assert.equal(logic.evaluate("git status", false), null);
-});
-
-test("policy scope options provide dynamic approval scopes", () => {
-  const logic = new ShellPolicyLogic();
-
-  assert.deepEqual(logic.policyScopeOptions("git commit -m message"), [
-    { label: "git commit", commandArgs: ["git", "commit"], flags: [] },
-    { label: "git", commandArgs: ["git"], flags: [] },
-    { label: "git commit flag -m", commandArgs: ["git", "commit"], flags: ["-m"] },
-  ]);
 });
 
 test("pending policy scope options ask for command base before flags", () => {

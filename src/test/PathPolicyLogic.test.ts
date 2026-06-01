@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tempDir, test } from "./TestHarness";
 import {
   FsAccessType,
   PathPolicy,
@@ -9,26 +8,10 @@ import {
   PathPolicyResult,
   PolicyLifetime,
   PolicyStatus,
-} from "../../index";
-
-const test = (name: string, fn: () => void): void => {
-  try {
-    fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    throw error;
-  }
-};
-
-test.skip = (name: string): void => {
-  console.log(`- ${name}`);
-};
-
-const tempDir = (): string => fs.mkdtempSync(path.join(os.tmpdir(), "pidev-path-policy-"));
+} from "../index";
 
 const testPolicy = () => {
-  const base = path.join(tempDir(), ".gantry");
+  const base = path.join(tempDir("pidev-path-policy-"), ".gantry");
   const agent = path.join(base, "agent");
   const system = path.join(base, "system");
   const policy = new PathPolicyLogic({

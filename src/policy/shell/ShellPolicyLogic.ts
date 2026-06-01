@@ -57,18 +57,6 @@ export class ShellPolicyLogic {
     return this.result(command, segmentResults as ShellSegmentPolicyResult[]);
   }
 
-  policyScopeOptions(command: string): ShellPolicyScopeOption[] {
-    const options = new Map<string, ShellPolicyScopeOption>();
-    const segments = splitShellSegments(command);
-    for (const segment of segments.length === 0 ? [command] : segments) {
-      for (const option of this.policyScopeOptionsForSegment(segment)) {
-        const key = `${option.commandArgs.join("\0")}\0${option.flags.join("\0")}`;
-        if (!options.has(key)) options.set(key, option);
-      }
-    }
-    return [...options.values()];
-  }
-
   pendingPolicyScopeOptions(command: string): ShellPolicyScopeOption[] {
     const segments = splitShellSegments(command);
     for (const segment of segments.length === 0 ? [command] : segments) {
@@ -117,16 +105,6 @@ export class ShellPolicyLogic {
 
   private evaluateSegment(rawSegment: string, denyByDefault: boolean): ShellSegmentPolicyResult | null {
     return this.evaluateTokens(rawSegment, tokenizeShellSegment(rawSegment), denyByDefault);
-  }
-
-  private policyScopeOptionsForSegment(segment: string): ShellPolicyScopeOption[] {
-    const parsed = this.parseSafeSegment(segment);
-    if (!parsed) return [];
-
-    return [
-      ...this.commandScopeOptions(parsed.commandPrefix),
-      ...this.flagScopeOptions(parsed.commandPrefix, parsed.flags),
-    ];
   }
 
   private pendingPolicyScopeOptionsForSegment(segment: string): ShellPolicyScopeOption[] {
