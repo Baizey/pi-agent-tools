@@ -4,7 +4,6 @@ import {PiPathPolicy} from "./policy/PiPathPolicy";
 import {PathPolicyLogic} from "./policy/path/PathPolicyLogic";
 import {PathPolicyLogicStore} from "./policy/path/PathPolicyLogicStore";
 import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "./policy/types";
-import {brokerAccessType, WindowsBrokerRunner} from "./shell/WindowsBrokerRunner";
 
 export type PiExtensionApi = {
     on(event: "tool_call", handler: (event: ToolCallEvent, ctx: ExtensionContext) => Promise<ToolCallDecision | void> | ToolCallDecision | void): void;
@@ -33,7 +32,11 @@ type ToolDefinition = {
         signal?: AbortSignal,
         onUpdate?: unknown,
         ctx?: ExtensionContext,
-    ): Promise<{ content: Array<{ type: "text"; text: string }>; details?: Record<string, unknown>; isError?: boolean }>;
+    ): Promise<{
+        content: Array<{ type: "text"; text: string }>;
+        details?: Record<string, unknown>;
+        isError?: boolean
+    }>;
 };
 
 type UserBashEvent = {
@@ -66,39 +69,6 @@ type PolicyRuntime = {
 
 export default function gantryPolicyExtension(pi: PiExtensionApi): void {
     const runtimes = new Map<string, PolicyRuntime>();
-    const broker = new WindowsBrokerRunner();
-
-    pi.registerTool?.({
-        name: "bash",
-        label: "Bash",
-        description: "Execute a shell command through the Pi.dev Windows path policy broker.",
-        parameters: {
-            type: "object",
-            properties: {
-                command: {type: "string", description: "Shell command to run."},
-                timeout: {type: "number", description: "Optional timeout in seconds."},
-            },
-            required: ["command"],
-            additionalProperties: false,
-        },
-        async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-            const command = typeof params.command === "string" ? params.command : "";
-            const cwd = ctx?.cwd ?? process.cwd();
-            const timeoutMs = typeof params.timeout === "number" ? params.timeout * 1000 : undefined;
-
-            if (!command.trim()) {
-                return {content: [{type: "text", text: "Missing command."}], isError: true};
-            }
-
-            const result = await runBrokeredCommand(ctx ?? {cwd}, broker, runtimes, command, cwd, timeoutMs);
-            return {
-                content: [{type: "text", text: result.output || "(no output)"}],
-                details: undefined,
-                isError: result.exitCode !== 0,
-            };
-        },
-    });
-
     pi.on("tool_call", async (event, ctx) => {
         const runtime = runtimeFor(ctx.cwd, runtimes);
         const accessType = PiPathPolicy.accessTypeForTool(event.toolName);
@@ -107,36 +77,6 @@ export default function gantryPolicyExtension(pi: PiExtensionApi): void {
             const reason = await ensurePathAllowed(ctx, runtime, candidatePath, accessType, false);
             if (reason) return {block: true, reason};
         }
-    });
-
-    pi.on("user_bash", async (event, ctx) => {
-        const cwd = event.cwd || ctx.cwd;
-        return {result: await runBrokeredCommand(ctx, broker, runtimes, event.command, cwd)};
-    });
-}
-
-async function runBrokeredCommand(
-    ctx: ExtensionContext,
-    broker: WindowsBrokerRunner,
-    runtimes: Map<string, PolicyRuntime>,
-    command: string,
-    cwd: string,
-    timeoutMs?: number,
-): Promise<UserBashDecision["result"]> {
-    const runtime = runtimeFor(cwd, runtimes);
-    return broker.run({
-        command,
-        cwd,
-        timeoutMs,
-        onAccessRequest: async (request) => {
-            const accessType = brokerAccessType(request.accessType);
-            if (!accessType) {
-                return {allowed: false, reason: `Unknown broker access type: ${request.accessType}`};
-            }
-
-            const reason = await ensurePathAllowed({...ctx, cwd}, runtime, request.path, accessType, false);
-            return {allowed: reason === null, reason: reason ?? undefined};
-        },
     });
 }
 
@@ -253,6 +193,9 @@ function pathsForToolCall(toolName: string, input: Record<string, unknown>): str
         case "grep":
         case "find":
             return stringValues(input.path ?? input.directory ?? input.cwd ?? ".");
+
+        case 'bash':
+            return stringValues(input.cwd ?? '.');
 
         default:
             return [];

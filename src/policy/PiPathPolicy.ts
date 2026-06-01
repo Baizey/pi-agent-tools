@@ -34,6 +34,8 @@ export class PiPathPolicy {
                 return FsAccessType.WRITE;
             case "edit":
                 return FsAccessType.EDIT;
+            case 'bash':
+                return FsAccessType.EXECUTE;
             default:
                 return null;
         }
