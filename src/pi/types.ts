@@ -16,6 +16,7 @@ export type PiExtensionApi = {
 
 export type ToolCallEvent = {
   toolName: string;
+  toolCallId?: string;
   input: Record<string, unknown>;
 };
 
@@ -41,6 +42,13 @@ export type ToolDefinition = {
     isError?: boolean;
   }>;
   renderCall?(args: Record<string, unknown>, theme?: unknown, context?: unknown): unknown;
+  renderResult?(result: ToolResult, state?: {expanded?: boolean; isPartial?: boolean}, theme?: unknown, context?: unknown): unknown;
+};
+
+export type ToolResult = {
+  content: Array<{ type: "text"; text: string }>;
+  details?: Record<string, unknown>;
+  isError?: boolean;
 };
 
 export type UserBashEvent = {
@@ -73,6 +81,7 @@ export type BeforeAgentStartDecision = {
 
 export type ExtensionContext = {
   cwd: string;
+  signal?: AbortSignal;
   hasUI?: boolean;
   ui?: {
     select(title: string, items: string[]): Promise<string | undefined>;

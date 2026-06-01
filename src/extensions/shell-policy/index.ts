@@ -3,10 +3,14 @@ import {AgentRuntime, AgentServices} from "../../pi/runtime";
 import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {toolNames} from "../../shared/toolNames";
+import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
+import {subagentProfileNames} from "../subagent/profiles";
+import {runSyncSubagent} from "../subagent/runner";
 
 export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices): void {
   registerBashPromptGuidance(pi);
+  registerBashSummaryRenderer(pi);
 
   pi.on("tool_call", async (event, ctx) => {
     if (event.toolName !== toolNames.bash) return;
@@ -40,6 +44,74 @@ When using bash, format commands so shell policy can distinguish command core, f
 - Put flags before their values, and use -- before positional values that may start with -.
 - Avoid shell expansion, redirection, command substitution, eval/source/exec, and nested shells unless explicitly requested.
 - Prefer structured file tools over shell commands for filesystem changes.`;
+
+const bashSummariesByCommand = new Map<string, string>();
+
+type BashToolLike = {
+  description: string;
+  parameters: Record<string, unknown>;
+  execute(
+    toolCallId: string,
+    params: Record<string, unknown>,
+    signal?: AbortSignal,
+    onUpdate?: unknown,
+    ctx?: ExtensionContext,
+  ): Promise<{content: Array<{type: "text"; text: string}>; details?: Record<string, unknown>; isError?: boolean}>;
+};
+
+function registerBashSummaryRenderer(pi: PiExtensionApi): void {
+  let originalBash: BashToolLike | null = null;
+  try {
+    const piPackage = require("@earendil-works/pi-coding-agent") as {createBashTool?: (cwd: string) => BashToolLike};
+    originalBash = piPackage.createBashTool?.(process.cwd()) ?? null;
+  } catch {
+    return;
+  }
+  if (!originalBash || !pi.registerTool) return;
+
+  pi.registerTool({
+    name: toolNames.bash,
+    label: "bash",
+    description: originalBash.description,
+    parameters: originalBash.parameters,
+    async execute(toolCallId, params, signal, onUpdate, ctx) {
+      const result = await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
+      const command = stringValue(params.command);
+      const summary = command ? bashSummariesByCommand.get(command) : undefined;
+      return summary ? {...result, details: {...result.details, agentToolsBashSummary: summary}} : result;
+    },
+    renderCall(args, theme) {
+      const command = stringValue(args.command);
+      const summary = command ? bashSummariesByCommand.get(command) : undefined;
+      return renderToolCallInput(
+        toolNames.bash,
+        summary ? {...args, summary} : args,
+        theme as never,
+      );
+    },
+  });
+}
+
+async function summarizeCommandForApproval(command: string, ctx: ExtensionContext): Promise<void> {
+  if (bashSummariesByCommand.has(command)) return;
+  try {
+    const result = await runSyncSubagent({
+      task: `Summarize this bash command in one short sentence. Say what it appears intended to do, not whether it is safe. Command: ${JSON.stringify(command)}`,
+      profiles: [subagentProfileNames.none],
+      cwd: ctx.cwd,
+      timeoutSeconds: 20,
+      systemPrompt: "You summarize bash commands for approval UI. Use one concise sentence. Do not provide hidden reasoning. Do not call tools.",
+    }, ctx.signal);
+    const summary = cleanSummary(result.output);
+    if (summary) bashSummariesByCommand.set(command, summary);
+  } catch {
+    // Summary is best-effort; approval and execution should still proceed.
+  }
+}
+
+function cleanSummary(output: string): string {
+  return output.replace(/\s+/g, " ").trim().slice(0, 180);
+}
 
 async function ensureShellAllowed(
   ctx: ExtensionContext,
@@ -100,6 +172,8 @@ async function askForShellPolicy(
   if (scopeOptions.length === 0) {
     return failed(`No safe shell policy scope could be inferred for '${command}'.`);
   }
+
+  await summarizeCommandForApproval(command, ctx);
 
   const scopeChoice = await ctx.ui.select(
     `Select shell policy scope for unmatched command in: ${command}`,
