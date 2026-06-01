@@ -36,6 +36,7 @@ export type ToolDefinition = {
     details?: Record<string, unknown>;
     isError?: boolean;
   }>;
+  renderCall?(args: Record<string, unknown>, theme?: unknown, context?: unknown): unknown;
 };
 
 export type UserBashEvent = {

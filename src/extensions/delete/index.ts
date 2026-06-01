@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {toolNames} from "../../shared/toolNames";
+import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 
 type DeleteParams = {
@@ -32,6 +33,9 @@ export function registerDeleteTool(pi: PiExtensionApi): void {
     },
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return executeDelete(params as DeleteParams, signal, ctx);
+    },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.delete, args, theme as never);
     },
   });
 }

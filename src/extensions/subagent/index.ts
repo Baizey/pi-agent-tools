@@ -1,6 +1,7 @@
 import {PiExtensionApi} from "../../pi/types";
 import {agentEnv} from "../../shared/env";
 import {toolNames} from "../../shared/toolNames";
+import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {
   applySubagentProfileCeiling,
@@ -92,6 +93,9 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
         },
         isError,
       };
+    },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.subagent, args, theme as never);
     },
   });
 }

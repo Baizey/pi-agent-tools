@@ -2,6 +2,7 @@ import {PiExtensionApi} from "../../pi/types";
 import {AgentServices} from "../../pi/runtime";
 import {FsAccessType, PolicyStatus} from "../../policy/types";
 import {toolNames} from "../../shared/toolNames";
+import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 
 type PolicyInfoParams = {
@@ -57,6 +58,9 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
         shellPolicies: runtime.shellPolicy.policiesSnapshot(),
       };
       return successResult(JSON.stringify(overview, null, 2), overview);
+    },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.policyInfo, args, theme as never);
     },
   });
 }

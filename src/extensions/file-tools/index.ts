@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {toolNames} from "../../shared/toolNames";
+import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 
 type Params = Record<string, unknown>;
@@ -20,6 +21,9 @@ export function registerFileTools(pi: PiExtensionApi): void {
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return copyPath(params, signal, ctx);
     },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.copy, args, theme as never);
+    },
   });
 
   pi.registerTool?.({
@@ -34,6 +38,9 @@ export function registerFileTools(pi: PiExtensionApi): void {
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return movePath(params, signal, ctx);
     },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.move, args, theme as never);
+    },
   });
 
   pi.registerTool?.({
@@ -47,6 +54,9 @@ export function registerFileTools(pi: PiExtensionApi): void {
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return makeDirectory(params, signal, ctx);
     },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.mkdir, args, theme as never);
+    },
   });
 
   pi.registerTool?.({
@@ -58,6 +68,9 @@ export function registerFileTools(pi: PiExtensionApi): void {
     }, ["path"]),
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return statPath(params, signal, ctx);
+    },
+    renderCall(args, theme) {
+      return renderToolCallInput(toolNames.stat, args, theme as never);
     },
   });
 
