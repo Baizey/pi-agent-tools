@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
+import {toolNames} from "../../shared/toolNames";
 import {stringValue} from "../../shared/values";
 
 type DeleteParams = {
@@ -10,7 +11,7 @@ type DeleteParams = {
 
 export function registerDeleteTool(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: "delete",
+    name: toolNames.delete,
     label: "Delete",
     description: "Delete a file or empty directory. Set recursive to true to delete a directory and its contents.",
     parameters: {

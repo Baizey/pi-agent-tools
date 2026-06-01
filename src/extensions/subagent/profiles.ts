@@ -1,16 +1,24 @@
-export type SubagentRunMode =
-    | "sync"
-    | "async"
-    | "conversation";
+import {toolNames} from "../../shared/toolNames";
 
-export type SubagentProfile =
-    | "none"
-    | "io_read"
-    | "io_write"
-    | "execute_bash"
-    | "execute_code"
-    | "web_read"
-    | "spawn_subagent";
+export const subagentRunModes = {
+    sync: "sync",
+    async: "async",
+    conversation: "conversation",
+} as const;
+
+export type SubagentRunMode = typeof subagentRunModes[keyof typeof subagentRunModes];
+
+export const subagentProfileNames = {
+    none: "none",
+    ioRead: "io_read",
+    ioWrite: "io_write",
+    executeBash: "execute_bash",
+    executeCode: "execute_code",
+    webRead: "web_read",
+    spawnSubagent: "spawn_subagent",
+} as const;
+
+export type SubagentProfile = typeof subagentProfileNames[keyof typeof subagentProfileNames];
 
 export type ResolvedSubagentProfiles = {
     profiles: SubagentProfile[];
@@ -19,38 +27,38 @@ export type ResolvedSubagentProfiles = {
 };
 
 export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instructions: string[] }> = {
-    none: {
+    [subagentProfileNames.none]: {
         tools: [],
         instructions: ["You have access to no tools. Yet your persist"],
     },
-    io_read: {
-        tools: ["read", "ls", "find", "grep", "rg", "stat", "policy_info"],
+    [subagentProfileNames.ioRead]: {
+        tools: [toolNames.read, toolNames.ls, toolNames.find, toolNames.grep, toolNames.rg, toolNames.stat, toolNames.policyInfo],
         instructions: ["You have access to read-only IO tools"],
     },
-    io_write: {
-        tools: ["write", "edit", "delete", "copy", "move", "mkdir"],
+    [subagentProfileNames.ioWrite]: {
+        tools: [toolNames.write, toolNames.edit, toolNames.delete, toolNames.copy, toolNames.move, toolNames.mkdir],
         instructions: ["You have access to write IO tools"],
     },
-    execute_bash: {
-        tools: ["bash"],
+    [subagentProfileNames.executeBash]: {
+        tools: [toolNames.bash],
         instructions: ["You have access to the bash execution tool, policy constraints may apply"],
     },
-    execute_code: {
-        tools: ["node_exec", "python_exec", "powershell_exec"],
+    [subagentProfileNames.executeCode]: {
+        tools: [toolNames.nodeExec, toolNames.pythonExec, toolNames.powershellExec],
         instructions: ["You have access to code execution environment tools"],
     },
-    web_read: {
-        tools: ["web_lookup"],
+    [subagentProfileNames.webRead]: {
+        tools: [toolNames.webLookup],
         instructions: ["You have access to web lookup and searching tools"],
     },
-    spawn_subagent: {
-        tools: ["subagent"],
+    [subagentProfileNames.spawnSubagent]: {
+        tools: [toolNames.subagent],
         instructions: ["You have access to subagent delegation tools"],
     },
 };
 
 export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
-    if (input === undefined || input === null) return ["none"];
+    if (input === undefined || input === null) return [subagentProfileNames.none];
     const values = Array.isArray(input) ? input : [input];
     const profiles: SubagentProfile[] = [];
 
@@ -59,7 +67,7 @@ export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
         if (isSubagentProfile(value) && !profiles.includes(value)) profiles.push(value);
     }
 
-    return profiles.length > 0 ? profiles : ["none"];
+    return profiles.length > 0 ? profiles : [subagentProfileNames.none];
 }
 
 export function isSubagentProfile(value: string): value is SubagentProfile {
@@ -73,7 +81,7 @@ export function applySubagentProfileCeiling(
     if (!ceilingProfiles) return requestedProfiles;
     const ceiling = new Set(ceilingProfiles);
     const allowed = requestedProfiles.filter((profile) => ceiling.has(profile));
-    return allowed.length > 0 ? allowed : ["none"];
+    return allowed.length > 0 ? allowed : [subagentProfileNames.none];
 }
 
 export function serializeSubagentProfileCeiling(profiles: SubagentProfile[]): string {
@@ -86,7 +94,7 @@ export function parseSubagentProfileCeiling(value: string | undefined): Subagent
         .split(",")
         .map((profile) => profile.trim())
         .filter(isSubagentProfile);
-    return profiles.length > 0 ? profiles : ["none"];
+    return profiles.length > 0 ? profiles : [subagentProfileNames.none];
 }
 
 export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSubagentProfiles {
@@ -104,11 +112,11 @@ export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSu
 
 export function defaultTimeoutSecondsForMode(mode: SubagentRunMode): number {
     switch (mode) {
-        case "sync":
+        case subagentRunModes.sync:
             return 120;
-        case "async":
+        case subagentRunModes.async:
             return 900;
-        case "conversation":
+        case subagentRunModes.conversation:
             return 120;
     }
 }

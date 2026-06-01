@@ -1,5 +1,6 @@
 import {PiExtensionApi} from "../../pi/types";
 import {agentEnv} from "../../shared/env";
+import {toolNames} from "../../shared/toolNames";
 import {stringValue} from "../../shared/values";
 import {
   applySubagentProfileCeiling,
@@ -8,6 +9,7 @@ import {
   parseSubagentProfileCeiling,
   SubagentRunMode,
   subagentProfiles,
+  subagentRunModes,
 } from "./profiles";
 import {runSubagent, SubagentRequest} from "./runner";
 
@@ -23,7 +25,7 @@ type RawSubagentParams = Record<string, unknown> & {
 
 export function registerSubagentTool(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: "subagent",
+    name: toolNames.subagent,
     label: "Subagent",
     description: "Run a scoped subagent. Sync mode is implemented now; async and conversation modes are reserved.",
     parameters: {
@@ -33,7 +35,7 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
       properties: {
         mode: {
           type: "string",
-          enum: ["sync", "async", "conversation"],
+          enum: Object.values(subagentRunModes),
           description: "Run mode. Only sync is implemented currently. Defaults to sync.",
           default: "sync",
         },
@@ -114,8 +116,8 @@ function parseSubagentRequest(params: RawSubagentParams, defaultCwd: string): Su
 }
 
 function normalizeMode(value: unknown): SubagentRunMode {
-  if (value === "async" || value === "conversation") return value;
-  return "sync";
+  if (value === subagentRunModes.async || value === subagentRunModes.conversation) return value;
+  return subagentRunModes.sync;
 }
 
 function normalizeTimeout(value: unknown, fallback: number): number {

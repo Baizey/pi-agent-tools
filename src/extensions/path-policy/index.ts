@@ -5,6 +5,7 @@ import {PathPolicyLogic} from "../../policy/path/PathPolicyLogic";
 import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {standardizePath} from "../../shared/paths";
+import {toolNames} from "../../shared/toolNames";
 import {stringValues} from "../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {
@@ -110,32 +111,32 @@ type PathAccess = {
 
 function pathAccessesForToolCall(toolName: string, input: Record<string, unknown>): PathAccess[] {
   switch (toolName) {
-    case "read":
-    case "ls":
-    case "stat":
+    case toolNames.read:
+    case toolNames.ls:
+    case toolNames.stat:
       return accesses(input.path, FsAccessType.READ);
 
-    case "grep":
-    case "find":
+    case toolNames.grep:
+    case toolNames.find:
       return accesses(input.path ?? input.directory ?? input.cwd ?? ".", FsAccessType.READ);
 
-    case "write":
-    case "mkdir":
+    case toolNames.write:
+    case toolNames.mkdir:
       return accesses(input.path, FsAccessType.WRITE);
 
-    case "edit":
+    case toolNames.edit:
       return accesses(input.path, FsAccessType.EDIT);
 
-    case "delete":
+    case toolNames.delete:
       return accesses(input.path, FsAccessType.DELETE);
 
-    case "copy":
+    case toolNames.copy:
       return [
         ...accesses(input.from, FsAccessType.READ),
         ...accesses(input.to, FsAccessType.WRITE),
       ];
 
-    case "move":
+    case toolNames.move:
       return [
         ...accesses(input.from, FsAccessType.DELETE),
         ...accesses(input.to, FsAccessType.WRITE),

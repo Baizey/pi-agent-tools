@@ -6,6 +6,7 @@ export * from "./policy/path/PathPolicyLogicStore";
 export * from "./policy/shell/ShellPolicyLogic";
 export * from "./policy/shell/ShellPolicyLogicStore";
 export * from "./shared/env";
+export * from "./shared/toolNames";
 export * from "./extensions/delete";
 export * from "./extensions/file-tools";
 export * from "./extensions/path-policy";

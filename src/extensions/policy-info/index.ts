@@ -1,6 +1,7 @@
 import {PiExtensionApi} from "../../pi/types";
 import {AgentServices} from "../../pi/runtime";
 import {FsAccessType, PolicyStatus} from "../../policy/types";
+import {toolNames} from "../../shared/toolNames";
 import {stringValue} from "../../shared/values";
 
 type PolicyInfoParams = {
@@ -14,7 +15,7 @@ const fsAccessTypes = Object.values(FsAccessType);
 
 export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
-    name: "policy_info",
+    name: toolNames.policyInfo,
     label: "Policy Info",
     description: "Show active path and shell policies, or evaluate a specific path or shell command.",
     parameters: {

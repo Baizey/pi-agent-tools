@@ -2,11 +2,12 @@ import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {AgentRuntime, AgentServices} from "../../pi/runtime";
 import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
+import {toolNames} from "../../shared/toolNames";
 import {stringValue} from "../../shared/values";
 
 export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices): void {
   pi.on("tool_call", async (event, ctx) => {
-    if (event.toolName !== "bash") return;
+    if (event.toolName !== toolNames.bash) return;
 
     const runtime = services.runtimeFor(ctx.cwd);
     const command = stringValue(event.input.command) ?? "";

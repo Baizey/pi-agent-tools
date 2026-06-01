@@ -1,13 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
+import {toolNames} from "../../shared/toolNames";
 import {stringValue} from "../../shared/values";
 
 type Params = Record<string, unknown>;
 
 export function registerFileTools(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: "copy",
+    name: toolNames.copy,
     label: "Copy",
     description: "Copy a file or directory. Set recursive to true to copy directories.",
     parameters: objectSchema({
@@ -22,7 +23,7 @@ export function registerFileTools(pi: PiExtensionApi): void {
   });
 
   pi.registerTool?.({
-    name: "move",
+    name: toolNames.move,
     label: "Move",
     description: "Move or rename a file or directory.",
     parameters: objectSchema({
@@ -36,7 +37,7 @@ export function registerFileTools(pi: PiExtensionApi): void {
   });
 
   pi.registerTool?.({
-    name: "mkdir",
+    name: toolNames.mkdir,
     label: "Make Directory",
     description: "Create a directory.",
     parameters: objectSchema({
@@ -49,7 +50,7 @@ export function registerFileTools(pi: PiExtensionApi): void {
   });
 
   pi.registerTool?.({
-    name: "stat",
+    name: toolNames.stat,
     label: "Stat",
     description: "Get metadata for a file or directory.",
     parameters: objectSchema({
