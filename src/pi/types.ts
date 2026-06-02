@@ -82,6 +82,21 @@ export type BeforeAgentStartDecision = {
 export type ExtensionContext = {
   cwd: string;
   signal?: AbortSignal;
+  modelRegistry?: {
+    getAvailable(): Promise<Array<{
+      provider: string;
+      id: string;
+      name?: string;
+      input?: string[];
+      reasoning?: boolean;
+      cost?: {
+        input: number;
+        output: number;
+        cacheRead: number;
+        cacheWrite: number;
+      };
+    }>>;
+  };
   hasUI?: boolean;
   ui?: {
     select(title: string, items: string[]): Promise<string | undefined>;

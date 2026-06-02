@@ -30,6 +30,7 @@ export type SubagentRequest = {
   profiles: SubagentProfile[];
   cwd: string;
   timeoutSeconds: number;
+  model?: string;
   systemPrompt?: string;
   contextPaths?: string[];
   treeNodeId?: string;
@@ -170,6 +171,7 @@ function resolveNodeIdentity(
 
 function buildPiArgs(request: SubagentRequest, profiles: ResolvedSubagentProfiles, promptPath: string): string[] {
   const args = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptPath];
+  if (request.model) args.push("--model", request.model);
   if (profiles.tools.length > 0) args.push("--tools", profiles.tools.join(","));
   else args.push("--tools", "");
   args.push(`Task: ${request.task}`);

@@ -1,407 +1,54 @@
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {AgentRuntime, AgentServices} from "../../pi/runtime";
-import {
-    FsAccessType,
-    PolicyLifetime,
-    PolicyStatus,
-    ShellPolicyDeleteRequest,
-    ShellPolicyResult
-} from "../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {toolNames} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
-import {subagentProfileNames} from "../subagent";
-import {runSyncSubagent} from "../subagent";
 import {ensurePathAllowed} from "../path-policy";
+import {ensureShellAllowed} from "./approval";
+import {bashPathAccesses} from "./bash-paths";
+import {registerBashSummaryRenderer} from "./bash-renderer";
+import {registerBashPromptGuidance} from "./guidance";
 
 export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices): void {
-    registerBashPromptGuidance(pi);
-    registerBashSummaryRenderer(pi);
+  registerBashPromptGuidance(pi);
+  registerBashSummaryRenderer(pi);
 
-    pi.on("tool_call", async (event, ctx) => {
-        if (event.toolName !== toolNames.bash) return;
+  pi.on("tool_call", async (event, ctx) => {
+    if (event.toolName !== toolNames.bash) return;
 
-        const runtime = services.runtimeFor(ctx.cwd);
-        const command = stringValue(event.input.command) ?? "";
-        const shellDenyReason = await ensureShellAllowed(ctx, runtime, command, isAgentEnvEnabled(agentEnv.shellDenyByDefault));
-        if (shellDenyReason) return {block: true, reason: shellDenyReason};
+    const runtime = services.runtimeFor(ctx.cwd);
+    const command = stringValue(event.input.command) ?? "";
 
-        const pathDenyReason = await ensureBashPathsAllowed(ctx, runtime, command, isAgentEnvEnabled(agentEnv.pathDenyByDefault));
-        if (pathDenyReason) return {block: true, reason: pathDenyReason};
-    });
-}
+    const shellDenyReason = await ensureShellAllowed(
+      ctx,
+      runtime,
+      command,
+      isAgentEnvEnabled(agentEnv.shellDenyByDefault),
+    );
+    if (shellDenyReason) return {block: true, reason: shellDenyReason};
 
-function registerBashPromptGuidance(pi: PiExtensionApi): void {
-    pi.on("before_agent_start", (event) => {
-        if (!isBashSelected(event.systemPromptOptions?.selectedTools)) return;
-        if (event.systemPrompt.includes(bashPolicyGuidanceHeader)) return;
-        return {systemPrompt: `${event.systemPrompt}\n\n${bashPolicyGuidance}`};
-    });
-}
-
-function isBashSelected(selectedTools: Array<string | { name?: string }> | undefined): boolean {
-    if (!selectedTools) return true;
-    return selectedTools.some((tool) => typeof tool === "string" ? tool === toolNames.bash : tool.name === toolNames.bash);
-}
-
-const bashPolicyGuidanceHeader = "### Bash policy-friendly command formatting";
-const bashPolicyGuidance = `${bashPolicyGuidanceHeader}
-When using bash, format commands so shell policy can distinguish command core, flags, and argument values:
-- Keep command core words at the start only, e.g. executable plus common subcommand like 'git status' or 'npm test'.
-- Quote string/pattern/message values.
-- Use file/path-like values plainly; they are arguments, not command core.
-- Put flags before their values, and use -- before positional values that may start with -.
-- Avoid shell expansion, redirection, command substitution, eval/source/exec, and nested shells unless explicitly requested.
-- Prefer structured file tools over shell commands for filesystem changes.
-Doing this keeps commands more parsable and leads to less erroneous denials
-`;
-
-const bashSummariesByCommand = new Map<string, string>();
-
-type BashToolLike = {
-    description: string;
-    parameters: Record<string, unknown>;
-    execute(
-        toolCallId: string,
-        params: Record<string, unknown>,
-        signal?: AbortSignal,
-        onUpdate?: unknown,
-        ctx?: ExtensionContext,
-    ): Promise<{
-        content: Array<{ type: "text"; text: string }>;
-        details?: Record<string, unknown>;
-        isError?: boolean
-    }>;
-};
-
-function registerBashSummaryRenderer(pi: PiExtensionApi): void {
-    let originalBash: BashToolLike | null = null;
-    try {
-        const piPackage = require("@earendil-works/pi-coding-agent") as {
-            createBashTool?: (cwd: string) => BashToolLike
-        };
-        originalBash = piPackage.createBashTool?.(process.cwd()) ?? null;
-    } catch {
-        return;
-    }
-    if (!originalBash || !pi.registerTool) return;
-
-    pi.registerTool({
-        name: toolNames.bash,
-        label: "bash",
-        description: originalBash.description,
-        parameters: originalBash.parameters,
-        async execute(toolCallId, params, signal, onUpdate, ctx) {
-            const result = await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
-            const command = stringValue(params.command);
-            const summary = command ? bashSummariesByCommand.get(command) : undefined;
-            return summary ? {...result, details: {...result.details, agentToolsBashSummary: summary}} : result;
-        },
-        renderCall(args, theme) {
-            const command = stringValue(args.command);
-            const summary = command ? bashSummariesByCommand.get(command) : undefined;
-            return renderToolCallInput(
-                toolNames.bash,
-                summary ? {...args, summary} : args,
-                theme as never,
-            );
-        },
-    });
-}
-
-async function summarizeCommandForApproval(command: string, ctx: ExtensionContext): Promise<void> {
-    if (bashSummariesByCommand.has(command)) return;
-    try {
-        const result = await runSyncSubagent({
-            task: `Summarize this bash command in one short sentence. Say what it appears intended to do, not whether it is safe. Command: ${JSON.stringify(command)}`,
-            profiles: [subagentProfileNames.none],
-            cwd: ctx.cwd,
-            timeoutSeconds: 20,
-            systemPrompt: "You summarize bash commands for approval UI. Use one concise sentence. Do not provide hidden reasoning. Do not call tools.",
-        }, ctx.signal);
-        const summary = cleanSummary(result.output);
-        if (summary) bashSummariesByCommand.set(command, summary);
-    } catch {
-        // Summary is best-effort; approval and execution should still proceed.
-    }
-}
-
-function cleanSummary(output: string): string {
-    return output.replace(/\s+/g, " ").trim().slice(0, 180);
+    const pathDenyReason = await ensureBashPathsAllowed(
+      ctx,
+      runtime,
+      command,
+      isAgentEnvEnabled(agentEnv.pathDenyByDefault),
+    );
+    if (pathDenyReason) return {block: true, reason: pathDenyReason};
+  });
 }
 
 async function ensureBashPathsAllowed(
-    ctx: ExtensionContext,
-    runtime: AgentRuntime,
-    command: string,
-    denyByDefault: boolean,
+  ctx: ExtensionContext,
+  runtime: AgentRuntime,
+  command: string,
+  denyByDefault: boolean,
 ): Promise<string | null> {
-    for (const access of bashPathAccesses(command)) {
-        const reason = await ensurePathAllowed(ctx, runtime, access.path, access.accessType, denyByDefault);
-        if (reason) return reason;
-    }
-    return null;
+  for (const access of bashPathAccesses(command)) {
+    const reason = await ensurePathAllowed(ctx, runtime, access.path, access.accessType, denyByDefault);
+    if (reason) return reason;
+  }
+  return null;
 }
 
-async function ensureShellAllowed(
-    ctx: ExtensionContext,
-    runtime: AgentRuntime,
-    command: string,
-    denyByDefault: boolean,
-): Promise<string | null> {
-    const oneShotPolicies: ShellPolicyDeleteRequest[] = [];
-
-    try {
-        for (let attempts = 0; attempts < 10; attempts++) {
-            const result = runtime.shellPolicy.evaluate(command, denyByDefault);
-            if (result === null) {
-                const promptResult = await askForShellPolicy(ctx, runtime, command, oneShotPolicies);
-                if (promptResult === null) continue;
-                return runtime.shellPolicy.toDenyReasonOrNull(promptResult) ?? "Execution denied.";
-            }
-
-            if (result.allowed) return null;
-            return runtime.shellPolicy.toDenyReasonOrNull(result) ?? "Execution denied.";
-        }
-
-        return "Execution denied: shell policy could not be resolved.";
-    } finally {
-        runtime.shellPolicy.removePolicies(oneShotPolicies);
-    }
-}
-
-type BashPathAccess = {
-    path: string;
-    accessType: FsAccessType;
-};
-
-function bashPathAccesses(command: string): BashPathAccess[] {
-    const accesses: BashPathAccess[] = [];
-    for (const segment of splitBashSegments(command)) {
-        accesses.push(...bashSegmentPathAccesses(segment));
-    }
-    return dedupeBashPathAccesses(accesses);
-}
-
-function bashSegmentPathAccesses(segment: string): BashPathAccess[] {
-    const tokens = tokenizeBashSegment(segment).map((token) => token.value);
-    const executable = tokens[0]?.split(/[\\/]/).pop()?.toLowerCase();
-    if (!executable) return [];
-
-    const pathArgs = tokens.slice(1).filter(isPathLikeBashArgument);
-    if (["rm", "rmdir", "del", "erase"].includes(executable)) {
-        return pathArgs.map((path) => ({path, accessType: FsAccessType.DELETE}));
-    }
-
-    if (["mkdir", "touch"].includes(executable)) {
-        return pathArgs.map((path) => ({path, accessType: FsAccessType.WRITE}));
-    }
-
-    if (["cp", "copy", "xcopy", "robocopy"].includes(executable) && pathArgs.length >= 2) {
-        return [
-            ...pathArgs.slice(0, -1).map((path) => ({path, accessType: FsAccessType.READ})),
-            {path: pathArgs[pathArgs.length - 1], accessType: FsAccessType.WRITE},
-        ];
-    }
-
-    if (["mv", "move", "ren", "rename"].includes(executable) && pathArgs.length >= 2) {
-        return [
-            ...pathArgs.slice(0, -1).map((path) => ({path, accessType: FsAccessType.DELETE})),
-            {path: pathArgs[pathArgs.length - 1], accessType: FsAccessType.WRITE},
-        ];
-    }
-
-    return pathArgs.map((path) => ({path, accessType: FsAccessType.READ}));
-}
-
-function dedupeBashPathAccesses(accesses: BashPathAccess[]): BashPathAccess[] {
-    const seen = new Set<string>();
-    return accesses.filter((access) => {
-        const key = `${access.accessType}\0${access.path}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
-function splitBashSegments(input: string): string[] {
-    const segments: string[] = [];
-    let current = "";
-    let quote: string | null = null;
-    let escaped = false;
-    let skipNext = false;
-
-    const flush = (): void => {
-        const segment = current.trim();
-        if (segment.length > 0) segments.push(segment);
-        current = "";
-    };
-
-    for (let index = 0; index < input.length; index++) {
-        if (skipNext) {
-            skipNext = false;
-            continue;
-        }
-        const char = input[index];
-        if (escaped) {
-            current += char;
-            escaped = false;
-            continue;
-        }
-        if (char === "\\") {
-            current += char;
-            escaped = true;
-            continue;
-        }
-        if (quote) {
-            current += char;
-            if (char === quote) quote = null;
-            continue;
-        }
-        if (char === "\"" || char === "'") {
-            quote = char;
-            current += char;
-            continue;
-        }
-        const next = input[index + 1];
-        if (char === ";" || char === "|" || char === "\n" || char === "\r") flush();
-        else if (char === "&" && (next === "&" || next === "|")) {
-            flush();
-            skipNext = true;
-        } else if (char === "&") flush();
-        else current += char;
-    }
-    flush();
-    return segments;
-}
-
-type BashToken = {
-    value: string;
-    quoted: boolean;
-};
-
-function tokenizeBashSegment(input: string): BashToken[] {
-    const tokens: BashToken[] = [];
-    let current = "";
-    let quote: string | null = null;
-    let escaped = false;
-    let quoted = false;
-
-    const flush = (): void => {
-        if (current.length > 0 || quoted) {
-            tokens.push({value: current, quoted});
-            current = "";
-            quoted = false;
-        }
-    };
-
-    for (const char of input) {
-        if (escaped) {
-            current += char;
-            escaped = false;
-            continue;
-        }
-        if (char === "\\") {
-            escaped = true;
-            continue;
-        }
-        if (quote) {
-            if (char === quote) quote = null;
-            else current += char;
-            continue;
-        }
-        if (char === "\"" || char === "'") {
-            quote = char;
-            quoted = true;
-        } else if (/\s/.test(char)) flush();
-        else current += char;
-    }
-    flush();
-    return tokens;
-}
-
-function isPathLikeBashArgument(value: string): boolean {
-    return value.includes("/") || value.includes("\\") || /^[a-zA-Z]:/.test(value);
-}
-
-async function askForShellPolicy(
-    ctx: ExtensionContext,
-    runtime: AgentRuntime,
-    command: string,
-    oneShotPolicies: ShellPolicyDeleteRequest[],
-): Promise<ShellPolicyResult | null> {
-    const failed = (reason: string): ShellPolicyResult => ({
-        command,
-        segmentResults: [
-            {
-                rawSegment: command,
-                commandPrefix: [],
-                flags: [],
-                lifetime: PolicyLifetime.ONCE,
-                status: PolicyStatus.DENIED,
-                reason,
-                allowed: false,
-                denied: true,
-            },
-        ],
-        allowed: false,
-        denied: true,
-    });
-
-    if (!ctx.ui || ctx.hasUI === false) {
-        return failed(`No shell policy matched '${command}' and interactive approval is unavailable.`);
-    }
-
-    const scopeOptions = runtime.shellPolicy.pendingPolicyScopeOptions(command);
-    if (scopeOptions.length === 0) {
-        return failed(`No safe shell policy scope could be inferred for '${command}'.`);
-    }
-
-    await summarizeCommandForApproval(command, ctx);
-
-    const scopeChoice = await ctx.ui.select(
-        `Select shell policy scope for unmatched command in: ${command}`,
-        scopeOptions.map((option) => option.label),
-    );
-    if (!scopeChoice) return failed("No shell policy scope selected.");
-
-    const scope = scopeOptions.find((option) => option.label === scopeChoice) ?? scopeOptions[0];
-
-    const statusChoice = await ctx.ui.select(`Shell policy for ${scope.label}`, ["Allow", "Deny"]);
-    if (!statusChoice) return failed("No shell policy decision selected.");
-
-    const lifetimeChoice = await ctx.ui.select("Shell policy lifetime", [
-        PolicyLifetime.ONCE,
-        PolicyLifetime.SESSION,
-        PolicyLifetime.FOREVER,
-    ]);
-    if (!lifetimeChoice) return failed("No shell policy lifetime selected.");
-
-    const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
-    const lifetime = lifetimeChoice as PolicyLifetime;
-    const defaultReason = `User selected ${status} for shell command.`;
-    const reason = status === PolicyStatus.DENIED
-        ? await askForDenyReason(ctx, defaultReason)
-        : defaultReason;
-    const policy = runtime.shellPolicy.createPolicyForScope(scope, status, lifetime, reason);
-
-    runtime.shellPolicy.addPolicies([policy]);
-    if (lifetime === PolicyLifetime.ONCE) {
-        oneShotPolicies.push({commandArgs: scope.commandArgs, removeEntirePolicy: true, flags: []});
-    } else if (lifetime === PolicyLifetime.FOREVER) {
-        runtime.shellPolicyStore.save(runtime.shellPolicy);
-    }
-
-    // The new decision may only resolve one segment or one exact command+flag set.
-    // Return null so ensureShellAllowed re-evaluates and prompts again if more
-    // unknown shell policy remains.
-    return null;
-}
-
-async function askForDenyReason(ctx: ExtensionContext, defaultReason: string): Promise<string> {
-    if (!ctx.ui?.input) return defaultReason;
-    const reason = await ctx.ui.input("Reason for denying this shell policy (optional)", defaultReason);
-    const trimmed = reason?.trim();
-    return trimmed ? trimmed : defaultReason;
-}
+export {ensureShellAllowed} from "./approval";
+export {bashPathAccesses} from "./bash-paths";

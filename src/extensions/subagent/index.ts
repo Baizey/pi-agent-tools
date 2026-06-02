@@ -210,6 +210,10 @@ function subagentParameters(): Record<string, unknown> {
         type: "number",
         description: "Timeout for this subagent run. Defaults based on mode.",
       },
+      model: {
+        type: "string",
+        description: "Optional model pattern or ID for the subagent, e.g. provider/model or model:thinking.",
+      },
       systemPrompt: {
         type: "string",
         description: "Optional extra system instructions for this subagent run.",
@@ -255,4 +259,5 @@ function awaitJobParameters(): Record<string, unknown> {
 }
 
 export * from "./profiles";
+export {resolveCheapAgentModel} from "./cheap-model";
 export {runSubagent, runSyncSubagent} from "./runner";

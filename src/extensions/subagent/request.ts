@@ -16,6 +16,7 @@ export type RawSubagentParams = Record<string, unknown> & {
   profiles?: unknown;
   cwd?: unknown;
   timeoutSeconds?: unknown;
+  model?: unknown;
   systemPrompt?: unknown;
   contextPaths?: unknown;
 };
@@ -40,6 +41,7 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
     profiles: applySubagentProfileCeiling(requestedProfiles, ceilingProfiles),
     cwd: stringValue(params.cwd) ?? defaultCwd,
     timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),
+    model: stringValue(params.model) ?? undefined,
     systemPrompt: stringValue(params.systemPrompt) ?? undefined,
     contextPaths: normalizeContextPaths(params.contextPaths),
   };
