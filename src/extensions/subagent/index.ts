@@ -14,6 +14,7 @@ import {
   unfinishedJobIds,
   waitForJobs,
 } from "./jobs";
+import {agentModelProfiles, resolveAgentModelProfile} from "./model-profiles";
 import {subagentProfiles, subagentRunModes} from "./profiles";
 import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
@@ -36,6 +37,7 @@ function registerSubagent(pi: PiExtensionApi): void {
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());
       if ("error" in request) return errorResult(request.error);
+      request.model = await resolveAgentModelProfile(ctx, request.model);
 
       if (request.mode === subagentRunModes.async || request.mode === subagentRunModes.conversation) {
         const job = startAsyncSubagentJob(request);
@@ -212,7 +214,8 @@ function subagentParameters(): Record<string, unknown> {
       },
       model: {
         type: "string",
-        description: "Optional model pattern or ID for the subagent, e.g. provider/model or model:thinking.",
+        enum: Object.values(agentModelProfiles),
+        description: "Optional model profile for the subagent.",
       },
       systemPrompt: {
         type: "string",
@@ -259,5 +262,5 @@ function awaitJobParameters(): Record<string, unknown> {
 }
 
 export * from "./profiles";
-export {resolveCheapAgentModel} from "./cheap-model";
+export {agentModelProfiles, isAgentModelProfile, resolveAgentModel, resolveAgentModelProfile} from "./model-profiles";
 export {runSubagent, runSyncSubagent} from "./runner";

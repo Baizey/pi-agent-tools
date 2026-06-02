@@ -16,7 +16,7 @@ export const agentEnvDescriptions = {
   [agentEnv.pathDenyByDefault]: "When set to '1', unmatched path policy checks are denied instead of prompting.",
   [agentEnv.shellDenyByDefault]: "When set to '1', unmatched shell policy checks are denied instead of prompting.",
   [agentEnv.subagentProfileCeiling]: "Comma-separated list of subagent profiles nested subagents may use at most.",
-  [agentEnv.subagentModel]: "Optional model pattern or ID to use for spawned subagents by default.",
+  [agentEnv.subagentModel]: "Optional model profile, pattern, or ID to use for spawned subagents by default.",
   [agentEnv.subagentRootId]: "Lineage id for the root subagent tree this process belongs to.",
   [agentEnv.subagentParentId]: "Lineage id for the parent subagent node this process was spawned by.",
   [agentEnv.subagentNodeId]: "Lineage id for the current subagent node represented by this process.",
