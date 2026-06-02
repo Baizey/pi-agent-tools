@@ -1,10 +1,13 @@
 import {ExtensionContext} from "../../pi/types";
 import {agentEnv} from "../../shared/env";
-import {subagentProfileNames, runSyncSubagent} from "../subagent";
-import {resolveCheapAgentModel} from "../subagent";
+import {agentModelProfiles, resolveAgentModelProfile, subagentProfileNames, runSyncSubagent} from "../subagent";
 
 const bashSummariesByCommand = new Map<string, string>();
 const bashScopeDescriptionsByCommand = new Map<string, Map<string, string>>();
+
+async function resolveShellPolicyHelperModel(ctx: ExtensionContext): Promise<string | undefined> {
+  return resolveAgentModelProfile(ctx, process.env[agentEnv.subagentModel]?.trim() || agentModelProfiles.textLow);
+}
 
 export function getBashSummary(command: string): string | undefined {
   return bashSummariesByCommand.get(command);
@@ -13,7 +16,7 @@ export function getBashSummary(command: string): string | undefined {
 export async function summarizeCommandForApproval(command: string, ctx: ExtensionContext): Promise<void> {
   if (bashSummariesByCommand.has(command)) return;
   try {
-    const model = await resolveCheapAgentModel(ctx, process.env[agentEnv.subagentModel]);
+    const model = await resolveShellPolicyHelperModel(ctx);
     const result = await runSyncSubagent({
       task: `Summarize this bash command in one short sentence. Say what it appears intended to do, not whether it is safe. Command: ${JSON.stringify(command)}`,
       profiles: [subagentProfileNames.none],
@@ -39,7 +42,7 @@ export async function describeShellPolicyScopes(
 
   const descriptions = new Map<string, string>();
   try {
-    const model = await resolveCheapAgentModel(ctx, process.env[agentEnv.subagentModel]);
+    const model = await resolveShellPolicyHelperModel(ctx);
     const result = await runSyncSubagent({
       task: [
         "Describe the shell policy scope options for this bash command.",
