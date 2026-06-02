@@ -44,8 +44,8 @@ export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instru
         instructions: ["You have access to the bash execution tool, policy constraints may apply"],
     },
     [subagentProfileNames.executeCode]: {
-        tools: [toolNames.nodeExec, toolNames.pythonExec, toolNames.powershellExec],
-        instructions: ["You have access to code execution environment tools"],
+        tools: [toolNames.executeCode, toolNames.executeCodeInfo],
+        instructions: ["You have access to structured code execution tools"],
     },
     [subagentProfileNames.webRead]: {
         tools: [toolNames.webLookup],

@@ -23,9 +23,8 @@ export const toolNames = {
     subagentStatus: "subagent_status",
 
     // code execution expansion
-    nodeExec: "node_exec",
-    powershellExec: "powershell_exec",
-    pythonExec: "python_exec",
+    executeCode: "execute_code",
+    executeCodeInfo: "execute_code_info",
 
     // web expansion
     webLookup: "web_lookup",

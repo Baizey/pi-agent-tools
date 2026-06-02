@@ -54,6 +54,11 @@ Subagent tools:
 - `subagent_message`
 - `subagent_cancel`
 
+Code execution tools:
+
+- `execute_code`
+- `execute_code_info`
+
 ## Policy features
 
 ### Path policy
@@ -100,7 +105,7 @@ Supported profiles:
 - `io_read`
 - `io_write`
 - `execute_bash`
-- `execute_code` *(reserved for future code execution tools)*
+- `execute_code`
 - `web_read` *(reserved for future web tools)*
 - `spawn_subagent`
 
