@@ -85,5 +85,6 @@ export type ExtensionContext = {
   hasUI?: boolean;
   ui?: {
     select(title: string, items: string[]): Promise<string | undefined>;
+    input?(title: string, placeholder?: string): Promise<string | undefined>;
   };
 };

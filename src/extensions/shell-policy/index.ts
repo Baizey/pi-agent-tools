@@ -1,12 +1,13 @@
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {AgentRuntime, AgentServices} from "../../pi/runtime";
-import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
+import {FsAccessType, PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {toolNames} from "../../shared/toolNames";
 import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {subagentProfileNames} from "../subagent/profiles";
 import {runSyncSubagent} from "../subagent/runner";
+import {ensurePathAllowed} from "../path-policy";
 
 export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices): void {
   registerBashPromptGuidance(pi);
@@ -17,8 +18,11 @@ export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices)
 
     const runtime = services.runtimeFor(ctx.cwd);
     const command = stringValue(event.input.command) ?? "";
-    const reason = await ensureShellAllowed(ctx, runtime, command, isAgentEnvEnabled(agentEnv.shellDenyByDefault));
-    if (reason) return {block: true, reason};
+    const shellDenyReason = await ensureShellAllowed(ctx, runtime, command, isAgentEnvEnabled(agentEnv.shellDenyByDefault));
+    if (shellDenyReason) return {block: true, reason: shellDenyReason};
+
+    const pathDenyReason = await ensureBashPathsAllowed(ctx, runtime, command, isAgentEnvEnabled(agentEnv.pathDenyByDefault));
+    if (pathDenyReason) return {block: true, reason: pathDenyReason};
   });
 }
 
@@ -195,7 +199,10 @@ async function askForShellPolicy(
 
   const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
   const lifetime = lifetimeChoice as PolicyLifetime;
-  const reason = `User selected ${status} for shell command.`;
+  const defaultReason = `User selected ${status} for shell command.`;
+  const reason = status === PolicyStatus.DENIED
+    ? await askForDenyReason(ctx, defaultReason)
+    : defaultReason;
   const policy = runtime.shellPolicy.createPolicyForScope(scope, status, lifetime, reason);
 
   runtime.shellPolicy.addPolicies([policy]);
@@ -209,4 +216,11 @@ async function askForShellPolicy(
   // Return null so ensureShellAllowed re-evaluates and prompts again if more
   // unknown shell policy remains.
   return null;
+}
+
+async function askForDenyReason(ctx: ExtensionContext, defaultReason: string): Promise<string> {
+  if (!ctx.ui?.input) return defaultReason;
+  const reason = await ctx.ui.input("Reason for denying this shell policy (optional)", defaultReason);
+  const trimmed = reason?.trim();
+  return trimmed ? trimmed : defaultReason;
 }

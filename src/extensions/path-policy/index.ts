@@ -27,7 +27,7 @@ export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices):
   });
 }
 
-async function ensurePathAllowed(
+export async function ensurePathAllowed(
   ctx: ExtensionContext,
   runtime: AgentRuntime,
   candidatePath: string,
@@ -77,7 +77,10 @@ async function askForPolicy(
 
   const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
   const lifetime = lifetimeChoice as PolicyLifetime;
-  const reason = `User selected ${status} for ${accessType}.`;
+  const defaultReason = `User selected ${status} for ${accessType}.`;
+  const reason = status === PolicyStatus.DENIED
+    ? await askForDenyReason(ctx, defaultReason)
+    : defaultReason;
 
   if (lifetime !== PolicyLifetime.ONCE) {
     runtime.pathPolicy.addPolicies([
@@ -145,6 +148,13 @@ function pathAccessesForToolCall(toolName: string, input: Record<string, unknown
 
 function accesses(value: unknown, accessType: FsAccessType): PathAccess[] {
   return stringValues(value).map((path) => ({path, accessType}));
+}
+
+async function askForDenyReason(ctx: ExtensionContext, defaultReason: string): Promise<string> {
+  if (!ctx.ui?.input) return defaultReason;
+  const reason = await ctx.ui.input("Reason for denying this policy (optional)", defaultReason);
+  const trimmed = reason?.trim();
+  return trimmed ? trimmed : defaultReason;
 }
 
 function pathScopes(evaluatedPath: string, cwd: string): string[] {

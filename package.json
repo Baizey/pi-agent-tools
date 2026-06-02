@@ -19,7 +19,8 @@
     "policy"
   ],
   "pi": {
-    "extensions": ["./src/extension.ts"]
+    "extensions": ["./src/extension.ts"],
+    "themes": ["./themes"]
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
