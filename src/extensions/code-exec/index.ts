@@ -414,11 +414,11 @@ function runProcess(
 }
 
 function successResult(text: string, details: Record<string, unknown>, isError = false) {
-  return {content: [{type: "text" as const, text}], details, isError};
+  return {content: [{type: "text" as const, text}], details: isError ? {...details, error: true} : details, isError};
 }
 
 function errorResult(text: string, details: Record<string, unknown> = {}) {
-  return {content: [{type: "text" as const, text}], details, isError: true};
+  return {content: [{type: "text" as const, text}], details: {...details, error: true}, isError: true};
 }
 
 function formatRuntimeInfo(runtimes: RuntimeInfo[]): string {
