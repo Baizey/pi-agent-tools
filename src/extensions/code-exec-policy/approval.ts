@@ -14,6 +14,7 @@ export async function ensureCodeExecAllowed(
     effectsReport?: CodeExecEffectsReport | null;
     loadEffectsReport?: () => Promise<CodeExecEffectsReport | null>;
     onEffectsReport?: (report: CodeExecEffectsReport | null) => void;
+    context?: string | string[];
   },
   denyByDefault: boolean,
 ): Promise<string | null> {
@@ -41,6 +42,7 @@ async function askForCodeExecPolicy(
     effectsReport?: CodeExecEffectsReport | null;
     loadEffectsReport?: () => Promise<CodeExecEffectsReport | null>;
     onEffectsReport?: (report: CodeExecEffectsReport | null) => void;
+    context?: string | string[];
   },
   oneShotPolicies: CodeExecPolicyDeleteRequest[],
 ): Promise<CodeExecPolicyResult> {
@@ -73,6 +75,7 @@ async function askForCodeExecPolicy(
     context: [
       `Language: ${input.language}`,
       `Mode: ${input.mode}`,
+      ...contextLines(input.context),
     ],
     contextOptionLabel: "ⓘ Analyze likely effects and inferred path access before deciding",
     loadContext: input.loadEffectsReport
@@ -97,4 +100,9 @@ async function askForCodeExecPolicy(
   }
 
   return runtime.codeExecPolicy.evaluate(input.language, input.mode, true) ?? failed("Code execution policy could not be resolved.");
+}
+
+function contextLines(context?: string | string[]): string[] {
+  if (!context) return [];
+  return Array.isArray(context) ? context : [context];
 }

@@ -109,6 +109,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
         {
           language: parsed.language,
           mode: parsed.mode,
+          context: codeApprovalContext(parsed),
           loadEffectsReport,
           onEffectsReport: (report) => { effectsReport = report; },
         },
@@ -143,7 +144,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       }
     },
     renderCall(args, theme) {
-      return renderToolCallInput(toolNames.executeCode, args, theme as never);
+      return renderCodeExecCall(args, theme as never);
     },
   });
 
@@ -214,6 +215,22 @@ function parseInput(params: ExecInput, defaultCwd: string): {language: CodeLangu
 
 function isLanguage(value: string): value is CodeLanguage {
   return (languages as readonly string[]).includes(value);
+}
+
+function codeApprovalContext(input: {mode: ExecutionMode; source: string; args: string[]; stdin?: string; cwd: string}): string[] {
+  const lines = [
+    `Current working directory: ${input.cwd}`,
+    input.args.length > 0 ? `Arguments: ${JSON.stringify(input.args)}` : "Arguments: none",
+    input.stdin === undefined ? "Stdin: none" : `Stdin: provided (${input.stdin.length} characters)`,
+  ];
+  if (input.mode === "file") return [...lines, `Source file: ${input.source}`];
+  return [...lines, fencedCode("Inline code", input.source)];
+}
+
+function fencedCode(label: string, code: string): string {
+  const maxLength = 4000;
+  const body = code.length > maxLength ? `${code.slice(0, maxLength)}\n… [truncated ${code.length - maxLength} chars]` : code;
+  return `${label}:\n\`\`\`\n${body}\n\`\`\``;
 }
 
 async function ensureInferredPathEffectsAllowed(
@@ -411,6 +428,26 @@ function runProcess(
     if (stdin !== undefined) child.stdin?.end(stdin);
     else child.stdin?.end();
   }).then((result) => allowNonZero ? result : result);
+}
+
+function renderCodeExecCall(args: Record<string, unknown>, theme?: unknown) {
+  const code = stringValue((args as ExecInput).code);
+  if (!code) return renderToolCallInput(toolNames.executeCode, args, theme as never);
+  const lines = [
+    toolNames.executeCode,
+    `  language: ${stringValue((args as ExecInput).language) ?? "<missing>"}`,
+    "  mode: inline",
+    Array.isArray((args as ExecInput).args) ? `  args: ${JSON.stringify((args as ExecInput).args)}` : "",
+    stringValue((args as ExecInput).cwd) ? `  cwd: ${stringValue((args as ExecInput).cwd)}` : "",
+    "  code:",
+    ...code.split(/\r?\n/).map((line) => `    ${line}`),
+  ].filter(Boolean);
+  return {
+    render(width: number): string[] {
+      return lines.map((line) => width > 0 && line.length > width ? `${line.slice(0, Math.max(0, width - 1))}…` : line);
+    },
+    invalidate(): void {},
+  };
 }
 
 function successResult(text: string, details: Record<string, unknown>, isError = false) {

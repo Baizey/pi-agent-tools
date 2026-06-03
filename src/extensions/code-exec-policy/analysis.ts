@@ -57,6 +57,9 @@ function analysisPrompt(input: CodeExecAnalysisInput): string {
     "Explain what it is likely to do. This is for human approval UI, not enforcement completeness.",
     "Identify concrete filesystem paths that appear likely to be read, written, edited, deleted, or executed.",
     "Use only concrete paths visible from the code/source. Put dynamic/uncertain effects in unknowns.",
+    "Do not put reassuring non-unknown statements in unknowns. If there are no important uncertainties, use an empty unknowns array.",
+    "Base confidence on how direct/static the evidence is: high for literal obvious operations, medium for ordinary indirection, low for dynamic/opaque behavior.",
+    "For simple pure computations, say so directly and leave paths/processEffects/networkEffects/environmentEffects/unknowns empty.",
     "Return only valid JSON with this shape:",
     JSON.stringify({
       summary: "one concise sentence",
@@ -85,7 +88,7 @@ function parseEffectsReport(output: string): CodeExecEffectsReport | null {
     processEffects: stringArray(parsed.processEffects),
     networkEffects: stringArray(parsed.networkEffects),
     environmentEffects: stringArray(parsed.environmentEffects),
-    unknowns: stringArray(parsed.unknowns),
+    unknowns: stringArray(parsed.unknowns).filter(isActualUnknown),
   };
   return report;
 }
@@ -113,4 +116,14 @@ function normalizeConfidence(value: unknown): "low" | "medium" | "high" {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((it): it is string => typeof it === "string" && it.trim() !== "").slice(0, 12) : [];
+}
+
+function isActualUnknown(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized !== ""
+    && !normalized.startsWith("no ")
+    && !normalized.startsWith("none")
+    && !normalized.includes("no filesystem")
+    && !normalized.includes("no important uncertainties")
+    && !normalized.includes("nothing uncertain");
 }
