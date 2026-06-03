@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { tempDir, test } from "./TestHarness";
 import {
@@ -141,5 +142,20 @@ test("relative path cannot escape unknown status by resolving through allowed ag
   assertDeniedOrUnknown(policy.evaluate(path.join(agent, "..", "agent-shadow", "payload.txt"), FsAccessType.READ, true));
 });
 
-test.skip("symlink inside allowed agent path cannot grant access to denied system path");
+test("symlink inside allowed agent path cannot grant access to denied system path", () => {
+  const {agent, system, policy} = testPolicy();
+  fs.mkdirSync(agent, {recursive: true});
+  fs.mkdirSync(system, {recursive: true});
+  fs.writeFileSync(path.join(system, "payload.txt"), "secret", "utf8");
+  const link = path.join(agent, "system-link");
+  try {
+    fs.symlinkSync(system, link, "dir");
+  } catch (error) {
+    if (typeof error === "object" && error && "code" in error && error.code === "EPERM") return;
+    throw error;
+  }
+
+  assertDeniedOrUnknown(policy.evaluate(path.join(link, "payload.txt"), FsAccessType.READ, true));
+});
+
 test.skip("hard link inside allowed agent path cannot grant access to denied system file");
