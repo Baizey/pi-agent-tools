@@ -149,6 +149,50 @@ export type CodeExecEffectsReport = {
   unknowns: string[];
 };
 
+export enum WebAccessType {
+  READ = "READ",
+  SEARCH = "SEARCH",
+}
+
+export type WebPolicy = {
+  host: string;
+  path: string;
+  accessType: WebAccessType;
+  lifetime: PolicyLifetime;
+  status: PolicyStatus;
+  reason: string;
+};
+
+export type WebPolicyDeleteRequest = {
+  host: string;
+  path: string;
+  accessType: WebAccessType;
+};
+
+export type WebPolicySnapshot = {
+  policies: WebPolicy[];
+};
+
+export type WebPolicyResult = {
+  url: string;
+  accessType: WebAccessType;
+  host: string;
+  path: string;
+  matchedHost: string;
+  matchedPath: string;
+  matchedScope: string;
+  matchedLifetime: PolicyLifetime;
+  matchedStatus: PolicyStatus;
+  matchedReason: string;
+};
+
+export type WebPolicyScopeOption = {
+  label: string;
+  host: string;
+  path: string;
+  accessType: WebAccessType;
+};
+
 export const isPersistedLifetime = (lifetime: PolicyLifetime): boolean =>
   lifetime === PolicyLifetime.FOREVER;
 

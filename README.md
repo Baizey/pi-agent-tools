@@ -1,6 +1,6 @@
 # pi-agent-tools
 
-A Pi package with local agent tooling for safer filesystem work, shell policy checks, policy introspection, and scoped subagents.
+A Pi package with local agent tooling for safer filesystem work, shell policy checks, policy introspection, web lookup, and scoped subagents.
 
 > This package runs as a Pi extension. Review the source before installing, especially because policy and subagent features affect tool execution.
 
@@ -59,6 +59,10 @@ Code execution tools:
 - `execute_code`
 - `execute_code_info`
 
+Web tools:
+
+- `web_lookup`
+
 ## Policy features
 
 ### Path policy
@@ -87,7 +91,16 @@ Guidance injected into the agent prompt asks bash commands to:
 - avoid shell expansion, redirection, command substitution, `eval`/`source`/`exec`, and nested shells unless explicitly requested
 - prefer structured file tools for filesystem changes
 
-`policy_info` can show the currently active path and shell policies.
+### Web policy
+
+Web policy checks `web_lookup` search and read requests before network access. Policies are tracked by access type:
+
+- `SEARCH`
+- `READ`
+
+The policy matcher uses normal URL paths and inverted host hierarchy internally. For example, `subdomain.domain.co.uk` is prioritized like `uk/co/domain/subdomain`, while UI prompts display normal URL scopes such as `https://subdomain.domain.co.uk/path`.
+
+`policy_info` can show the currently active path, shell, code execution, and web policies.
 
 ## Subagents
 
@@ -106,7 +119,7 @@ Supported profiles:
 - `io_write`
 - `execute_bash`
 - `execute_code`
-- `web_read` *(reserved for future web tools)*
+- `web_read` — grants `web_lookup`
 - `spawn_subagent`
 
 Profiles are ceilings. Nested subagents cannot grant themselves profiles outside the parent process's effective profile ceiling.

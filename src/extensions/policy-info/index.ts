@@ -1,9 +1,17 @@
 import {PiExtensionApi} from "../../pi/types";
 import {AgentServices} from "../../pi/runtime";
-import {FsAccessType, PolicyStatus} from "../../policy/types";
+import {FsAccessType, PolicyStatus, WebAccessType} from "../../policy/types";
 import {toolNames} from "../../shared/toolNames";
 import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
+
+export enum PolicyInfoKind {
+  OVERVIEW = "overview",
+  PATH = "path",
+  SHELL = "shell",
+  CODE = "code",
+  WEB = "web",
+}
 
 type PolicyInfoParams = {
   kind?: unknown;
@@ -12,24 +20,27 @@ type PolicyInfoParams = {
   command?: unknown;
   language?: unknown;
   mode?: unknown;
+  url?: unknown;
 };
 
 const fsAccessTypes = Object.values(FsAccessType);
+const webAccessTypes = Object.values(WebAccessType);
+const policyInfoKinds = Object.values(PolicyInfoKind);
 
 export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
     name: toolNames.policyInfo,
     label: "Policy Info",
-    description: "Show active path and shell policies, or evaluate a specific path or shell command.",
+    description: "Show active path, shell, code, and web policies, or evaluate a specific policy target.",
     parameters: {
       type: "object",
       additionalProperties: false,
       properties: {
         kind: {
           type: "string",
-          enum: ["overview", "path", "shell", "code"],
-          description: "Use overview for all active policies, path to evaluate a path, shell to evaluate a command, or code to evaluate code execution. Defaults to overview.",
-          default: "overview",
+          enum: policyInfoKinds,
+          description: "Use overview for all active policies, path to evaluate a path, shell to evaluate a command, code to evaluate code execution, or web to evaluate a URL. Defaults to overview.",
+          default: PolicyInfoKind.OVERVIEW,
         },
         path: {
           type: "string",
@@ -37,8 +48,8 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
         },
         accessType: {
           type: "string",
-          enum: fsAccessTypes,
-          description: "Optional path access type to evaluate. If omitted, all access types are evaluated.",
+          enum: [...fsAccessTypes, ...webAccessTypes],
+          description: "Optional access type to evaluate. For path use file access types; for web use READ or SEARCH. If omitted, all relevant access types are evaluated.",
         },
         command: {
           type: "string",
@@ -53,22 +64,28 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
           enum: ["inline", "file"],
           description: "Code execution mode to evaluate when kind is code.",
         },
+        url: {
+          type: "string",
+          description: "Full URL to evaluate when kind is web.",
+        },
       },
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const runtime = services.runtimeFor(ctx?.cwd ?? process.cwd());
       const input = params as PolicyInfoParams;
-      const kind = stringValue(input.kind) ?? "overview";
+      const kind = parsePolicyInfoKind(input.kind);
+      if (!kind) return errorResult(`Unknown policy_info kind: ${String(input.kind)}`);
 
-      if (kind === "path") return pathPolicyInfo(runtime, input);
-      if (kind === "shell") return shellPolicyInfo(runtime, input);
-      if (kind === "code") return codePolicyInfo(runtime, input);
-      if (kind !== "overview") return errorResult(`Unknown policy_info kind: ${kind}`);
+      if (kind === PolicyInfoKind.PATH) return pathPolicyInfo(runtime, input);
+      if (kind === PolicyInfoKind.SHELL) return shellPolicyInfo(runtime, input);
+      if (kind === PolicyInfoKind.CODE) return codePolicyInfo(runtime, input);
+      if (kind === PolicyInfoKind.WEB) return webPolicyInfo(runtime, input);
 
       const overview = {
         pathPolicies: runtime.pathPolicy.policiesSnapshot(),
         shellPolicies: runtime.shellPolicy.policiesSnapshot(),
         codeExecPolicies: runtime.codeExecPolicy.policiesSnapshot(),
+        webPolicies: runtime.webPolicy.policiesSnapshot(),
       };
       return successResult(JSON.stringify(overview, null, 2), overview);
     },
@@ -76,6 +93,12 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       return renderToolCallInput(toolNames.policyInfo, args, theme as never);
     },
   });
+}
+
+function parsePolicyInfoKind(value: unknown): PolicyInfoKind | null {
+  if (value === undefined || value === null) return PolicyInfoKind.OVERVIEW;
+  const candidate = stringValue(value);
+  return candidate && policyInfoKinds.includes(candidate as PolicyInfoKind) ? candidate as PolicyInfoKind : null;
 }
 
 function pathPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
@@ -140,6 +163,29 @@ function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
     pendingPolicyScopeOptions: runtime.codeExecPolicy.pendingPolicyScopeOptions(language, mode),
   };
   return successResult(JSON.stringify(details, null, 2), details);
+}
+
+function webPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
+  const url = stringValue(input.url);
+  if (!url) return errorResult("Missing required parameter for web policy lookup: url.");
+
+  const requestedAccessType = stringValue(input.accessType);
+  const accessTypes = requestedAccessType ? [requestedAccessType] : webAccessTypes;
+  const invalid = accessTypes.find((it) => !webAccessTypes.includes(it as WebAccessType));
+  if (invalid) return errorResult(`Invalid web accessType: ${invalid}`);
+
+  const evaluations = accessTypes.map((accessType) => {
+    const result = runtime.webPolicy.evaluate(url, accessType as WebAccessType, false);
+    return result ?? {
+      url,
+      accessType,
+      status: "UNKNOWN",
+      reason: "No matching web policy found.",
+      pendingPolicyScopeOptions: runtime.webPolicy.pendingPolicyScopeOptions(url, accessType as WebAccessType),
+    };
+  });
+
+  return successResult(JSON.stringify(evaluations, null, 2), {evaluations});
 }
 
 function successResult(text: string, details: Record<string, unknown>) {

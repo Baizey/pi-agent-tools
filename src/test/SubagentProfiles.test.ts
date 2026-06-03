@@ -21,8 +21,8 @@ test("subagent profile ceiling falls back to none when requested profiles exceed
 
 test("subagent profile ceiling allows only the intersection of requested and parent capabilities", () => {
   assert.deepEqual(
-    applySubagentProfileCeiling(["io_read", "io_write", "execute_bash", "spawn_subagent"], ["io_read", "spawn_subagent"]),
-    ["io_read", "spawn_subagent"],
+    applySubagentProfileCeiling(["io_read", "io_write", "execute_bash", "web_read", "spawn_subagent"], ["io_read", "web_read", "spawn_subagent"]),
+    ["io_read", "web_read", "spawn_subagent"],
   );
 });
 
@@ -46,4 +46,8 @@ test("spawn_subagent profile grants only delegation tooling", () => {
     "subagent_message",
     "subagent_cancel",
   ]);
+});
+
+test("web_read profile grants web lookup tooling", () => {
+  assert.deepEqual(resolveSubagentProfiles(["web_read"]).tools, ["web_lookup"]);
 });

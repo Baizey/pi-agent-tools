@@ -2,6 +2,7 @@ export const agentEnv = {
   pathDenyByDefault: "PI_AGENT_PATH_DENY_BY_DEFAULT",
   shellDenyByDefault: "PI_AGENT_SHELL_DENY_BY_DEFAULT",
   codeExecDenyByDefault: "PI_AGENT_CODE_EXEC_DENY_BY_DEFAULT",
+  webDenyByDefault: "PI_AGENT_WEB_DENY_BY_DEFAULT",
   subagentProfileCeiling: "PI_AGENT_SUBAGENT_PROFILE_CEILING",
   subagentModel: "PI_AGENT_SUBAGENT_MODEL",
   subagentRootId: "PI_AGENT_SUBAGENT_ROOT_ID",
@@ -17,6 +18,7 @@ export const agentEnvDescriptions = {
   [agentEnv.pathDenyByDefault]: "When set to '1', unmatched path policy checks are denied instead of prompting.",
   [agentEnv.shellDenyByDefault]: "When set to '1', unmatched shell policy checks are denied instead of prompting.",
   [agentEnv.codeExecDenyByDefault]: "When set to '1', unmatched code execution policy checks are denied instead of prompting.",
+  [agentEnv.webDenyByDefault]: "When set to '1', unmatched web policy checks are denied instead of prompting.",
   [agentEnv.subagentProfileCeiling]: "Comma-separated list of subagent profiles nested subagents may use at most.",
   [agentEnv.subagentModel]: "Optional model profile, pattern, or ID to use for spawned subagents by default.",
   [agentEnv.subagentRootId]: "Lineage id for the root subagent tree this process belongs to.",
@@ -35,5 +37,6 @@ export function denyByDefaultEnv(): Partial<Record<AgentEnvName, string>> {
     [agentEnv.pathDenyByDefault]: "1",
     [agentEnv.shellDenyByDefault]: "1",
     [agentEnv.codeExecDenyByDefault]: "1",
+    [agentEnv.webDenyByDefault]: "1",
   };
 }

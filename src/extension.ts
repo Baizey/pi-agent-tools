@@ -6,6 +6,7 @@ import {registerPathPolicy} from "./extensions/path-policy";
 import {registerPolicyInfoTool} from "./extensions/policy-info";
 import {registerShellPolicy} from "./extensions/shell-policy";
 import {registerSubagentTool} from "./extensions/subagent";
+import {registerWebLookupTool} from "./extensions/web";
 
 export default async function agentToolsExtension(pi: PiExtensionApi): Promise<void> {
     const services = createServices();
@@ -13,6 +14,7 @@ export default async function agentToolsExtension(pi: PiExtensionApi): Promise<v
     registerFileTools(pi);
 
     registerSubagentTool(pi);
+    registerWebLookupTool(pi, services);
     await registerCodeExecutionTool(pi, services);
 
     registerPolicyInfoTool(pi, services);

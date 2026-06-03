@@ -8,11 +8,14 @@ import {
   PolicyStatus,
   ShellFlagPolicyStatus,
   ShellPolicy,
+  WebAccessType,
+  WebPolicy,
 } from "./types";
 
 const policyStatuses = new Set<string>(Object.values(PolicyStatus));
 const policyLifetimes = new Set<string>(Object.values(PolicyLifetime));
 const codeExecModes = new Set<string>(["inline", "file", "*"]);
+const webAccessTypes = new Set<string>(Object.values(WebAccessType));
 
 export function parseJsonObjectFile<T>(read: () => string): T | null {
   try {
@@ -43,6 +46,14 @@ export function sanitizeCodeExecPolicySnapshot(value: unknown): {policies: CodeE
   const record = isRecord(value) ? value : {};
   const policies = Array.isArray(record.policies)
     ? record.policies.map(sanitizeCodeExecPolicy).filter((it): it is CodeExecPolicy => it !== null)
+    : [];
+  return {policies};
+}
+
+export function sanitizeWebPolicySnapshot(value: unknown): {policies: WebPolicy[]} {
+  const record = isRecord(value) ? value : {};
+  const policies = Array.isArray(record.policies)
+    ? record.policies.map(sanitizeWebPolicy).filter((it): it is WebPolicy => it !== null)
     : [];
   return {policies};
 }
@@ -95,6 +106,13 @@ function sanitizeCodeExecPolicy(value: unknown): CodeExecPolicy | null {
   return {language: value.language, mode: value.mode, status: value.status, lifetime: value.lifetime, reason: value.reason};
 }
 
+function sanitizeWebPolicy(value: unknown): WebPolicy | null {
+  if (!isRecord(value)) return null;
+  if (!isNonEmptyString(value.host) || !isNonEmptyString(value.path) || !isWebAccessType(value.accessType)) return null;
+  if (!isPolicyStatus(value.status) || !isPolicyLifetime(value.lifetime) || typeof value.reason !== "string") return null;
+  return {host: value.host, path: value.path, accessType: value.accessType, status: value.status, lifetime: value.lifetime, reason: value.reason};
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -113,4 +131,8 @@ function isPolicyLifetime(value: unknown): value is PolicyLifetime {
 
 function isCodeExecMode(value: unknown): value is CodeExecMode | "*" {
   return typeof value === "string" && codeExecModes.has(value);
+}
+
+function isWebAccessType(value: unknown): value is WebAccessType {
+  return typeof value === "string" && webAccessTypes.has(value);
 }

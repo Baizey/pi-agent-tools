@@ -6,6 +6,8 @@ import {CodeExecPolicyLogic} from "../policy/code-exec/CodeExecPolicyLogic";
 import {CodeExecPolicyLogicStore} from "../policy/code-exec/CodeExecPolicyLogicStore";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";
 import {ShellPolicyLogicStore} from "../policy/shell/ShellPolicyLogicStore";
+import {WebPolicyLogic} from "../policy/web/WebPolicyLogic";
+import {WebPolicyLogicStore} from "../policy/web/WebPolicyLogicStore";
 import {standardizePath} from "../shared/paths";
 
 export type AgentRuntime = {
@@ -15,6 +17,8 @@ export type AgentRuntime = {
   shellPolicyStore: ShellPolicyLogicStore;
   codeExecPolicy: CodeExecPolicyLogic;
   codeExecPolicyStore: CodeExecPolicyLogicStore;
+  webPolicy: WebPolicyLogic;
+  webPolicyStore: WebPolicyLogicStore;
 };
 
 export type AgentServices = {
@@ -34,13 +38,16 @@ export function createServices(): AgentServices {
       const pathPolicyStore = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
       const shellPolicyStore = new ShellPolicyLogicStore(path.join(userPiDir, "shell-policy.json"));
       const codeExecPolicyStore = new CodeExecPolicyLogicStore(path.join(userPiDir, "code-exec-policy.json"));
+      const webPolicyStore = new WebPolicyLogicStore(path.join(userPiDir, "web-policy.json"));
       const pathPolicy = new PathPolicyLogic({standardizePath: (input) => standardizePath(key, input)});
       const shellPolicy = new ShellPolicyLogic();
       const codeExecPolicy = new CodeExecPolicyLogic();
+      const webPolicy = new WebPolicyLogic();
 
       pathPolicyStore.loadInto(pathPolicy);
       shellPolicyStore.loadInto(shellPolicy);
       codeExecPolicyStore.loadInto(codeExecPolicy);
+      webPolicyStore.loadInto(webPolicy);
 
       const runtime: AgentRuntime = {
         pathPolicy,
@@ -49,6 +56,8 @@ export function createServices(): AgentServices {
         shellPolicyStore,
         codeExecPolicy,
         codeExecPolicyStore,
+        webPolicy,
+        webPolicyStore,
       };
       runtimes.set(key, runtime);
       return runtime;
