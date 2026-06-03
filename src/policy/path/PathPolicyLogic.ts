@@ -1,4 +1,4 @@
-import path from "node:path";
+import {resolvePhysicalPath} from "../../shared/paths";
 import {
   FsAccessType,
   isPersistedLifetime,
@@ -177,7 +177,7 @@ export class PathPolicyLogic {
   }
 
   private static defaultStandardizePath(input: string): string {
-    return path.resolve(input).normalize().replace(/[\\/]+$/g, "");
+    return resolvePhysicalPath(input);
   }
 
   private static looksLikeWindowsPath(value: string): boolean {
