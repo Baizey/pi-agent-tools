@@ -6,6 +6,7 @@ import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../.
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {standardizePath} from "../../shared/paths";
 import {toolNames} from "../../shared/toolNames";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
 import {stringValues} from "../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {
@@ -62,37 +63,35 @@ async function askForPolicy(
     return failed(`No policy matched '${evaluatedPath}' and interactive approval is unavailable.`);
   }
 
-  const statusChoice = await ctx.ui.select(`No ${accessType} policy for ${evaluatedPath}`, ["Allow", "Deny"]);
-  if (!statusChoice) return failed("Access denied: no policy decision selected.");
+  const approval = await askPolicyApproval(ctx, {
+    policyKind: "path",
+    target: `${accessType} ${evaluatedPath}`,
+    scopes: pathScopes(evaluatedPath, ctx.cwd).map((scope) => ({label: scope, value: scope})),
+    context: [
+      `Access type: ${accessType}`,
+      `Evaluated path: ${evaluatedPath}`,
+      `Current working directory: ${ctx.cwd}`,
+    ],
+    scopePrompt: `Policy scope for ${accessType} ${evaluatedPath}`,
+    statusPrompt: () => `No ${accessType} policy for ${evaluatedPath}`,
+    lifetimePrompt: "Policy lifetime",
+    defaultReason: (status) => `User selected ${status} for ${accessType}.`,
+    denyReasonPrompt: "Reason for denying this policy (optional)",
+  });
+  if (isPolicyApprovalFailure(approval)) return failed(`Access denied: ${approval.deniedReason}`);
 
-  const lifetimeChoice = await ctx.ui.select("Policy lifetime", [
-    PolicyLifetime.ONCE,
-    PolicyLifetime.SESSION,
-    PolicyLifetime.FOREVER,
-  ]);
-  if (!lifetimeChoice) return failed("Access denied: no policy lifetime selected.");
-
-  const scope = await ctx.ui.select("Policy scope", pathScopes(evaluatedPath, ctx.cwd));
-  if (!scope) return failed("Access denied: no policy scope selected.");
-
-  const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
-  const lifetime = lifetimeChoice as PolicyLifetime;
-  const defaultReason = `User selected ${status} for ${accessType}.`;
-  const reason = status === PolicyStatus.DENIED
-    ? await askForDenyReason(ctx, defaultReason)
-    : defaultReason;
-
-  if (lifetime !== PolicyLifetime.ONCE) {
+  const scope = approval.scope.value;
+  if (approval.lifetime !== PolicyLifetime.ONCE) {
     runtime.pathPolicy.addPolicies([
       {
         path: scope,
         info: {
-          [accessType]: PathPolicyLogic.createStatus(accessType, lifetime, status, reason),
+          [accessType]: PathPolicyLogic.createStatus(accessType, approval.lifetime, approval.status, approval.reason),
         },
       },
     ]);
 
-    if (lifetime === PolicyLifetime.FOREVER) {
+    if (approval.lifetime === PolicyLifetime.FOREVER) {
       runtime.pathPolicyStore.save(runtime.pathPolicy);
     }
   }
@@ -101,9 +100,9 @@ async function askForPolicy(
     evaluatedPath,
     evaluatedAccessType: accessType,
     matchedPattern: scope,
-    matchedLifetime: lifetime,
-    matchedStatus: status,
-    matchedReason: reason,
+    matchedLifetime: approval.lifetime,
+    matchedStatus: approval.status,
+    matchedReason: approval.reason,
   };
 }
 
@@ -148,13 +147,6 @@ function pathAccessesForToolCall(toolName: string, input: Record<string, unknown
 
 function accesses(value: unknown, accessType: FsAccessType): PathAccess[] {
   return stringValues(value).map((path) => ({path, accessType}));
-}
-
-async function askForDenyReason(ctx: ExtensionContext, defaultReason: string): Promise<string> {
-  if (!ctx.ui?.input) return defaultReason;
-  const reason = await ctx.ui.input("Reason for denying this policy (optional)", defaultReason);
-  const trimmed = reason?.trim();
-  return trimmed ? trimmed : defaultReason;
 }
 
 function pathScopes(evaluatedPath: string, cwd: string): string[] {

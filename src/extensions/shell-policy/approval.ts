@@ -1,7 +1,8 @@
 import {ExtensionContext} from "../../pi/types";
 import {AgentRuntime} from "../../pi/runtime";
 import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
-import {describeShellPolicyScopes, summarizeCommandForApproval} from "./approval-descriptions";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
+import {describeShellPolicyScopes, getBashSummary, summarizeCommandForApproval} from "./approval-descriptions";
 
 export async function ensureShellAllowed(
   ctx: ExtensionContext,
@@ -63,47 +64,43 @@ async function askForShellPolicy(
     return failed(`No safe shell policy scope could be inferred for '${command}'.`);
   }
 
-  await summarizeCommandForApproval(command, ctx);
-  const scopeDescriptions = await describeShellPolicyScopes(command, scopeOptions, ctx);
-  const scopeLabels = new Map(scopeOptions.map((option) => {
-    const description = scopeDescriptions.get(option.label);
-    return [description ? `${option.label} — ${description}` : option.label, option] as const;
-  }));
+  const approval = await askPolicyApproval(ctx, {
+    policyKind: "shell",
+    target: command,
+    scopes: scopeOptions.map((scope) => ({
+      label: scope.label,
+      value: scope,
+    })),
+    context: [
+      `Command: ${command}`,
+      `Current working directory: ${ctx.cwd}`,
+    ],
+    contextOptionLabel: "ⓘ Explain what this command and its flags do before deciding",
+    loadContext: async () => {
+      await summarizeCommandForApproval(command, ctx);
+      const scopeDescriptions = await describeShellPolicyScopes(command, scopeOptions, ctx);
+      const summary = getBashSummary(command);
+      return {
+        intro: summary ? `Command summary: ${summary}` : undefined,
+        scopeDescriptions,
+      };
+    },
+    scopePrompt: `Select shell policy scope for unmatched command in: ${command}`,
+    statusPrompt: (scope) => scope.description
+      ? `Shell policy for ${scope.label}: ${scope.description}`
+      : `Shell policy for ${scope.label}`,
+    lifetimePrompt: "Shell policy lifetime",
+    defaultReason: (status) => `User selected ${status} for shell command.`,
+  });
+  if (isPolicyApprovalFailure(approval)) return failed(approval.deniedReason);
 
-  const scopeChoice = await ctx.ui.select(
-    `Select shell policy scope for unmatched command in: ${command}`,
-    [...scopeLabels.keys()],
-  );
-  if (!scopeChoice) return failed("No shell policy scope selected.");
-
-  const scope = scopeLabels.get(scopeChoice) ?? scopeOptions[0];
-  const scopeDescription = scopeDescriptions.get(scope.label);
-  const statusTitle = scopeDescription
-    ? `Shell policy for ${scope.label}: ${scopeDescription}`
-    : `Shell policy for ${scope.label}`;
-
-  const statusChoice = await ctx.ui.select(statusTitle, ["Allow", "Deny"]);
-  if (!statusChoice) return failed("No shell policy decision selected.");
-
-  const lifetimeChoice = await ctx.ui.select("Shell policy lifetime", [
-    PolicyLifetime.ONCE,
-    PolicyLifetime.SESSION,
-    PolicyLifetime.FOREVER,
-  ]);
-  if (!lifetimeChoice) return failed("No shell policy lifetime selected.");
-
-  const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
-  const lifetime = lifetimeChoice as PolicyLifetime;
-  const defaultReason = `User selected ${status} for shell command.`;
-  const reason = status === PolicyStatus.DENIED
-    ? await askForDenyReason(ctx, defaultReason)
-    : defaultReason;
-  const policy = runtime.shellPolicy.createPolicyForScope(scope, status, lifetime, reason);
+  const scope = approval.scope.value;
+  const policy = runtime.shellPolicy.createPolicyForScope(scope, approval.status, approval.lifetime, approval.reason);
 
   runtime.shellPolicy.addPolicies([policy]);
-  if (lifetime === PolicyLifetime.ONCE) {
+  if (approval.lifetime === PolicyLifetime.ONCE) {
     oneShotPolicies.push({commandArgs: scope.commandArgs, removeEntirePolicy: true, flags: []});
-  } else if (lifetime === PolicyLifetime.FOREVER) {
+  } else if (approval.lifetime === PolicyLifetime.FOREVER) {
     runtime.shellPolicyStore.save(runtime.shellPolicy);
   }
 
@@ -113,9 +110,3 @@ async function askForShellPolicy(
   return null;
 }
 
-async function askForDenyReason(ctx: ExtensionContext, defaultReason: string): Promise<string> {
-  if (!ctx.ui?.input) return defaultReason;
-  const reason = await ctx.ui.input("Reason for denying this shell policy (optional)", defaultReason);
-  const trimmed = reason?.trim();
-  return trimmed ? trimmed : defaultReason;
-}

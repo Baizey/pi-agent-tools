@@ -114,7 +114,7 @@ export class ShellPolicyLogic {
     if (result.allowed) return null;
     return [
       "EXECUTION DENIED",
-      "The following commands were denied:",
+      "The following shell policy checks failed:",
       ...result.segmentResults.filter((it) => it.denied).map((it) => this.segmentDenyReason(it)),
     ].join("\n");
   }
@@ -268,21 +268,26 @@ export class ShellPolicyLogic {
   }
 
   private segmentDenyReason(result: ShellSegmentPolicyResult): string {
-    const lines = [`Evaluated raw command: ${result.rawSegment}`];
-    if (result.status === PolicyStatus.DENIED) {
+    const lines = [`Command segment: ${result.rawSegment}`];
+    const commandDenied = result.status === PolicyStatus.DENIED;
+    if (commandDenied) {
       lines.push(
-        `Evaluated segment: '${result.commandPrefix.join(" ")}'`,
-        `Policy status: ${result.status}`,
-        `Policy lifetime: ${result.lifetime}`,
-        `Policy reason: ${result.reason}`,
+        result.commandPrefix.length > 0 ? `Matched command scope: '${result.commandPrefix.join(" ")}'` : "Matched command scope: (none)",
+        `Decision: ${result.status}`,
+        `Lifetime: ${result.lifetime}`,
+        `Reason: ${result.reason}`,
       );
     }
-    for (const flag of result.flags.filter((it) => it.status === PolicyStatus.DENIED)) {
+
+    const deniedFlags = result.flags.filter((flag) =>
+      flag.status === PolicyStatus.DENIED && (!commandDenied || !isUnmatchedShellFlag(flag)),
+    );
+    for (const flag of deniedFlags) {
       lines.push(
-        `Evaluated flag: '${flag.flag}'`,
-        `Policy status: ${flag.status}`,
-        `Policy lifetime: ${flag.lifetime}`,
-        `Policy reason: ${flag.reason}`,
+        `Flag: '${flag.flag}'`,
+        `Decision: ${isUnmatchedShellFlag(flag) ? "UNKNOWN" : flag.status}`,
+        `Lifetime: ${flag.lifetime}`,
+        `Reason: ${flag.reason}`,
       );
     }
     return lines.join("\n");
@@ -620,6 +625,9 @@ const startsWithWords = (words: string[], prefix: string[]): boolean =>
 
 const arraysEqual = (left: string[], right: string[]): boolean =>
   left.length === right.length && left.every((value, index) => value === right[index]);
+
+const isUnmatchedShellFlag = (flag: ShellFlagPolicyStatus): boolean =>
+  flag.reason.startsWith("No matching shell flag policy found.");
 
 const clonePolicy = (policy: ShellPolicy): ShellPolicy => ({
   commandArgs: [...policy.commandArgs],

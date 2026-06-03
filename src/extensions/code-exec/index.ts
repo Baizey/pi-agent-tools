@@ -93,27 +93,36 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       }
 
       const effectiveCtx = ctx ?? minimalContext(parsed.cwd);
-      const sourceForAnalysis = parsed.mode === "file"
-        ? await fs.readFile(parsed.source, "utf8").catch(() => undefined)
-        : parsed.source;
-      const effectsReport = sourceForAnalysis === undefined
-        ? null
-        : await analyzeCodeExecutionEffects(effectiveCtx, {...parsed, source: sourceForAnalysis});
+      let effectsReport: CodeExecEffectsReport | null | undefined;
+      const loadEffectsReport = async () => {
+        const sourceForAnalysis = parsed.mode === "file"
+          ? await fs.readFile(parsed.source, "utf8").catch(() => undefined)
+          : parsed.source;
+        effectsReport = sourceForAnalysis === undefined
+          ? null
+          : await analyzeCodeExecutionEffects(effectiveCtx, {...parsed, source: sourceForAnalysis});
+        return effectsReport;
+      };
       const codeExecReason = await ensureCodeExecAllowed(
         effectiveCtx,
         runtime,
-        {language: parsed.language, mode: parsed.mode, effectsReport},
+        {
+          language: parsed.language,
+          mode: parsed.mode,
+          loadEffectsReport,
+          onEffectsReport: (report) => { effectsReport = report; },
+        },
         isAgentEnvEnabled(agentEnv.codeExecDenyByDefault),
       );
-      if (codeExecReason) return errorResult(codeExecReason, {blocked: true, effectsReport});
+      if (codeExecReason) return errorResult(codeExecReason, {blocked: true, effectsReport: effectsReport ?? null});
 
       const preflightReason = await ensureInferredPathEffectsAllowed(
         effectiveCtx,
         runtime,
-        effectsReport,
+        effectsReport ?? null,
         isAgentEnvEnabled(agentEnv.pathDenyByDefault),
       );
-      if (preflightReason) return errorResult(preflightReason, {blocked: true, effectsReport});
+      if (preflightReason) return errorResult(preflightReason, {blocked: true, effectsReport: effectsReport ?? null});
 
       const adapter = adapters[parsed.language];
       const info = await detect(adapter);

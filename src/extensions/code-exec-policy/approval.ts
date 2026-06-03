@@ -1,13 +1,20 @@
 import {ExtensionContext} from "../../pi/types";
 import {AgentRuntime} from "../../pi/runtime";
 import {CodeExecMode, CodeExecPolicyDeleteRequest, CodeExecPolicyResult, PolicyLifetime, PolicyStatus} from "../../policy/types";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
 import {formatEffectsReport} from "./analysis";
 import type {CodeExecEffectsReport} from "../../policy/types";
 
 export async function ensureCodeExecAllowed(
   ctx: ExtensionContext,
   runtime: AgentRuntime,
-  input: {language: string; mode: CodeExecMode; effectsReport?: CodeExecEffectsReport | null},
+  input: {
+    language: string;
+    mode: CodeExecMode;
+    effectsReport?: CodeExecEffectsReport | null;
+    loadEffectsReport?: () => Promise<CodeExecEffectsReport | null>;
+    onEffectsReport?: (report: CodeExecEffectsReport | null) => void;
+  },
   denyByDefault: boolean,
 ): Promise<string | null> {
   const oneShotPolicies: CodeExecPolicyDeleteRequest[] = [];
@@ -28,7 +35,13 @@ export async function ensureCodeExecAllowed(
 async function askForCodeExecPolicy(
   ctx: ExtensionContext,
   runtime: AgentRuntime,
-  input: {language: string; mode: CodeExecMode; effectsReport?: CodeExecEffectsReport | null},
+  input: {
+    language: string;
+    mode: CodeExecMode;
+    effectsReport?: CodeExecEffectsReport | null;
+    loadEffectsReport?: () => Promise<CodeExecEffectsReport | null>;
+    onEffectsReport?: (report: CodeExecEffectsReport | null) => void;
+  },
   oneShotPolicies: CodeExecPolicyDeleteRequest[],
 ): Promise<CodeExecPolicyResult> {
   const failed = (reason: string): CodeExecPolicyResult => ({
@@ -51,45 +64,37 @@ async function askForCodeExecPolicy(
     return failed(`No code execution policy scope could be inferred for '${input.language} ${input.mode}'.`);
   }
 
-  const scopeChoice = await ctx.ui.select(
-    `Select code execution policy scope for ${input.language} ${input.mode}\n${formatEffectsReport(input.effectsReport ?? null)}`,
-    scopeOptions.map((option) => option.label),
-  );
-  if (!scopeChoice) return failed("No code execution policy scope selected.");
+  let effectsReport = input.effectsReport;
+  const approval = await askPolicyApproval(ctx, {
+    policyKind: "code execution",
+    target: `${input.language} ${input.mode}`,
+    scopes: scopeOptions.map((scope) => ({label: scope.label, value: scope})),
+    intro: effectsReport === undefined ? undefined : formatEffectsReport(effectsReport),
+    context: [
+      `Language: ${input.language}`,
+      `Mode: ${input.mode}`,
+    ],
+    contextOptionLabel: "ⓘ Analyze likely effects and inferred path access before deciding",
+    loadContext: input.loadEffectsReport
+      ? async () => {
+        effectsReport = await input.loadEffectsReport?.() ?? null;
+        input.onEffectsReport?.(effectsReport);
+        return {intro: formatEffectsReport(effectsReport)};
+      }
+      : undefined,
+    defaultReason: (status) => `User selected ${status} for code execution.`, 
+  });
+  if (isPolicyApprovalFailure(approval)) return failed(approval.deniedReason);
 
-  const scope = scopeOptions.find((option) => option.label === scopeChoice) ?? scopeOptions[0];
-  const statusChoice = await ctx.ui.select(
-    `Code execution policy for ${scope.label}\n${formatEffectsReport(input.effectsReport ?? null)}`,
-    ["Allow", "Deny"],
-  );
-  if (!statusChoice) return failed("No code execution policy decision selected.");
-
-  const lifetimeChoice = await ctx.ui.select("Code execution policy lifetime", [
-    PolicyLifetime.ONCE,
-    PolicyLifetime.SESSION,
-    PolicyLifetime.FOREVER,
-  ]);
-  if (!lifetimeChoice) return failed("No code execution policy lifetime selected.");
-
-  const status = statusChoice === "Allow" ? PolicyStatus.ALLOWED : PolicyStatus.DENIED;
-  const lifetime = lifetimeChoice as PolicyLifetime;
-  const defaultReason = `User selected ${status} for code execution.`;
-  const reason = status === PolicyStatus.DENIED ? await askForDenyReason(ctx, defaultReason) : defaultReason;
-  const policy = runtime.codeExecPolicy.createPolicyForScope(scope, status, lifetime, reason);
+  const scope = approval.scope.value;
+  const policy = runtime.codeExecPolicy.createPolicyForScope(scope, approval.status, approval.lifetime, approval.reason);
 
   runtime.codeExecPolicy.addPolicies([policy]);
-  if (lifetime === PolicyLifetime.ONCE) {
+  if (approval.lifetime === PolicyLifetime.ONCE) {
     oneShotPolicies.push({language: scope.language, mode: scope.mode});
-  } else if (lifetime === PolicyLifetime.FOREVER) {
+  } else if (approval.lifetime === PolicyLifetime.FOREVER) {
     runtime.codeExecPolicyStore.save(runtime.codeExecPolicy);
   }
 
   return runtime.codeExecPolicy.evaluate(input.language, input.mode, true) ?? failed("Code execution policy could not be resolved.");
-}
-
-async function askForDenyReason(ctx: ExtensionContext, defaultReason: string): Promise<string> {
-  if (!ctx.ui?.input) return defaultReason;
-  const reason = await ctx.ui.input("Reason for denying this code execution policy (optional)", defaultReason);
-  const trimmed = reason?.trim();
-  return trimmed ? trimmed : defaultReason;
 }
