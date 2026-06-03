@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {CodeExecPolicySnapshot} from "../types";
+import {parseJsonObjectFile, sanitizeCodeExecPolicySnapshot} from "../validation";
 import {CodeExecPolicyLogic} from "./CodeExecPolicyLogic";
 
 export class CodeExecPolicyLogicStore {
@@ -8,13 +9,13 @@ export class CodeExecPolicyLogicStore {
 
   loadInto(policy: CodeExecPolicyLogic): void {
     if (!fs.existsSync(this.file)) return;
-    const snapshot = JSON.parse(fs.readFileSync(this.file, "utf8")) as CodeExecPolicySnapshot;
+    const snapshot = sanitizeCodeExecPolicySnapshot(parseJsonObjectFile<CodeExecPolicySnapshot>(() => fs.readFileSync(this.file, "utf8")));
     policy.addPolicies(snapshot.policies);
   }
 
   save(policy: CodeExecPolicyLogic): void {
     fs.mkdirSync(path.dirname(this.file), {recursive: true});
     const snapshot: CodeExecPolicySnapshot = {policies: policy.persistedPolicies()};
-    fs.writeFileSync(this.file, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+    fs.writeFileSync(this.file, `${JSON.stringify(snapshot, null, 2)}\n`, {encoding: "utf8", mode: 0o600});
   }
 }
