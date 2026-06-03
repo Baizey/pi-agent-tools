@@ -96,6 +96,59 @@ export type ShellPolicyScopeOption = {
   flags: string[];
 };
 
+export type CodeExecMode = "inline" | "file";
+export type CodeExecPolicyLanguage = string | "*";
+export type CodeExecPolicyMode = CodeExecMode | "*";
+
+export type CodeExecPolicy = {
+  language: CodeExecPolicyLanguage;
+  mode: CodeExecPolicyMode;
+  lifetime: PolicyLifetime;
+  status: PolicyStatus;
+  reason: string;
+};
+
+export type CodeExecPolicyDeleteRequest = {
+  language: CodeExecPolicyLanguage;
+  mode: CodeExecPolicyMode;
+};
+
+export type CodeExecPolicySnapshot = {
+  policies: CodeExecPolicy[];
+};
+
+export type CodeExecPolicyResult = {
+  language: string;
+  mode: CodeExecMode;
+  matchedLanguage: CodeExecPolicyLanguage;
+  matchedMode: CodeExecPolicyMode;
+  matchedScope: string;
+  matchedLifetime: PolicyLifetime;
+  matchedStatus: PolicyStatus;
+  matchedReason: string;
+};
+
+export type CodeExecPolicyScopeOption = {
+  label: string;
+  language: CodeExecPolicyLanguage;
+  mode: CodeExecPolicyMode;
+};
+
+export type CodeExecEffectsReport = {
+  summary: string;
+  confidence: "low" | "medium" | "high";
+  paths: Array<{
+    path: string;
+    accessTypes: FsAccessType[];
+    reason: string;
+    confidence: "low" | "medium" | "high";
+  }>;
+  processEffects: string[];
+  networkEffects: string[];
+  environmentEffects: string[];
+  unknowns: string[];
+};
+
 export const isPersistedLifetime = (lifetime: PolicyLifetime): boolean =>
   lifetime === PolicyLifetime.FOREVER;
 

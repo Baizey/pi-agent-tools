@@ -4,11 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {AgentServices} from "../../pi/runtime";
-import {FsAccessType} from "../../policy/types";
+import {CodeExecEffectsReport, FsAccessType} from "../../policy/types";
+import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {toolNames} from "../../shared/toolNames";
 import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {ensurePathAllowed} from "../path-policy";
+import {analyzeCodeExecutionEffects} from "../code-exec-policy/analysis";
+import {ensureCodeExecAllowed} from "../code-exec-policy/approval";
 
 const languages = [
   "javascript",
@@ -88,6 +91,29 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
         const executeReason = await ensurePathAllowed(ctx ?? minimalContext(parsed.cwd), runtime, parsed.source, FsAccessType.EXECUTE, false);
         if (executeReason) return errorResult(executeReason, {blocked: true});
       }
+
+      const effectiveCtx = ctx ?? minimalContext(parsed.cwd);
+      const sourceForAnalysis = parsed.mode === "file"
+        ? await fs.readFile(parsed.source, "utf8").catch(() => undefined)
+        : parsed.source;
+      const effectsReport = sourceForAnalysis === undefined
+        ? null
+        : await analyzeCodeExecutionEffects(effectiveCtx, {...parsed, source: sourceForAnalysis});
+      const codeExecReason = await ensureCodeExecAllowed(
+        effectiveCtx,
+        runtime,
+        {language: parsed.language, mode: parsed.mode, effectsReport},
+        isAgentEnvEnabled(agentEnv.codeExecDenyByDefault),
+      );
+      if (codeExecReason) return errorResult(codeExecReason, {blocked: true, effectsReport});
+
+      const preflightReason = await ensureInferredPathEffectsAllowed(
+        effectiveCtx,
+        runtime,
+        effectsReport,
+        isAgentEnvEnabled(agentEnv.pathDenyByDefault),
+      );
+      if (preflightReason) return errorResult(preflightReason, {blocked: true, effectsReport});
 
       const adapter = adapters[parsed.language];
       const info = await detect(adapter);
@@ -179,6 +205,31 @@ function parseInput(params: ExecInput, defaultCwd: string): {language: CodeLangu
 
 function isLanguage(value: string): value is CodeLanguage {
   return (languages as readonly string[]).includes(value);
+}
+
+async function ensureInferredPathEffectsAllowed(
+  ctx: ExtensionContext,
+  runtime: ReturnType<AgentServices["runtimeFor"]>,
+  report: CodeExecEffectsReport | null,
+  denyByDefault: boolean,
+): Promise<string | null> {
+  if (!report) return null;
+  for (const effect of report.paths) {
+    if (effect.confidence !== "high" || !isConcretePathEffect(effect.path)) continue;
+    for (const accessType of effect.accessTypes) {
+      const reason = await ensurePathAllowed(ctx, runtime, effect.path, accessType, denyByDefault);
+      if (reason) return `Static analysis inferred path effect before code execution.\nPath: ${effect.path}\nAccess: ${accessType}\nReason: ${effect.reason}\n\n${reason}`;
+    }
+  }
+  return null;
+}
+
+function isConcretePathEffect(candidatePath: string): boolean {
+  return candidatePath.trim() !== ""
+    && !/[*$?{}]/.test(candidatePath)
+    && !candidatePath.includes("...")
+    && !candidatePath.includes("<")
+    && !candidatePath.includes(">");
 }
 
 async function detect(adapter: Adapter): Promise<RuntimeInfo> {

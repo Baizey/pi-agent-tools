@@ -10,6 +10,8 @@ type PolicyInfoParams = {
   path?: unknown;
   accessType?: unknown;
   command?: unknown;
+  language?: unknown;
+  mode?: unknown;
 };
 
 const fsAccessTypes = Object.values(FsAccessType);
@@ -25,8 +27,8 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       properties: {
         kind: {
           type: "string",
-          enum: ["overview", "path", "shell"],
-          description: "Use overview for all active policies, path to evaluate a path, or shell to evaluate a command. Defaults to overview.",
+          enum: ["overview", "path", "shell", "code"],
+          description: "Use overview for all active policies, path to evaluate a path, shell to evaluate a command, or code to evaluate code execution. Defaults to overview.",
           default: "overview",
         },
         path: {
@@ -42,6 +44,15 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
           type: "string",
           description: "Shell command to evaluate when kind is shell.",
         },
+        language: {
+          type: "string",
+          description: "Code language to evaluate when kind is code.",
+        },
+        mode: {
+          type: "string",
+          enum: ["inline", "file"],
+          description: "Code execution mode to evaluate when kind is code.",
+        },
       },
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
@@ -51,11 +62,13 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
 
       if (kind === "path") return pathPolicyInfo(runtime, input);
       if (kind === "shell") return shellPolicyInfo(runtime, input);
+      if (kind === "code") return codePolicyInfo(runtime, input);
       if (kind !== "overview") return errorResult(`Unknown policy_info kind: ${kind}`);
 
       const overview = {
         pathPolicies: runtime.pathPolicy.policiesSnapshot(),
         shellPolicies: runtime.shellPolicy.policiesSnapshot(),
+        codeExecPolicies: runtime.codeExecPolicy.policiesSnapshot(),
       };
       return successResult(JSON.stringify(overview, null, 2), overview);
     },
@@ -108,6 +121,23 @@ function shellPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input
     status: "UNKNOWN",
     reason: "No matching shell policy found.",
     pendingPolicyScopeOptions: runtime.shellPolicy.pendingPolicyScopeOptions(command),
+  };
+  return successResult(JSON.stringify(details, null, 2), details);
+}
+
+function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
+  const language = stringValue(input.language);
+  const mode = stringValue(input.mode);
+  if (!language) return errorResult("Missing required parameter for code policy lookup: language.");
+  if (mode !== "inline" && mode !== "file") return errorResult("Missing or invalid required parameter for code policy lookup: mode.");
+
+  const result = runtime.codeExecPolicy.evaluate(language, mode, false);
+  const details = result ?? {
+    language,
+    mode,
+    status: "UNKNOWN",
+    reason: "No matching code execution policy found.",
+    pendingPolicyScopeOptions: runtime.codeExecPolicy.pendingPolicyScopeOptions(language, mode),
   };
   return successResult(JSON.stringify(details, null, 2), details);
 }
