@@ -85,6 +85,9 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       if ("error" in parsed) return errorResult(parsed.error);
 
       const runtime = services.runtimeFor(parsed.cwd);
+      const cwdReason = await ensurePathAllowed(ctx ?? minimalContext(parsed.cwd), runtime, parsed.cwd, FsAccessType.EXECUTE, false);
+      if (cwdReason) return errorResult(cwdReason, {blocked: true});
+
       if (parsed.mode === "file") {
         const readReason = await ensurePathAllowed(ctx ?? minimalContext(parsed.cwd), runtime, parsed.source, FsAccessType.READ, false);
         if (readReason) return errorResult(readReason, {blocked: true});
