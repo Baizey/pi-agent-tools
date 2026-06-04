@@ -17,6 +17,7 @@ test("subagent profile ceiling prevents nested agents from escalating capabiliti
 test("subagent profile ceiling falls back to none when requested profiles exceed parent capabilities", () => {
   assert.deepEqual(applySubagentProfileCeiling(["io_read"], ["spawn_subagent"]), ["none"]);
   assert.deepEqual(resolveSubagentProfiles(["none"]).tools, []);
+  assert.deepEqual(resolveSubagentProfiles(["none"]).instructions, ["You have access to no tools."]);
 });
 
 test("subagent profile ceiling allows only the intersection of requested and parent capabilities", () => {

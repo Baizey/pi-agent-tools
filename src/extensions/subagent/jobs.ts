@@ -69,6 +69,7 @@ export function sendConversationMessage(job: AsyncSubagentJob, task: string): vo
   if (job.status !== subagentJobStatuses.idle) return;
   job.status = subagentJobStatuses.running;
   job.finishedAt = undefined;
+  job.result = undefined;
   job.error = undefined;
   job.controller = new AbortController();
   const request: SubagentRequest = {

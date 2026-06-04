@@ -32,7 +32,7 @@ function registerSubagent(pi: PiExtensionApi): void {
   pi.registerTool?.({
     name: toolNames.subagentSpawn,
     label: "Subagent",
-    description: "Run a scoped subagent. Supports sync one-shot and async job modes; conversation mode is reserved.",
+    description: "Run a scoped subagent. Supports sync one-shot, async job, and conversation modes.",
     parameters: subagentParameters(),
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());

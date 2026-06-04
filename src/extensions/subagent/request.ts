@@ -41,7 +41,7 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
     profiles: applySubagentProfileCeiling(requestedProfiles, ceilingProfiles),
     cwd: stringValue(params.cwd) ?? defaultCwd,
     timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),
-    model: stringValue(params.model) ?? undefined,
+    model: (stringValue(params.model) ?? process.env[agentEnv.subagentModel]?.trim()) || undefined,
     systemPrompt: stringValue(params.systemPrompt) ?? undefined,
     contextPaths: normalizeContextPaths(params.contextPaths),
   };

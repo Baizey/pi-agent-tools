@@ -7,6 +7,8 @@ import {
   ShellPolicy,
   ShellPolicyLogic,
   ShellPolicyResult,
+  FsAccessType,
+  bashPathAccesses,
 } from "../index";
 
 const allowCommand = (...commandArgs: string[]): ShellPolicy =>
@@ -362,6 +364,30 @@ test("find exec and xargs are denied because they can invoke nested commands", (
 
   assertDenied(logic.evaluate("find . -exec git commit ;", true));
   assertDenied(logic.evaluate("xargs git commit", true));
+});
+
+test("bash path preflight recognizes bare filesystem command operands", () => {
+  assert.deepEqual(bashPathAccesses("rm file.txt"), [
+    {path: "file.txt", accessType: FsAccessType.DELETE},
+  ]);
+  assert.deepEqual(bashPathAccesses("cp a.txt b.txt"), [
+    {path: "a.txt", accessType: FsAccessType.READ},
+    {path: "b.txt", accessType: FsAccessType.WRITE},
+  ]);
+  assert.deepEqual(bashPathAccesses("mkdir build && touch output.txt"), [
+    {path: "build", accessType: FsAccessType.WRITE},
+    {path: "output.txt", accessType: FsAccessType.WRITE},
+  ]);
+});
+
+test("bash path preflight ignores flags for filesystem command operands", () => {
+  assert.deepEqual(bashPathAccesses("rm -rf build"), [
+    {path: "build", accessType: FsAccessType.DELETE},
+  ]);
+  assert.deepEqual(bashPathAccesses("cp -r src dist"), [
+    {path: "src", accessType: FsAccessType.READ},
+    {path: "dist", accessType: FsAccessType.WRITE},
+  ]);
 });
 
 test("persisted policies keep forever command and flag policies only", () => {

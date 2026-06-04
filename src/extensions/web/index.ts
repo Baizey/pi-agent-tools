@@ -9,6 +9,7 @@ import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";
+const fetchTimeoutMs = 30_000;
 
 export function registerWebLookupTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
@@ -21,14 +22,15 @@ export function registerWebLookupTool(pi: PiExtensionApi, services: AgentService
       maxResults: {type: "number", description: "Maximum search results. Defaults to 5.", default: 5},
       raw: booleanParam("Return raw-ish HTML text instead of simplified text for URL reads. Defaults to false.", false),
     }, []),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const runtime = services.runtimeFor(ctx?.cwd ?? process.cwd());
       const query = stringValue(params.query);
       const url = stringValue(params.url);
       try {
-        if (query) return await searchWeb(ctx, runtime, query, numberValue(params.maxResults) ?? 5);
-        if (url) return await readWeb(ctx, runtime, url, params.raw === true);
-        return errorResult("Missing required parameter: provide either query or url.");
+        if (query && url) return errorResult("Invalid parameters: provide either query or url, not both.");
+        if (!query && !url) return errorResult("Missing required parameter: provide either query or url.");
+        if (query) return await searchWeb(ctx, runtime, query, numberValue(params.maxResults) ?? 5, signal);
+        return await readWeb(ctx, runtime, url!, params.raw === true, signal);
       } catch (error) {
         return errorResult(error instanceof Error ? error.message : String(error));
       }
@@ -39,12 +41,12 @@ export function registerWebLookupTool(pi: PiExtensionApi, services: AgentService
   });
 }
 
-async function searchWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntime, query: string, maxResults: number) {
+async function searchWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntime, query: string, maxResults: number, signal?: AbortSignal) {
   const searchUrl = `${defaultSearchUrl}?q=${encodeURIComponent(query)}`;
   const denied = await ensureWebAllowed(ctx, runtime, searchUrl, WebAccessType.SEARCH, isAgentEnvEnabled(agentEnv.webDenyByDefault));
   if (denied) return errorResult(denied);
 
-  const html = await fetchText(searchUrl);
+  const html = await fetchText(searchUrl, signal);
   const results = parseDuckDuckGoResults(html).slice(0, Math.max(1, Math.min(maxResults, 20)));
   const text = results.length > 0
     ? results.map((result, index) => `${index + 1}. ${result.title}\n${result.url}\n${result.snippet}`).join("\n\n")
@@ -52,11 +54,11 @@ async function searchWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntim
   return successResult(text, {query, searchUrl, results});
 }
 
-async function readWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntime, url: string, raw: boolean) {
+async function readWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntime, url: string, raw: boolean, signal?: AbortSignal) {
   const denied = await ensureWebAllowed(ctx, runtime, url, WebAccessType.READ, isAgentEnvEnabled(agentEnv.webDenyByDefault));
   if (denied) return errorResult(denied);
 
-  const html = await fetchText(url);
+  const html = await fetchText(url, signal);
   const text = raw ? html : htmlToText(html);
   return successResult(text.slice(0, 80_000), {url, bytes: html.length, truncated: text.length > 80_000});
 }
@@ -125,10 +127,35 @@ async function askForWebPolicy(
   return runtime.webPolicy.evaluate(url, accessType, true) ?? failed("Web policy could not be resolved.");
 }
 
-async function fetchText(url: string): Promise<string> {
-  const response = await fetch(url, {headers: {"User-Agent": "pi-agent-tools/0.1 (+https://github.com/Baizey/pi-agent-tools)"}});
-  if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
-  return await response.text();
+async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(new Error(`Fetch timed out after ${fetchTimeoutMs}ms.`)), fetchTimeoutMs);
+  const combinedSignal = combineAbortSignals(signal, timeout.signal);
+  try {
+    const response = await fetch(url, {
+      headers: {"User-Agent": "pi-agent-tools/0.1 (+https://github.com/Baizey/pi-agent-tools)"},
+      signal: combinedSignal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function combineAbortSignals(left: AbortSignal | undefined, right: AbortSignal): AbortSignal {
+  if (!left) return right;
+  const controller = new AbortController();
+  const abort = (signal: AbortSignal) => {
+    if (!controller.signal.aborted) controller.abort(signal.reason);
+  };
+  if (left.aborted) abort(left);
+  else if (right.aborted) abort(right);
+  else {
+    left.addEventListener("abort", () => abort(left), {once: true});
+    right.addEventListener("abort", () => abort(right), {once: true});
+  }
+  return controller.signal;
 }
 
 function parseDuckDuckGoResults(html: string): Array<{title: string; url: string; snippet: string}> {

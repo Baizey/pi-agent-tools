@@ -64,6 +64,7 @@ type ExecPlan = {
 type Adapter = {
   language: CodeLanguage;
   modes: ExecutionMode[];
+  tempArtifacts?: "inline" | "always";
   detect(): Promise<RuntimeInfo>;
   plan(input: {mode: ExecutionMode; source: string; args: string[]; cwd: string}): Promise<ExecPlan>;
 };
@@ -85,17 +86,17 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       if ("error" in parsed) return errorResult(parsed.error);
 
       const runtime = services.runtimeFor(parsed.cwd);
-      const cwdReason = await ensurePathAllowed(ctx ?? minimalContext(parsed.cwd), runtime, parsed.cwd, FsAccessType.EXECUTE, false);
+      const effectiveCtx = contextForCwd(ctx, parsed.cwd);
+      const pathDenyByDefault = isAgentEnvEnabled(agentEnv.pathDenyByDefault);
+      const cwdReason = await ensurePathAllowed(effectiveCtx, runtime, parsed.cwd, FsAccessType.EXECUTE, pathDenyByDefault);
       if (cwdReason) return errorResult(cwdReason, {blocked: true});
 
       if (parsed.mode === "file") {
-        const readReason = await ensurePathAllowed(ctx ?? minimalContext(parsed.cwd), runtime, parsed.source, FsAccessType.READ, false);
+        const readReason = await ensurePathAllowed(effectiveCtx, runtime, parsed.source, FsAccessType.READ, pathDenyByDefault);
         if (readReason) return errorResult(readReason, {blocked: true});
-        const executeReason = await ensurePathAllowed(ctx ?? minimalContext(parsed.cwd), runtime, parsed.source, FsAccessType.EXECUTE, false);
+        const executeReason = await ensurePathAllowed(effectiveCtx, runtime, parsed.source, FsAccessType.EXECUTE, pathDenyByDefault);
         if (executeReason) return errorResult(executeReason, {blocked: true});
       }
-
-      const effectiveCtx = ctx ?? minimalContext(parsed.cwd);
       let effectsReport: CodeExecEffectsReport | null | undefined;
       const loadEffectsReport = async () => {
         const sourceForAnalysis = parsed.mode === "file"
@@ -132,6 +133,9 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       const info = await detect(adapter);
       if (!info.available) return errorResult(`Runtime unavailable for ${parsed.language}: ${info.error ?? "not found"}`, {runtime: info});
       if (!info.modes.includes(parsed.mode)) return errorResult(`${parsed.language} does not support ${parsed.mode} execution.`, {runtime: info});
+
+      const tempArtifactReason = await ensureTempArtifactsAllowed(effectiveCtx, runtime, adapter, parsed.mode, pathDenyByDefault);
+      if (tempArtifactReason) return errorResult(tempArtifactReason, {blocked: true});
 
       let plan: ExecPlan | undefined;
       try {
@@ -261,6 +265,26 @@ function isConcretePathEffect(candidatePath: string): boolean {
     && !candidatePath.includes(">");
 }
 
+async function ensureTempArtifactsAllowed(
+  ctx: ExtensionContext,
+  runtime: ReturnType<AgentServices["runtimeFor"]>,
+  adapter: Adapter,
+  mode: ExecutionMode,
+  denyByDefault: boolean,
+): Promise<string | null> {
+  const usesTempArtifacts = adapter.tempArtifacts === "always" || (adapter.tempArtifacts === "inline" && mode === "inline");
+  if (!usesTempArtifacts) return null;
+
+  const tempRoot = os.tmpdir();
+  for (const accessType of [FsAccessType.WRITE, FsAccessType.READ, FsAccessType.EXECUTE]) {
+    const reason = await ensurePathAllowed(ctx, runtime, tempRoot, accessType, denyByDefault);
+    if (reason) {
+      return `Code execution needs temporary ${adapter.language} artifacts under ${tempRoot}.\nAccess: ${accessType}\n\n${reason}`;
+    }
+  }
+  return null;
+}
+
 async function detect(adapter: Adapter): Promise<RuntimeInfo> {
   let promise = detectionCache.get(adapter.language);
   if (!promise) {
@@ -316,6 +340,7 @@ function tempFileAdapter(
   return {
     language,
     modes: ["inline", "file"],
+    tempArtifacts: "inline",
     async detect() { return detectExecutable(language, executables, versionArgs, ["inline", "file"], notes); },
     async plan(input) {
       const info = await detect(adapters[language]);
@@ -342,6 +367,7 @@ function compiledAdapter(
   return {
     language,
     modes: ["inline", "file"],
+    tempArtifacts: "always",
     async detect() {
       for (const [exe, versionArgs] of compilers) {
         const info = await detectExecutable(language, [exe], versionArgs, ["inline", "file"], ["Compiles to a temporary executable before running."]);
@@ -492,6 +518,6 @@ function truncate(value: string): string {
   return value.length > max ? `${value.slice(0, max)}\n[truncated]` : value;
 }
 
-function minimalContext(cwd: string): ExtensionContext {
-  return {cwd, hasUI: false};
+function contextForCwd(ctx: ExtensionContext | undefined, cwd: string): ExtensionContext {
+  return ctx ? {...ctx, cwd} : {cwd, hasUI: false};
 }

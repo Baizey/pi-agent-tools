@@ -29,7 +29,7 @@ export type ResolvedSubagentProfiles = {
 export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instructions: string[] }> = {
     [subagentProfileNames.none]: {
         tools: [],
-        instructions: ["You have access to no tools. Yet your persist"],
+        instructions: ["You have access to no tools."],
     },
     [subagentProfileNames.ioRead]: {
         tools: [toolNames.read, toolNames.stat, toolNames.policyInfo],

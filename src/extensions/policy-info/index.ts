@@ -20,6 +20,8 @@ type PolicyInfoParams = {
   command?: unknown;
   language?: unknown;
   mode?: unknown;
+  cwd?: unknown;
+  file?: unknown;
   url?: unknown;
 };
 
@@ -64,6 +66,14 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
           enum: ["inline", "file"],
           description: "Code execution mode to evaluate when kind is code.",
         },
+        cwd: {
+          type: "string",
+          description: "Working directory to evaluate when kind is code. Defaults to current cwd.",
+        },
+        file: {
+          type: "string",
+          description: "Source file to evaluate when kind is code and mode is file.",
+        },
         url: {
           type: "string",
           description: "Full URL to evaluate when kind is web.",
@@ -71,8 +81,8 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       },
     },
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const runtime = services.runtimeFor(ctx?.cwd ?? process.cwd());
       const input = params as PolicyInfoParams;
+      const runtime = services.runtimeFor(stringValue(input.cwd) ?? ctx?.cwd ?? process.cwd());
       const kind = parsePolicyInfoKind(input.kind);
       if (!kind) return errorResult(`Unknown policy_info kind: ${String(input.kind)}`);
 
@@ -154,13 +164,29 @@ function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
   if (!language) return errorResult("Missing required parameter for code policy lookup: language.");
   if (mode !== "inline" && mode !== "file") return errorResult("Missing or invalid required parameter for code policy lookup: mode.");
 
-  const result = runtime.codeExecPolicy.evaluate(language, mode, false);
-  const details = result ?? {
+  const codePolicy = runtime.codeExecPolicy.evaluate(language, mode, false) ?? {
     language,
     mode,
     status: "UNKNOWN",
     reason: "No matching code execution policy found.",
     pendingPolicyScopeOptions: runtime.codeExecPolicy.pendingPolicyScopeOptions(language, mode),
+  };
+  const cwd = stringValue(input.cwd);
+  const file = stringValue(input.file);
+  const pathChecks = [
+    {target: cwd ?? ".", accessType: FsAccessType.EXECUTE, result: runtime.pathPolicy.evaluate(cwd ?? ".", FsAccessType.EXECUTE, false)},
+    ...(mode === "file" && file ? [
+      {target: file, accessType: FsAccessType.READ, result: runtime.pathPolicy.evaluate(file, FsAccessType.READ, false)},
+      {target: file, accessType: FsAccessType.EXECUTE, result: runtime.pathPolicy.evaluate(file, FsAccessType.EXECUTE, false)},
+    ] : []),
+  ].map((check) => ({
+    ...check,
+    result: check.result ?? {status: "UNKNOWN", reason: "No matching path policy found."},
+  }));
+  const details = {
+    codePolicy,
+    pathChecks,
+    note: "Static inferred path effects are analyzed during execute_code approval and are not evaluated by policy_info.",
   };
   return successResult(JSON.stringify(details, null, 2), details);
 }

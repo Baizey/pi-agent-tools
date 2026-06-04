@@ -18,26 +18,28 @@ function bashSegmentPathAccesses(segment: string): BashPathAccess[] {
   const executable = tokens[0]?.split(/[\\/]/).pop()?.toLowerCase();
   if (!executable) return [];
 
-  const pathArgs = tokens.slice(1).filter(isPathLikeBashArgument);
+  const args = tokens.slice(1);
+  const pathArgs = args.filter(isPathLikeBashArgument);
+  const filesystemOperands = bashPathOperands(args);
   if (["rm", "rmdir", "del", "erase"].includes(executable)) {
-    return pathArgs.map((path) => ({path, accessType: FsAccessType.DELETE}));
+    return filesystemOperands.map((path) => ({path, accessType: FsAccessType.DELETE}));
   }
 
   if (["mkdir", "touch"].includes(executable)) {
-    return pathArgs.map((path) => ({path, accessType: FsAccessType.WRITE}));
+    return filesystemOperands.map((path) => ({path, accessType: FsAccessType.WRITE}));
   }
 
-  if (["cp", "copy", "xcopy", "robocopy"].includes(executable) && pathArgs.length >= 2) {
+  if (["cp", "copy", "xcopy", "robocopy"].includes(executable) && filesystemOperands.length >= 2) {
     return [
-      ...pathArgs.slice(0, -1).map((path) => ({path, accessType: FsAccessType.READ})),
-      {path: pathArgs[pathArgs.length - 1], accessType: FsAccessType.WRITE},
+      ...filesystemOperands.slice(0, -1).map((path) => ({path, accessType: FsAccessType.READ})),
+      {path: filesystemOperands[filesystemOperands.length - 1], accessType: FsAccessType.WRITE},
     ];
   }
 
-  if (["mv", "move", "ren", "rename"].includes(executable) && pathArgs.length >= 2) {
+  if (["mv", "move", "ren", "rename"].includes(executable) && filesystemOperands.length >= 2) {
     return [
-      ...pathArgs.slice(0, -1).map((path) => ({path, accessType: FsAccessType.DELETE})),
-      {path: pathArgs[pathArgs.length - 1], accessType: FsAccessType.WRITE},
+      ...filesystemOperands.slice(0, -1).map((path) => ({path, accessType: FsAccessType.DELETE})),
+      {path: filesystemOperands[filesystemOperands.length - 1], accessType: FsAccessType.WRITE},
     ];
   }
 
@@ -148,6 +150,24 @@ function tokenizeBashSegment(input: string): BashToken[] {
   }
   flush();
   return tokens;
+}
+
+function bashPathOperands(args: string[]): string[] {
+  const operands: string[] = [];
+  let endOfOptions = false;
+  for (const arg of args) {
+    if (!endOfOptions && arg === "--") {
+      endOfOptions = true;
+      continue;
+    }
+    if (!endOfOptions && isBashFlag(arg)) continue;
+    operands.push(arg);
+  }
+  return operands;
+}
+
+function isBashFlag(value: string): boolean {
+  return /^--?[a-zA-Z]/.test(value);
 }
 
 function isPathLikeBashArgument(value: string): boolean {
