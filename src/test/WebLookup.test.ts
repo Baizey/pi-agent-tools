@@ -13,7 +13,7 @@ async function test(name: string, fn: () => Promise<void>): Promise<void> {
   }
 }
 
-function registeredWebTool(): ToolDefinition {
+function registeredWebTool(options: {allowed?: boolean; onEvaluate?: (url: string, accessType: WebAccessType) => void} = {}): ToolDefinition {
   let tool: ToolDefinition | undefined;
   const pi = {
     on() {},
@@ -38,8 +38,11 @@ function registeredWebTool(): ToolDefinition {
   registerWebLookupTool(pi, {
     runtimeFor: () => ({
       webPolicy: {
-        evaluate: (_url: string, accessType: WebAccessType) => ({...allowedResult, accessType}),
-        toDenyReasonOrNull: () => null,
+        evaluate: (url: string, accessType: WebAccessType) => {
+          options.onEvaluate?.(url, accessType);
+          return {...allowedResult, url, accessType, matchedStatus: options.allowed === false ? PolicyStatus.DENIED : PolicyStatus.ALLOWED};
+        },
+        toDenyReasonOrNull: (result: {matchedStatus: PolicyStatus}) => result.matchedStatus === PolicyStatus.ALLOWED ? null : "denied for test",
         removePolicies: () => {},
       },
       webPolicyStore: {save: () => {}},
@@ -61,6 +64,43 @@ void (async () => {
     const neither = await tool.execute("2", {});
     assert.equal(neither.isError, true);
     assert.match(neither.content[0].text, /provide either query or url/);
+  });
+
+  await test("web lookup denied policy does not call fetch", async () => {
+    const tool = registeredWebTool({allowed: false});
+    const originalFetch = globalThis.fetch;
+    let fetchCalled = false;
+    globalThis.fetch = (async () => {
+      fetchCalled = true;
+      return new Response("should not happen", {status: 200});
+    }) as typeof fetch;
+
+    try {
+      const result = await tool.execute("denied", {url: "https://example.com/"});
+      assert.equal(result.isError, true);
+      assert.match(result.content[0].text, /denied for test/);
+      assert.equal(fetchCalled, false);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  await test("web lookup uses SEARCH for query and READ for url", async () => {
+    const evaluations: Array<{url: string; accessType: WebAccessType}> = [];
+    const tool = registeredWebTool({onEvaluate: (url, accessType) => evaluations.push({url, accessType})});
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response("<html>ok</html>", {status: 200})) as typeof fetch;
+
+    try {
+      await tool.execute("search", {query: "pi tools"});
+      await tool.execute("read", {url: "https://example.com/docs"});
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(evaluations[0].accessType, WebAccessType.SEARCH);
+    assert.match(evaluations[0].url, /^https:\/\/duckduckgo\.com\/html\/\?q=pi\+tools|^https:\/\/duckduckgo\.com\/html\/\?q=pi%20tools/);
+    assert.deepEqual(evaluations[1], {url: "https://example.com/docs", accessType: WebAccessType.READ});
   });
 
   await test("web lookup passes cancellation signal to fetch", async () => {

@@ -28,6 +28,22 @@ test("host policy matches subdomains but not sibling domains", () => {
   assert.equal(policy.evaluate("https://badexample.com/a", WebAccessType.READ), null);
 });
 
+test("invalid or non-http URLs are denied", () => {
+  const policy = new WebPolicyLogic();
+
+  assertDenied(policy.evaluate("file:///etc/passwd", WebAccessType.READ, false));
+  assertDenied(policy.evaluate("not a url", WebAccessType.READ, false));
+});
+
+test("web path policies respect path segment boundaries", () => {
+  const policy = new WebPolicyLogic({
+    policies: [WebPolicyLogic.createPolicy("example.com", "/docs", WebAccessType.READ, PolicyLifetime.SESSION, PolicyStatus.ALLOWED, "docs ok")],
+  });
+
+  assertAllowed(policy.evaluate("https://example.com/docs/page", WebAccessType.READ));
+  assert.equal(policy.evaluate("https://example.com/docs2/page", WebAccessType.READ), null);
+});
+
 test("more specific host and path policy wins", () => {
   const policy = new WebPolicyLogic({
     policies: [
