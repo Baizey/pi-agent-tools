@@ -8,6 +8,7 @@ import {CodeExecEffectsReport, FsAccessType} from "../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
 import {toolNames} from "../../shared/toolNames";
 import {renderToolCallInput} from "../../shared/toolRendering";
+import {errorResult, successResult} from "../../shared/toolResults";
 import {stringValue} from "../../shared/values";
 import {ensurePathAllowed} from "../path-policy";
 import {analyzeCodeExecutionEffects} from "../code-exec-policy/analysis";
@@ -397,7 +398,7 @@ function compiledAdapter(
 async function detectExecutable(language: CodeLanguage, executables: string[], versionArgs: string[], modes: ExecutionMode[], notes?: string[]): Promise<RuntimeInfo> {
   const errors: string[] = [];
   for (const executable of executables) {
-    const result = await runProcess({command: executable, args: versionArgs, cwd: process.cwd()}, undefined, 5, undefined, true);
+    const result = await runProcess({command: executable, args: versionArgs, cwd: process.cwd()}, undefined, 5);
     if (result.spawnError) {
       errors.push(`${executable}: ${result.spawnError}`);
       continue;
@@ -419,7 +420,6 @@ function runProcess(
   stdin: string | undefined,
   timeoutSeconds: number,
   signal?: AbortSignal,
-  allowNonZero = false,
 ): Promise<{stdout: string; stderr: string; exitCode: number | null; timedOut: boolean; spawnError?: string}> {
   return new Promise<{stdout: string; stderr: string; exitCode: number | null; timedOut: boolean; spawnError?: string}>((resolve) => {
     let child;
@@ -456,7 +456,7 @@ function runProcess(
     child.on("close", (code) => finish(code));
     if (stdin !== undefined) child.stdin?.end(stdin);
     else child.stdin?.end();
-  }).then((result) => allowNonZero ? result : result);
+  });
 }
 
 function renderCodeExecCall(args: Record<string, unknown>, theme?: unknown) {
@@ -477,14 +477,6 @@ function renderCodeExecCall(args: Record<string, unknown>, theme?: unknown) {
     },
     invalidate(): void {},
   };
-}
-
-function successResult(text: string, details: Record<string, unknown>, isError = false) {
-  return {content: [{type: "text" as const, text}], details: isError ? {...details, error: true} : details, isError};
-}
-
-function errorResult(text: string, details: Record<string, unknown> = {}) {
-  return {content: [{type: "text" as const, text}], details: {...details, error: true}, isError: true};
 }
 
 function formatRuntimeInfo(runtimes: RuntimeInfo[]): string {

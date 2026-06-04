@@ -3,6 +3,7 @@ import {AgentServices} from "../../pi/runtime";
 import {FsAccessType, PolicyStatus, WebAccessType} from "../../policy/types";
 import {toolNames} from "../../shared/toolNames";
 import {renderToolCallInput} from "../../shared/toolRendering";
+import {errorResult as toolErrorResult, successResult} from "../../shared/toolResults";
 import {stringValue} from "../../shared/values";
 
 export enum PolicyInfoKind {
@@ -214,14 +215,6 @@ function webPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: 
   return successResult(JSON.stringify(evaluations, null, 2), {evaluations});
 }
 
-function successResult(text: string, details: Record<string, unknown>) {
-  return {content: [{type: "text" as const, text}], details};
-}
-
 function errorResult(message: string, details: Record<string, unknown> = {}) {
-  return {
-    content: [{type: "text" as const, text: message}],
-    details: {...details, error: true, status: PolicyStatus.DENIED},
-    isError: true,
-  };
+  return toolErrorResult(message, {...details, status: PolicyStatus.DENIED});
 }

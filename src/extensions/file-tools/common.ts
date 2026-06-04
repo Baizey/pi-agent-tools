@@ -1,7 +1,10 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import {ExtensionContext} from "../../pi/types";
+import {successResult, errorResult} from "../../shared/toolResults";
 import {stringValue} from "../../shared/values";
+
+export {successResult, errorResult};
 
 export type FileToolParams = Record<string, unknown>;
 
@@ -43,18 +46,6 @@ export function stringParam(description: string): Record<string, unknown> {
 
 export function booleanParam(description: string, defaultValue: boolean): Record<string, unknown> {
   return {type: "boolean", description, default: defaultValue};
-}
-
-export function successResult(text: string, details: Record<string, unknown>) {
-  return {content: [{type: "text" as const, text}], details};
-}
-
-export function errorResult(message: string, details: Record<string, unknown> = {}) {
-  return {
-    content: [{type: "text" as const, text: message}],
-    details: {...details, error: true},
-    isError: true,
-  };
 }
 
 export function errorMessage(error: unknown): string {

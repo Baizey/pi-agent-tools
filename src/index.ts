@@ -12,6 +12,7 @@ export * from "./policy/web/WebPolicyLogicStore";
 export * from "./shared/env";
 export * from "./shared/toolNames";
 export * from "./shared/toolRendering";
+export * from "./shared/toolResults";
 export * from "./extensions/code-exec";
 export * from "./extensions/code-exec-policy";
 export * from "./extensions/file-tools";

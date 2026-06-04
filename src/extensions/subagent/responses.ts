@@ -1,4 +1,7 @@
+import {errorResult, successResult} from "../../shared/toolResults";
 import {SubagentRequest, SubagentResult} from "./runner";
+
+export {errorResult, successResult};
 
 export function subagentResultResponse(
   request: SubagentRequest,
@@ -28,17 +31,3 @@ export function subagentResultResponse(
   };
 }
 
-export function successResult(text: string, details: Record<string, unknown> = {}) {
-  return {
-    content: [{type: "text" as const, text}],
-    details,
-  };
-}
-
-export function errorResult(message: string, details: Record<string, unknown> = {}) {
-  return {
-    content: [{type: "text" as const, text: message}],
-    details: {...details, error: true},
-    isError: true,
-  };
-}

@@ -16,7 +16,7 @@ export class WebPolicyLogicStore {
   save(policy: WebPolicyLogic): void {
     fs.mkdirSync(path.dirname(this.file), {recursive: true});
     const snapshot: WebPolicySnapshot = {
-      policies: policy.persistedPolicies().sort((left, right) => `${left.host}${left.path}`.localeCompare(`${right.host}${right.path}`)),
+      policies: policy.persistedPolicies().sort((left, right) => `${left.host}${left.path}${left.accessType}`.localeCompare(`${right.host}${right.path}${right.accessType}`)),
     };
     fs.writeFileSync(this.file, `${JSON.stringify(snapshot, null, 2)}\n`, {encoding: "utf8", mode: 0o600});
   }
