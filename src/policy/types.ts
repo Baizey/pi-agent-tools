@@ -57,6 +57,7 @@ export type ShellFlagPolicyStatus = {
 export type ShellPolicy = {
   commandArgs: string[];
   flags: Record<string, ShellFlagPolicyStatus>;
+  allowAllFlags: boolean;
   lifetime: PolicyLifetime;
   status: PolicyStatus;
   reason: string;
@@ -94,6 +95,7 @@ export type ShellPolicyScopeOption = {
   label: string;
   commandArgs: string[];
   flags: string[];
+  allowAllFlags?: boolean;
 };
 
 export type CodeExecMode = "inline" | "file";

@@ -21,11 +21,13 @@ export class ShellPolicyLogic {
     lifetime: PolicyLifetime,
     reason: string,
     flags: ShellFlagPolicyStatus[] = [],
+    allowAllFlags = false,
   ): ShellPolicy {
     const normalizedCommandArgs = Array.isArray(commandArgs) ? commandArgs : tokenizeShellSegment(commandArgs).map((token) => token.value);
     return {
       commandArgs: normalizedCommandArgs,
       flags: Object.fromEntries(flags.map((flag) => [flag.flag, { ...flag }])),
+      allowAllFlags,
       lifetime,
       status,
       reason,
@@ -79,7 +81,7 @@ export class ShellPolicyLogic {
     lifetime: PolicyLifetime,
     reason: string,
   ): ShellPolicy {
-    const existingCommandPolicy = scope.flags.length > 0
+    const existingCommandPolicy = scope.flags.length > 0 || scope.allowAllFlags
       ? this.policies.findExactPolicy(scope.commandArgs) ?? this.policies.findCommandPolicy(scope.commandArgs)
       : undefined;
 
@@ -89,6 +91,7 @@ export class ShellPolicyLogic {
       existingCommandPolicy?.lifetime ?? lifetime,
       existingCommandPolicy?.reason ?? reason,
       scope.flags.map((flag) => ShellPolicyLogic.createFlagStatus(flag, status, lifetime, reason)),
+      scope.allowAllFlags === true || existingCommandPolicy?.allowAllFlags === true,
     );
   }
 
@@ -128,10 +131,11 @@ export class ShellPolicyLogic {
     if (!parsed) return [];
 
     const commandPolicy = this.policies.findCommandPolicy(parsed.commandPrefix);
-    if (!commandPolicy) return this.commandScopeOptions(parsed.commandPrefix);
+    if (!commandPolicy) return this.commandScopeOptions(parsed.commandPrefix, parsed.commandPrefix.length > 1);
     if (commandPolicy.status === PolicyStatus.DENIED) return [];
 
     const exactFlagPolicy = this.policies.findExactPolicy(parsed.commandPrefix);
+    if (exactFlagPolicy?.allowAllFlags) return [];
     const unknownFlags = parsed.flags.filter((flag) => !exactFlagPolicy?.flags[flag]);
     if (unknownFlags.length === 0) return [];
     return this.flagScopeOptions(parsed.commandPrefix, unknownFlags);
@@ -147,7 +151,7 @@ export class ShellPolicyLogic {
     };
   }
 
-  private commandScopeOptions(commandPrefix: string[]): ShellPolicyScopeOption[] {
+  private commandScopeOptions(commandPrefix: string[], includeAllFlagsOption: boolean): ShellPolicyScopeOption[] {
     const options: ShellPolicyScopeOption[] = [];
     for (let size = commandPrefix.length; size >= 1; size--) {
       const scopedCommand = commandPrefix.slice(0, size);
@@ -156,16 +160,32 @@ export class ShellPolicyLogic {
         commandArgs: scopedCommand,
         flags: [],
       });
+      if (includeAllFlagsOption && size === commandPrefix.length) {
+        options.push({
+          label: `${scopedCommand.join(" ")} | with all flags allowed`,
+          commandArgs: scopedCommand,
+          flags: [],
+          allowAllFlags: true,
+        });
+      }
     }
     return options;
   }
 
   private flagScopeOptions(commandPrefix: string[], flags: string[]): ShellPolicyScopeOption[] {
-    return flags.map((flag) => ({
-      label: `${commandPrefix.join(" ")} flag ${flag}`,
-      commandArgs: commandPrefix,
-      flags: [flag],
-    }));
+    return [
+      ...flags.map((flag) => ({
+        label: `${commandPrefix.join(" ")} flag ${flag}`,
+        commandArgs: commandPrefix,
+        flags: [flag],
+      })),
+      {
+        label: `${commandPrefix.join(" ")} | with all flags allowed`,
+        commandArgs: commandPrefix,
+        flags: [],
+        allowAllFlags: true,
+      },
+    ];
   }
 
   private evaluateTokens(rawSegment: string, tokens: ShellToken[], denyByDefault: boolean): ShellSegmentPolicyResult | null {
@@ -189,9 +209,11 @@ export class ShellPolicyLogic {
 
     const commandPolicy = this.policies.findCommandPolicy(commandPrefix);
     const exactFlagPolicy = this.policies.findExactPolicy(commandPrefix);
-    const resolvedFlagResults = flagTokens.map(
-      (flag) => exactFlagPolicy?.flags[flag] ? { ...exactFlagPolicy.flags[flag] } : this.defaultFlagStatus(flag, denyByDefault),
-    );
+    const resolvedFlagResults = flagTokens.map((flag) => {
+      if (exactFlagPolicy?.flags[flag]) return { ...exactFlagPolicy.flags[flag] };
+      if (exactFlagPolicy?.allowAllFlags) return this.allFlagsAllowedStatus(flag, exactFlagPolicy);
+      return this.defaultFlagStatus(flag, denyByDefault);
+    });
 
     if (!commandPolicy) {
       if (!denyByDefault) return null;
@@ -246,6 +268,15 @@ export class ShellPolicyLogic {
       reason: denyByDefault
         ? "No matching shell flag policy found. denied by default, you cannot execute this."
         : "No matching shell flag policy found. Ask for permission if you want to proceed.",
+    };
+  }
+
+  private allFlagsAllowedStatus(flag: string, policy: ShellPolicy): ShellFlagPolicyStatus {
+    return {
+      flag,
+      lifetime: policy.lifetime,
+      status: PolicyStatus.ALLOWED,
+      reason: `All flags are allowed for '${policy.commandArgs.join(" ")}'. ${policy.reason}`.trim(),
     };
   }
 
@@ -311,6 +342,7 @@ export class ShellPolicyLogic {
     return {
       commandArgs: policy.commandArgs.map((it) => it.trim()).filter(Boolean),
       flags,
+      allowAllFlags: policy.allowAllFlags === true,
       lifetime: policy.lifetime,
       status: policy.status,
       reason: policy.reason.trim(),
@@ -356,6 +388,7 @@ class ShellPolicyTree {
       stored.lifetime = policy.lifetime;
       stored.status = policy.status;
       stored.reason = policy.reason;
+      stored.allowAllFlags = policy.allowAllFlags;
       for (const incoming of Object.values(policy.flags)) stored.flags[incoming.flag] = { ...incoming };
     }
   }
@@ -468,7 +501,7 @@ const tokenizeShellSegment = (input: string): ShellToken[] => {
   return tokens;
 };
 
-const isFlag = (input: string): boolean => input.startsWith("-") && input !== "-" && input !== "--";
+const isFlag = (input: string): boolean => /^--?[a-zA-Z]/.test(input);
 
 const hasUnsafeShellSyntax = (rawSegment: string, tokens: ShellToken[]): boolean =>
   hasUnsafeRawShellSyntax(rawSegment) || hasUnsafeBashCommand(tokens);
@@ -632,13 +665,14 @@ const isUnmatchedShellFlag = (flag: ShellFlagPolicyStatus): boolean =>
 const clonePolicy = (policy: ShellPolicy): ShellPolicy => ({
   commandArgs: [...policy.commandArgs],
   flags: Object.fromEntries(Object.entries(policy.flags).map(([flag, status]) => [flag, { ...status }])),
+  allowAllFlags: policy.allowAllFlags,
   lifetime: policy.lifetime,
   status: policy.status,
   reason: policy.reason,
 });
 
 const describePolicy = (policy: ShellPolicy): string => {
-  const command = `${policy.commandArgs.join(" ")}: ${policy.status}, Time: ${policy.lifetime}, Reason: ${policy.reason || "<none>"}`;
+  const command = `${policy.commandArgs.join(" ")}: ${policy.status}, Time: ${policy.lifetime}, All flags: ${policy.allowAllFlags ? "allowed" : "restricted"}, Reason: ${policy.reason || "<none>"}`;
   const flags = Object.values(policy.flags)
     .map((it) => `${it.flag}: ${it.status}, Time: ${it.lifetime}, Reason: ${it.reason || "<none>"}`)
     .join("\n");

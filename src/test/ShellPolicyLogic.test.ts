@@ -78,6 +78,7 @@ test("pending policy scope options ask for command base before flags", () => {
 
   assert.deepEqual(logic.pendingPolicyScopeOptions("git --version"), [
     { label: "git flag --version", commandArgs: ["git"], flags: ["--version"] },
+    { label: "git | with all flags allowed", commandArgs: ["git"], flags: [], allowAllFlags: true },
   ]);
 });
 
@@ -86,6 +87,7 @@ test("pending policy scope options target the first unknown segment only", () =>
 
   assert.deepEqual(logic.pendingPolicyScopeOptions("git --version && pwd"), [
     { label: "git flag --version", commandArgs: ["git"], flags: ["--version"] },
+    { label: "git | with all flags allowed", commandArgs: ["git"], flags: [], allowAllFlags: true },
   ]);
 
   logic.addPolicies([
@@ -111,7 +113,37 @@ test("flags are scoped to exact command context", () => {
   assert.equal(logic.evaluate("git status -m message", false), null);
   assert.deepEqual(logic.pendingPolicyScopeOptions("git status -m message"), [
     { label: "git status flag -m", commandArgs: ["git", "status"], flags: ["-m"] },
+    { label: "git status | with all flags allowed", commandArgs: ["git", "status"], flags: [], allowAllFlags: true },
   ]);
+});
+
+test("all flags approval applies to exact command context", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("git", "status"), allowCommand("git", "commit")] });
+
+  logic.addPolicies([
+    logic.createPolicyForScope(
+      { label: "git status | with all flags allowed", commandArgs: ["git", "status"], flags: [], allowAllFlags: true },
+      PolicyStatus.ALLOWED,
+      PolicyLifetime.SESSION,
+      "git status flags allowed",
+    ),
+  ]);
+
+  assertAllowed(logic.evaluate("git status --short -b --untracked-files=all", true));
+  assertDenied(logic.evaluate("git commit --amend", true));
+});
+
+test("explicit denied flags beat all flags approval", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("git", "status")] });
+
+  logic.addPolicies([
+    ShellPolicyLogic.createPolicy("git status", PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "git status allowed", [
+      ShellPolicyLogic.createFlagStatus("--porcelain", PolicyStatus.DENIED, PolicyLifetime.SESSION, "porcelain denied"),
+    ], true),
+  ]);
+
+  assertAllowed(logic.evaluate("git status --short", true));
+  assertDenied(logic.evaluate("git status --porcelain", true));
 });
 
 test("runtime addPolicies updates an existing command policy", () => {
@@ -283,10 +315,12 @@ test("known command core words remain minimal and explicit", () => {
 
   assert.deepEqual(logic.pendingPolicyScopeOptions("git ls-files"), [
     { label: "git ls-files", commandArgs: ["git", "ls-files"], flags: [] },
+    { label: "git ls-files | with all flags allowed", commandArgs: ["git", "ls-files"], flags: [], allowAllFlags: true },
     { label: "git", commandArgs: ["git"], flags: [] },
   ]);
   assert.deepEqual(logic.pendingPolicyScopeOptions("gh clone owner/repo"), [
     { label: "gh clone", commandArgs: ["gh", "clone"], flags: [] },
+    { label: "gh clone | with all flags allowed", commandArgs: ["gh", "clone"], flags: [], allowAllFlags: true },
     { label: "gh", commandArgs: ["gh"], flags: [] },
   ]);
 });

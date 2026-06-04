@@ -90,7 +90,7 @@ function sanitizeShellPolicy(value: unknown): ShellPolicy | null {
     rawFlags.map(sanitizeShellFlagPolicyStatus).filter((it): it is ShellFlagPolicyStatus => it !== null).map((it) => [it.flag, it]),
   );
 
-  return {commandArgs, flags, status: value.status, lifetime: value.lifetime, reason: value.reason};
+  return {commandArgs, flags, allowAllFlags: value.allowAllFlags === true, status: value.status, lifetime: value.lifetime, reason: value.reason};
 }
 
 function sanitizeShellFlagPolicyStatus(value: unknown): ShellFlagPolicyStatus | null {
