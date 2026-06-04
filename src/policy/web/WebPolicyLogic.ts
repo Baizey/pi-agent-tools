@@ -151,7 +151,7 @@ function standardizePolicy(policy: WebPolicy): WebPolicy {
 }
 
 function normalizeHost(host: string): string {
-  return host.trim().toLowerCase().replace(/^\.+|\.+$/g, "");
+  return host.trim().toLowerCase().replace(/^\.+|\.+$/g, "").replace(/^www\./, "");
 }
 
 function normalizePath(path: string): string {
@@ -171,7 +171,7 @@ function pathMatches(candidate: string, parent: string): boolean {
 function scopesForHost(host: string): string[] {
   const parts = host.split(".").filter(Boolean);
   const scopes: string[] = [];
-  const minimumLabels = Math.min(2, parts.length);
+  const minimumLabels = 1;
   for (let index = 0; index <= parts.length - minimumLabels; index++) scopes.push(parts.slice(index).join("."));
   return scopes;
 }
@@ -197,5 +197,5 @@ function internalScopeLabel(host: string, path: string): string {
 }
 
 function displayScopeLabel(host: string, path: string): string {
-  return `https://${host}${path === "/" ? "/" : path}`;
+  return path === "/" ? host : `${host}${path}`;
 }

@@ -170,7 +170,7 @@ Code execution uses direct process spawning with language adapters. Compiled lan
 - `SEARCH` for DuckDuckGo HTML searches
 - `READ` for fetching a URL
 
-Web policy uses normalized URL paths and host hierarchy. A host-level policy can match subdomains, while more specific host/path policies take precedence. UI prompts display normal scopes such as `https://example.com/path`.
+Web policy uses normalized domains and URL paths, ignoring scheme and query string. Leading `www.` is stripped. A domain-level policy can match subdomains, while more specific domain/path policies take precedence. UI prompts display scopes as `domain/path`, such as `example.com/docs`, and root path scopes as the bare domain, such as `example.com`.
 
 ## Subagents
 

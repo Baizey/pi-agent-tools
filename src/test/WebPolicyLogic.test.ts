@@ -12,7 +12,7 @@ function assertDenied(result: ReturnType<WebPolicyLogic["evaluate"]>) {
 }
 
 test("web URL policy path reverses host and keeps URL path order", () => {
-  assert.equal(webPolicyPathForUrl("https://www.subdomain.domain.co.uk/my/path/to?param=2"), "uk/co/domain/subdomain/www/my/path/to");
+  assert.equal(webPolicyPathForUrl("https://www.subdomain.domain.co.uk/my/path/to?param=2"), "uk/co/domain/subdomain/my/path/to");
 });
 
 test("unknown web URL returns null when not denying by default", () => {
@@ -66,11 +66,14 @@ test("web access types are independent", () => {
 test("pending web scopes start exact and broaden path before host", () => {
   const policy = new WebPolicyLogic();
   assert.deepEqual(policy.pendingPolicyScopeOptions("https://sub.example.com/a/b", WebAccessType.READ).map((it) => it.label), [
-    "READ https://sub.example.com/a/b",
-    "READ https://sub.example.com/a",
-    "READ https://sub.example.com/",
-    "READ https://example.com/a/b",
-    "READ https://example.com/a",
-    "READ https://example.com/",
+    "READ sub.example.com/a/b",
+    "READ sub.example.com/a",
+    "READ sub.example.com",
+    "READ example.com/a/b",
+    "READ example.com/a",
+    "READ example.com",
+    "READ com/a/b",
+    "READ com/a",
+    "READ com",
   ]);
 });
