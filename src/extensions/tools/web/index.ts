@@ -1,11 +1,11 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
-import {PolicyLifetime, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult} from "../../../policy/types";
+import {PolicyLifetime, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
-import {askPolicyApproval, isPolicyApprovalFailure} from "../../shared/policy-approval";
+import {UiDecision, UiDecisionFlowManager} from "../../policy/ui-flow";
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";
@@ -105,26 +105,107 @@ async function askForWebPolicy(
   const scopeOptions = runtime.webPolicy.pendingPolicyScopeOptions(url, accessType);
   if (scopeOptions.length === 0) return failed(`No web policy scope could be inferred for '${url}'.`);
 
-  const approval = await askPolicyApproval(ctx, {
-    policyKind: "web",
-    target: `${accessType} ${url}`,
-    scopes: scopeOptions.map((scope) => ({label: scope.label, value: scope})),
-    context: [`Access type: ${accessType}`, `URL: ${url}`],
-    scopePrompt: `Policy scope for ${accessType} ${url}`,
-    statusPrompt: () => `No ${accessType} web policy for ${url}`,
-    lifetimePrompt: "Web policy lifetime",
-    defaultReason: (status) => `User selected ${status} for web ${accessType}.`,
-    denyReasonPrompt: "Reason for denying this web policy (optional)",
-  });
-  if (isPolicyApprovalFailure(approval)) return failed(`Web access denied: ${approval.deniedReason}`);
+  const approval = await askWebPolicyWithFlow(ctx, url, accessType, scopeOptions);
 
-  const scope = approval.scope.value;
+  const scope = approval.scope;
   const policy = runtime.webPolicy.createPolicyForScope(scope, approval.lifetime, approval.status, approval.reason);
   runtime.webPolicy.addPolicies([policy]);
   if (approval.lifetime === PolicyLifetime.ONCE) oneShotPolicies.push({host: scope.host, path: scope.path, accessType: scope.accessType});
   else if (approval.lifetime === PolicyLifetime.FOREVER) runtime.webPolicyStore.save(runtime.webPolicy);
 
   return runtime.webPolicy.evaluate(url, accessType, true) ?? failed("Web policy could not be resolved.");
+}
+
+type WebPolicyApproval = {
+  scope: WebPolicyScopeOption;
+  status: PolicyStatus;
+  lifetime: PolicyLifetime;
+  reason: string;
+};
+
+async function askWebPolicyWithFlow(
+  ctx: ExtensionContext,
+  url: string,
+  accessType: WebAccessType,
+  scopes: WebPolicyScopeOption[],
+): Promise<WebPolicyApproval> {
+  const defaultReason = (status: PolicyStatus) => `User selected ${status} for web ${accessType}.`;
+  const onCancelReturn = (state: Partial<WebPolicyApproval>): WebPolicyApproval => ({
+    scope: state.scope ?? scopes[0],
+    status: PolicyStatus.DENIED,
+    lifetime: PolicyLifetime.ONCE,
+    reason: `Web access denied: ${webFlowCancelReason(state)}`,
+  });
+
+  const scopeDecision = {
+    type: "select",
+    key: "scope",
+    title: () => `Policy scope for ${accessType} ${url}`,
+    showAiHelpOption: false,
+    options: scopes.map((scope) => ({
+      title: () => scope.label,
+      value: scope,
+      next: () => "status",
+    })),
+  } satisfies UiDecision<WebPolicyApproval>;
+
+  const statusDecision = {
+    type: "select",
+    key: "status",
+    title: () => [
+      `No ${accessType} web policy for ${url}`,
+      `Approval target: ${accessType} ${url}`,
+    ].join("\n"),
+    showAiHelpOption: false,
+    options: [
+      {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
+      {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
+    ],
+  } satisfies UiDecision<WebPolicyApproval>;
+
+  const lifetimeDecision = {
+    type: "select",
+    key: "lifetime",
+    title: () => [
+      "Web policy lifetime",
+      `Approval target: ${accessType} ${url}`,
+    ].join("\n"),
+    showAiHelpOption: false,
+    options: [
+      {title: () => PolicyLifetime.ONCE, value: PolicyLifetime.ONCE, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: () => PolicyLifetime.SESSION, value: PolicyLifetime.SESSION, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: () => PolicyLifetime.FOREVER, value: PolicyLifetime.FOREVER, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+    ],
+  } satisfies UiDecision<WebPolicyApproval>;
+
+  const reasonDecision = {
+    type: "input",
+    key: "reason",
+    title: () => [
+      "Reason for denying this web policy (optional)",
+      `Approval target: ${accessType} ${url}`,
+    ].join("\n"),
+    placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
+    next: () => null,
+  } satisfies UiDecision<WebPolicyApproval>;
+
+  const approval = await new UiDecisionFlowManager(ctx).runFlow(
+    scopeDecision,
+    {scope: scopeDecision, status: statusDecision, lifetime: lifetimeDecision, reason: reasonDecision},
+    onCancelReturn,
+  );
+
+  return {
+    ...approval,
+    reason: approval.reason || defaultReason(approval.status),
+  };
+}
+
+function webFlowCancelReason(state: Partial<WebPolicyApproval>): string {
+  if (!state.scope) return "No web policy scope selected.";
+  if (!state.status) return "No web policy decision selected.";
+  if (!state.lifetime) return "No web policy lifetime selected.";
+  return "No web policy reason selected.";
 }
 
 async function fetchText(url: string, signal?: AbortSignal): Promise<string> {

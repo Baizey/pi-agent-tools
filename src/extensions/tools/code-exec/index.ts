@@ -11,7 +11,7 @@ import {stringValue} from "../../../shared/values";
 import {ensurePathAllowed} from "../../policy/path-policy";
 import {adapters, detect, detectAllRuntimes} from "./adapters";
 import {analyzeCodeExecutionEffects} from "./analysis";
-import {ensureCodeExecAllowed} from "./approval";
+import {CodeExecApprovalInput, ensureCodeExecAllowed} from "./approval";
 import {codeApprovalContext, contextForCwd, executeCodeParameters, isLanguage, parseInput} from "./input";
 import {runProcess} from "./process";
 import {formatRuntimeInfo, formatRunSummary, renderCodeExecCall} from "./rendering";
@@ -54,16 +54,18 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
         return effectsReport;
       };
 
+      const input = {
+        parsed,
+        language: parsed.language,
+        mode: parsed.mode,
+        context: codeApprovalContext(parsed),
+        loadEffectsReport,
+        onEffectsReport: (report) => { effectsReport = report; },
+      } satisfies CodeExecApprovalInput
       const codeExecReason = await ensureCodeExecAllowed(
         effectiveCtx,
         runtime,
-        {
-          language: parsed.language,
-          mode: parsed.mode,
-          context: codeApprovalContext(parsed),
-          loadEffectsReport,
-          onEffectsReport: (report) => { effectsReport = report; },
-        },
+          input,
         isAgentEnvEnabled(agentEnv.codeExecDenyByDefault),
       );
       if (codeExecReason) return errorResult(codeExecReason, {blocked: true, effectsReport: effectsReport ?? null});
