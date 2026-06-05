@@ -10,6 +10,7 @@ export * from "./policy/shell/ShellPolicyLogicStore";
 export * from "./policy/web/WebPolicyLogic";
 export * from "./policy/web/WebPolicyLogicStore";
 export * from "./shared/env";
+export * from "./storage";
 export * from "./shared/toolNames";
 export * from "./shared/toolRendering";
 export * from "./shared/toolResults";

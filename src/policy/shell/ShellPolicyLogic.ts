@@ -594,48 +594,7 @@ const isFileLikeArgument = (value: string): boolean => /(?:^|[^.])\.[a-zA-Z0-9]{
 
 const isSimpleCommandWord = (value: string): boolean => /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(value);
 
-const knownSubcommandsByExecutable: Record<string, Set<string>> = {
-  git: new Set([
-    "add",
-    "am",
-    "apply",
-    "bisect",
-    "blame",
-    "branch",
-    "checkout",
-    "cherry-pick",
-    "clean",
-    "clone",
-    "commit",
-    "diff",
-    "fetch",
-    "grep",
-    "init",
-    "log",
-    "ls-files",
-    "merge",
-    "mv",
-    "pull",
-    "push",
-    "rebase",
-    "remote",
-    "reset",
-    "restore",
-    "revert",
-    "rm",
-    "show",
-    "stash",
-    "status",
-    "submodule",
-    "switch",
-    "tag",
-    "worktree",
-  ]),
-  gh: new Set(["auth", "browse", "clone", "gist", "issue", "pr", "repo", "release", "run", "workflow"]),
-  npm: new Set(["ci", "exec", "install", "link", "publish", "run", "test", "uninstall", "update"]),
-  pnpm: new Set(["add", "build", "dlx", "exec", "install", "publish", "remove", "run", "test", "update"]),
-  yarn: new Set(["add", "build", "dlx", "exec", "install", "publish", "remove", "run", "test", "upgrade"]),
-};
+const subcommandFirstExecutables = new Set(["docker", "gh", "git", "npm", "pnpm", "yarn"]);
 
 const commandPrefixFor = (tokens: ShellToken[]): string[] => {
   const executable = tokens[0]?.value;
@@ -643,10 +602,9 @@ const commandPrefixFor = (tokens: ShellToken[]): string[] => {
 
   const commandPrefix = [executable];
   const executableName = executable.split(/[\\/]/).pop()?.toLowerCase() ?? executable.toLowerCase();
-  const knownSubcommands = knownSubcommandsByExecutable[executableName];
   const firstArgument = tokens[1];
 
-  if (isCommandCoreArgument(firstArgument) && knownSubcommands?.has(firstArgument.value.toLowerCase())) {
+  if (subcommandFirstExecutables.has(executableName) && isCommandCoreArgument(firstArgument)) {
     commandPrefix.push(firstArgument.value);
   }
 

@@ -11,8 +11,8 @@ import {renderToolCallInput} from "../../shared/toolRendering";
 import {errorResult, successResult} from "../../shared/toolResults";
 import {stringValue} from "../../shared/values";
 import {ensurePathAllowed} from "../path-policy";
-import {analyzeCodeExecutionEffects} from "../code-exec-policy/analysis";
-import {ensureCodeExecAllowed} from "../code-exec-policy/approval";
+import {analyzeCodeExecutionEffects} from "../code-exec-policy";
+import {ensureCodeExecAllowed} from "../code-exec-policy";
 
 const languages = [
   "javascript",

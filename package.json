@@ -19,8 +19,12 @@
     "policy"
   ],
   "pi": {
-    "extensions": ["./src/extension.ts"],
-    "themes": ["./themes"]
+    "extensions": [
+      "./src/extension.ts"
+    ],
+    "themes": [
+      "./themes"
+    ]
   },
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
@@ -28,8 +32,12 @@
     "test": "npm run build && node scripts/run-tests.js"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
     "typescript": "^6.0.3"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "better-sqlite3": "^12.10.0"
+  }
 }

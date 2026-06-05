@@ -84,6 +84,33 @@ test("pending policy scope options ask for command base before flags", () => {
   ]);
 });
 
+test("shell approval flow asks for command before flags and stops after command denial", () => {
+  const command = "git diff --stat";
+  const logic = new ShellPolicyLogic();
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions(command), [
+    { label: "git diff", commandArgs: ["git", "diff"], flags: [] },
+    { label: "git diff | with all flags allowed", commandArgs: ["git", "diff"], flags: [], allowAllFlags: true },
+    { label: "git", commandArgs: ["git"], flags: [] },
+  ]);
+
+  const allowedCommand = new ShellPolicyLogic();
+  allowedCommand.addPolicies([
+    ShellPolicyLogic.createPolicy("git diff", PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "git diff allowed"),
+  ]);
+  assert.deepEqual(allowedCommand.pendingPolicyScopeOptions(command), [
+    { label: "git diff flag --stat", commandArgs: ["git", "diff"], flags: ["--stat"] },
+    { label: "git diff | with all flags allowed", commandArgs: ["git", "diff"], flags: [], allowAllFlags: true },
+  ]);
+
+  const deniedCommand = new ShellPolicyLogic();
+  deniedCommand.addPolicies([
+    ShellPolicyLogic.createPolicy("git diff", PolicyStatus.DENIED, PolicyLifetime.SESSION, "git diff denied"),
+  ]);
+  assertDenied(deniedCommand.evaluate(command, false));
+  assert.deepEqual(deniedCommand.pendingPolicyScopeOptions(command), []);
+});
+
 test("pending policy scope options target the first unknown segment only", () => {
   const logic = new ShellPolicyLogic({ policies: [allowCommand("git")] });
 
@@ -312,6 +339,15 @@ test("double dash stops flag inference", () => {
   assertAllowed(logic.evaluate("rg -- -literal-pattern", true));
 });
 
+test("global flags before subcommands are treated as flags, not command core", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("docker")] });
+
+  assert.deepEqual(logic.pendingPolicyScopeOptions("docker --context desktop-linux ps"), [
+    { label: "docker flag --context", commandArgs: ["docker"], flags: ["--context"] },
+    { label: "docker | with all flags allowed", commandArgs: ["docker"], flags: [], allowAllFlags: true },
+  ]);
+});
+
 test("known command core words remain minimal and explicit", () => {
   const logic = new ShellPolicyLogic();
 
@@ -324,6 +360,11 @@ test("known command core words remain minimal and explicit", () => {
     { label: "gh clone", commandArgs: ["gh", "clone"], flags: [] },
     { label: "gh clone | with all flags allowed", commandArgs: ["gh", "clone"], flags: [], allowAllFlags: true },
     { label: "gh", commandArgs: ["gh"], flags: [] },
+  ]);
+  assert.deepEqual(logic.pendingPolicyScopeOptions("docker ps"), [
+    { label: "docker ps", commandArgs: ["docker", "ps"], flags: [] },
+    { label: "docker ps | with all flags allowed", commandArgs: ["docker", "ps"], flags: [], allowAllFlags: true },
+    { label: "docker", commandArgs: ["docker"], flags: [] },
   ]);
 });
 
