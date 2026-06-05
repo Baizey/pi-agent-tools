@@ -1,4 +1,4 @@
-import {FsAccessType} from "../../policy/types";
+import {FsAccessType} from "../../../policy/types";
 
 export type BashPathAccess = {
   path: string;

@@ -1,6 +1,6 @@
-import {PiExtensionApi} from "../../pi/types";
-import {toolNames, ToolName} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
+import {PiExtensionApi} from "../../../pi/types";
+import {toolNames, ToolName} from "../../../shared/toolNames";
+import {renderToolCallInput} from "../../../shared/toolRendering";
 import {booleanParam, objectSchema, stringParam} from "./common";
 import {copyPath, deletePath, makeDirectory, movePath, statPath} from "./operations";
 

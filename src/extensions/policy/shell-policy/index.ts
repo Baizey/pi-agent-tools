@@ -1,8 +1,8 @@
-import {ExtensionContext, PiExtensionApi} from "../../pi/types";
-import {AgentRuntime, AgentServices} from "../../pi/runtime";
-import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
-import {toolNames} from "../../shared/toolNames";
-import {stringValue} from "../../shared/values";
+import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
+import {AgentRuntime, AgentServices} from "../../../pi/runtime";
+import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
+import {toolNames} from "../../../shared/toolNames";
+import {stringValue} from "../../../shared/values";
 import {ensurePathAllowed} from "../path-policy";
 import {ensureShellAllowed} from "./approval";
 import {bashPathAccesses} from "./bash-paths";

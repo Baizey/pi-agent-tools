@@ -1,11 +1,11 @@
-import {ExtensionContext, PiExtensionApi} from "../../pi/types";
-import {AgentRuntime, AgentServices} from "../../pi/runtime";
-import {PolicyLifetime, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult} from "../../policy/types";
-import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
-import {toolNames} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
-import {stringValue} from "../../shared/values";
-import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
+import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
+import {AgentRuntime, AgentServices} from "../../../pi/runtime";
+import {PolicyLifetime, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult} from "../../../policy/types";
+import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
+import {toolNames} from "../../../shared/toolNames";
+import {renderToolCallInput} from "../../../shared/toolRendering";
+import {stringValue} from "../../../shared/values";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../../shared/policy-approval";
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";

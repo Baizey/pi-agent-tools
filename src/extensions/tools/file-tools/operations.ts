@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import {ExtensionContext} from "../../pi/types";
+import {ExtensionContext} from "../../../pi/types";
 import {
   errorMessage,
   errorResult,

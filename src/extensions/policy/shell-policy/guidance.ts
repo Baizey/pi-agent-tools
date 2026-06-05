@@ -1,5 +1,5 @@
-import {PiExtensionApi} from "../../pi/types";
-import {toolNames} from "../../shared/toolNames";
+import {PiExtensionApi} from "../../../pi/types";
+import {toolNames} from "../../../shared/toolNames";
 
 export function registerBashPromptGuidance(pi: PiExtensionApi): void {
   pi.on("before_agent_start", (event) => {

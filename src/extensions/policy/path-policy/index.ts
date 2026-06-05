@@ -1,13 +1,13 @@
 import path from "node:path";
-import {PiExtensionApi, ExtensionContext} from "../../pi/types";
-import {AgentRuntime, AgentServices} from "../../pi/runtime";
-import {PathPolicyLogic} from "../../policy/path/PathPolicyLogic";
-import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../../policy/types";
-import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
-import {standardizePath} from "../../shared/paths";
-import {toolNames} from "../../shared/toolNames";
-import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
-import {stringValues} from "../../shared/values";
+import {PiExtensionApi, ExtensionContext} from "../../../pi/types";
+import {AgentRuntime, AgentServices} from "../../../pi/runtime";
+import {PathPolicyLogic} from "../../../policy/path/PathPolicyLogic";
+import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../../../policy/types";
+import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
+import {standardizePath} from "../../../shared/paths";
+import {toolNames} from "../../../shared/toolNames";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../../shared/policy-approval";
+import {stringValues} from "../../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {
   pi.on("tool_call", async (event, ctx) => {

@@ -1,6 +1,6 @@
-import {ExtensionContext} from "../../pi/types";
-import {agentEnv} from "../../shared/env";
-import {agentModelProfiles, resolveAgentModelProfile, subagentProfileNames, runSyncSubagent} from "../subagent";
+import {ExtensionContext} from "../../../pi/types";
+import {agentEnv} from "../../../shared/env";
+import {agentModelProfiles, resolveAgentModelProfile, subagentProfileNames, runSyncSubagent} from "../../subagent";
 
 const bashSummariesByCommand = new Map<string, string>();
 const bashScopeDescriptionsByCommand = new Map<string, Map<string, string>>();

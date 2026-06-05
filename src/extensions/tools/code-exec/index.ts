@@ -2,17 +2,17 @@ import {spawn} from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {ExtensionContext, PiExtensionApi} from "../../pi/types";
-import {AgentServices} from "../../pi/runtime";
-import {CodeExecEffectsReport, FsAccessType} from "../../policy/types";
-import {agentEnv, isAgentEnvEnabled} from "../../shared/env";
-import {toolNames} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
-import {errorResult, successResult} from "../../shared/toolResults";
-import {stringValue} from "../../shared/values";
-import {ensurePathAllowed} from "../path-policy";
-import {analyzeCodeExecutionEffects} from "../code-exec-policy";
-import {ensureCodeExecAllowed} from "../code-exec-policy";
+import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
+import {AgentServices} from "../../../pi/runtime";
+import {CodeExecEffectsReport, FsAccessType} from "../../../policy/types";
+import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
+import {toolNames} from "../../../shared/toolNames";
+import {renderToolCallInput} from "../../../shared/toolRendering";
+import {errorResult, successResult} from "../../../shared/toolResults";
+import {stringValue} from "../../../shared/values";
+import {ensurePathAllowed} from "../../policy/path-policy";
+import {analyzeCodeExecutionEffects} from "./analysis";
+import {ensureCodeExecAllowed} from "./approval";
 
 const languages = [
   "javascript",

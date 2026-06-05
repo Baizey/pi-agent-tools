@@ -1,5 +1,5 @@
-import {ExtensionContext} from "../pi/types";
-import {PolicyLifetime, PolicyStatus} from "../policy/types";
+import {ExtensionContext} from "../../pi/types";
+import {PolicyLifetime, PolicyStatus} from "../../policy/types";
 
 export type PolicyApprovalScope<T> = {
   label: string;

@@ -1,9 +1,9 @@
-import {ExtensionContext} from "../../pi/types";
-import {AgentRuntime} from "../../pi/runtime";
-import {CodeExecMode, CodeExecPolicyDeleteRequest, CodeExecPolicyResult, PolicyLifetime, PolicyStatus} from "../../policy/types";
-import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
+import {ExtensionContext} from "../../../pi/types";
+import {AgentRuntime} from "../../../pi/runtime";
+import {CodeExecMode, CodeExecPolicyDeleteRequest, CodeExecPolicyResult, PolicyLifetime, PolicyStatus} from "../../../policy/types";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../../shared/policy-approval";
 import {formatEffectsReport} from "./analysis";
-import type {CodeExecEffectsReport} from "../../policy/types";
+import type {CodeExecEffectsReport} from "../../../policy/types";
 
 export async function ensureCodeExecAllowed(
   ctx: ExtensionContext,

@@ -1,7 +1,7 @@
-import {ExtensionContext} from "../../pi/types";
-import {AgentRuntime} from "../../pi/runtime";
-import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../policy/types";
-import {askPolicyApproval, isPolicyApprovalFailure} from "../policy-approval";
+import {ExtensionContext} from "../../../pi/types";
+import {AgentRuntime} from "../../../pi/runtime";
+import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult} from "../../../policy/types";
+import {askPolicyApproval, isPolicyApprovalFailure} from "../../shared/policy-approval";
 import {describeShellPolicyScopes, getBashSummary, summarizeCommandForApproval} from "./approval-descriptions";
 
 export async function ensureShellAllowed(

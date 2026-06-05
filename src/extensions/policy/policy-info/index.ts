@@ -1,10 +1,10 @@
-import {PiExtensionApi} from "../../pi/types";
-import {AgentServices} from "../../pi/runtime";
-import {FsAccessType, PolicyStatus, WebAccessType} from "../../policy/types";
-import {toolNames} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
-import {errorResult as toolErrorResult, successResult} from "../../shared/toolResults";
-import {stringValue} from "../../shared/values";
+import {PiExtensionApi} from "../../../pi/types";
+import {AgentServices} from "../../../pi/runtime";
+import {FsAccessType, PolicyStatus, WebAccessType} from "../../../policy/types";
+import {toolNames} from "../../../shared/toolNames";
+import {renderToolCallInput} from "../../../shared/toolRendering";
+import {errorResult as toolErrorResult, successResult} from "../../../shared/toolResults";
+import {stringValue} from "../../../shared/values";
 
 export enum PolicyInfoKind {
   OVERVIEW = "overview",

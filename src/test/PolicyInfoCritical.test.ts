@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "./TestHarness";
-import {registerPolicyInfoTool} from "../extensions/policy-info";
+import {registerPolicyInfoTool} from "../extensions/policy/policy-info";
 import {FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import type {PiExtensionApi, ToolDefinition} from "../pi/types";
 

@@ -1,12 +1,12 @@
 import {PiExtensionApi} from "./pi/types";
 import {createServices} from "./pi/runtime";
-import {registerCodeExecutionTool} from "./extensions/code-exec";
-import {registerFileTools} from "./extensions/file-tools";
-import {registerPathPolicy} from "./extensions/path-policy";
-import {registerPolicyInfoTool} from "./extensions/policy-info";
-import {registerShellPolicy} from "./extensions/shell-policy";
+import {registerCodeExecutionTool} from "./extensions/tools/code-exec";
+import {registerFileTools} from "./extensions/tools/file-tools";
+import {registerPathPolicy} from "./extensions/policy/path-policy";
+import {registerPolicyInfoTool} from "./extensions/policy/policy-info";
+import {registerShellPolicy} from "./extensions/policy/shell-policy";
 import {registerSubagentTool} from "./extensions/subagent";
-import {registerWebLookupTool} from "./extensions/web";
+import {registerWebLookupTool} from "./extensions/tools/web";
 
 export default async function agentToolsExtension(pi: PiExtensionApi): Promise<void> {
     const services = createServices();

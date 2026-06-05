@@ -1,8 +1,8 @@
 import path from "node:path";
 import fs from "node:fs/promises";
-import {ExtensionContext} from "../../pi/types";
-import {successResult, errorResult} from "../../shared/toolResults";
-import {stringValue} from "../../shared/values";
+import {ExtensionContext} from "../../../pi/types";
+import {successResult, errorResult} from "../../../shared/toolResults";
+import {stringValue} from "../../../shared/values";
 
 export {successResult, errorResult};
 

@@ -3,7 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {test} from "./TestHarness";
-import {copyPath, deletePath, makeDirectory, movePath, statPath} from "../extensions/file-tools/operations";
+import {copyPath, deletePath, makeDirectory, movePath, statPath} from "../extensions/tools/file-tools/operations";
 
 async function tempDir(): Promise<string> {
   return await fs.mkdtemp(path.join(os.tmpdir(), "pi-agent-file-tools-"));

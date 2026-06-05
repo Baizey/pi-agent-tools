@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {registerWebLookupTool} from "../extensions/web";
+import {registerWebLookupTool} from "../extensions/tools/web";
 import {PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {PiExtensionApi, ToolDefinition} from "../pi/types";
 

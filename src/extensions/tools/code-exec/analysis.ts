@@ -1,7 +1,7 @@
-import {ExtensionContext} from "../../pi/types";
-import {CodeExecEffectsReport, CodeExecMode, FsAccessType} from "../../policy/types";
-import {agentEnv} from "../../shared/env";
-import {agentModelProfiles, resolveAgentModelProfile, runSyncSubagent, subagentProfileNames} from "../subagent";
+import {ExtensionContext} from "../../../pi/types";
+import {CodeExecEffectsReport, CodeExecMode, FsAccessType} from "../../../policy/types";
+import {agentEnv} from "../../../shared/env";
+import {agentModelProfiles, resolveAgentModelProfile, runSyncSubagent, subagentProfileNames} from "../../subagent";
 
 export type CodeExecAnalysisInput = {
   language: string;

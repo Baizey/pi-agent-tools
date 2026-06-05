@@ -1,7 +1,7 @@
-import {ExtensionContext, PiExtensionApi} from "../../pi/types";
-import {toolNames} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
-import {stringValue} from "../../shared/values";
+import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
+import {toolNames} from "../../../shared/toolNames";
+import {renderToolCallInput} from "../../../shared/toolRendering";
+import {stringValue} from "../../../shared/values";
 import {getBashSummary} from "./approval-descriptions";
 
 type BashToolLike = {
