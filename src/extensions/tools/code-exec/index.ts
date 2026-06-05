@@ -1,8 +1,7 @@
-import fs from "node:fs/promises";
 import os from "node:os";
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentServices} from "../../../pi/runtime";
-import {CodeExecEffectsReport, FsAccessType} from "../../../policy/types";
+import {FsAccessType} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
@@ -10,9 +9,8 @@ import {errorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
 import {ensurePathAllowed} from "../../policy/path-policy";
 import {adapters, detect, detectAllRuntimes} from "./adapters";
-import {analyzeCodeExecutionEffects} from "./analysis";
-import {CodeExecApprovalInput, ensureCodeExecAllowed} from "./approval";
-import {codeApprovalContext, contextForCwd, executeCodeParameters, isLanguage, parseInput} from "./input";
+import {ensureCodeExecAllowed} from "./approval";
+import {contextForCwd, executeCodeParameters, isLanguage, parseInput} from "./input";
 import {runProcess} from "./process";
 import {formatRuntimeInfo, formatRunSummary, renderCodeExecCall} from "./rendering";
 import {Adapter, languages} from "./types";
@@ -43,40 +41,13 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
         if (executeReason) return errorResult(executeReason, {blocked: true});
       }
 
-      let effectsReport: CodeExecEffectsReport | null | undefined;
-      const loadEffectsReport = async () => {
-        const sourceForAnalysis = parsed.mode === "file"
-          ? await fs.readFile(parsed.source, "utf8").catch(() => undefined)
-          : parsed.source;
-        effectsReport = sourceForAnalysis === undefined
-          ? null
-          : await analyzeCodeExecutionEffects(effectiveCtx, {...parsed, source: sourceForAnalysis});
-        return effectsReport;
-      };
-
-      const input = {
-        parsed,
-        language: parsed.language,
-        mode: parsed.mode,
-        context: codeApprovalContext(parsed),
-        loadEffectsReport,
-        onEffectsReport: (report) => { effectsReport = report; },
-      } satisfies CodeExecApprovalInput
       const codeExecReason = await ensureCodeExecAllowed(
         effectiveCtx,
         runtime,
-          input,
+        parsed,
         isAgentEnvEnabled(agentEnv.codeExecDenyByDefault),
       );
-      if (codeExecReason) return errorResult(codeExecReason, {blocked: true, effectsReport: effectsReport ?? null});
-
-      const preflightReason = await ensureInferredPathEffectsAllowed(
-        effectiveCtx,
-        runtime,
-        effectsReport ?? null,
-        isAgentEnvEnabled(agentEnv.pathDenyByDefault),
-      );
-      if (preflightReason) return errorResult(preflightReason, {blocked: true, effectsReport: effectsReport ?? null});
+      if (codeExecReason) return errorResult(codeExecReason, {blocked: true});
 
       const adapter = adapters[parsed.language];
       const info = await detect(adapter);
@@ -124,31 +95,6 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       return renderToolCallInput(toolNames.executeCodeInfo, args, theme as never);
     },
   });
-}
-
-async function ensureInferredPathEffectsAllowed(
-  ctx: ExtensionContext,
-  runtime: ReturnType<AgentServices["runtimeFor"]>,
-  report: CodeExecEffectsReport | null,
-  denyByDefault: boolean,
-): Promise<string | null> {
-  if (!report) return null;
-  for (const effect of report.paths) {
-    if (effect.confidence !== "high" || !isConcretePathEffect(effect.path)) continue;
-    for (const accessType of effect.accessTypes) {
-      const reason = await ensurePathAllowed(ctx, runtime, effect.path, accessType, denyByDefault);
-      if (reason) return `Static analysis inferred path effect before code execution.\nPath: ${effect.path}\nAccess: ${accessType}\nReason: ${effect.reason}\n\n${reason}`;
-    }
-  }
-  return null;
-}
-
-function isConcretePathEffect(candidatePath: string): boolean {
-  return candidatePath.trim() !== ""
-    && !/[*$?{}]/.test(candidatePath)
-    && !candidatePath.includes("...")
-    && !candidatePath.includes("<")
-    && !candidatePath.includes(">");
 }
 
 async function ensureTempArtifactsAllowed(

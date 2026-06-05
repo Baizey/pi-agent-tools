@@ -1,7 +1,6 @@
 import {ExtensionContext} from "../../../pi/types";
 import {AgentRuntime} from "../../../pi/runtime";
 import {
-    CodeExecMode,
     CodeExecPolicyDeleteRequest,
     CodeExecPolicyResult,
     CodeExecPolicyScopeOption,
@@ -9,25 +8,13 @@ import {
     PolicyStatus
 } from "../../../policy/types";
 import {UiDecision, UiDecisionFlowManager} from "../../policy/ui-flow";
-import {UIAiHelpOptionInfo, UIAiHelpWrap} from "../../policy/ui-flow/DecisionAiHelper";
-import {formatEffectsReport} from "./analysis";
-import type {CodeExecEffectsReport} from "../../../policy/types";
+import {UIAiHelpWrap} from "../../policy/ui-flow/DecisionAiHelper";
 import {ParsedExecInput} from "./types";
-
-export type CodeExecApprovalInput = {
-    parsed: ParsedExecInput,
-    language: string;
-    mode: CodeExecMode;
-    effectsReport?: CodeExecEffectsReport | null;
-    loadEffectsReport?: () => Promise<CodeExecEffectsReport | null>;
-    onEffectsReport?: (report: CodeExecEffectsReport | null) => void;
-    context?: string | string[];
-};
 
 export async function ensureCodeExecAllowed(
     ctx: ExtensionContext,
     runtime: AgentRuntime,
-    input: CodeExecApprovalInput,
+    input: ParsedExecInput,
     denyByDefault: boolean,
 ): Promise<string | null> {
     const oneShotPolicies: CodeExecPolicyDeleteRequest[] = [];
@@ -48,7 +35,7 @@ export async function ensureCodeExecAllowed(
 async function askForCodeExecPolicy(
     ctx: ExtensionContext,
     runtime: AgentRuntime,
-    input: CodeExecApprovalInput,
+    input: ParsedExecInput,
     oneShotPolicies: CodeExecPolicyDeleteRequest[],
 ): Promise<CodeExecPolicyResult> {
     const failed = (reason: string): CodeExecPolicyResult => ({
@@ -95,109 +82,76 @@ type CodeExecPolicyApproval = {
 
 async function askCodeExecPolicyWithFlow(
     ctx: ExtensionContext,
-    input: CodeExecApprovalInput,
+    input: ParsedExecInput,
     scopes: CodeExecPolicyScopeOption[],
 ): Promise<CodeExecPolicyApproval> {
     const target = `${input.language} ${input.mode}`;
+    const title = (value: string) => `${value}`;
     const defaultReason = (status: PolicyStatus) => `User selected ${status} for code execution.`;
 
-    const aiHelpInput = {
-        task: "",
-        fullItem: [
-            `Language: ${input.language}`,
-            `stdin: ${input.parsed.stdin}`,
-            `args: ${input.parsed.args}`,
-            `Source: ${input.mode}`,
-            `${input.parsed.source}`
-        ].join("\n"),
-        subItems: []
-    } satisfies UIAiHelpOptionInfo
-    const effectsHelp = input.loadEffectsReport ? new UIAiHelpWrap(aiHelpInput) : undefined;
+    const decisions = {
+        scope: {
+            type: "select",
+            key: "scope",
+            title: () => title(`Select code execution policy scope for ${target}`),
+            showAiHelpOption: true,
+            options: scopes.map((scope) => ({title: () => scope.label, value: scope, next: () => "status"})),
+        },
+        status: {
+            type: "select",
+            key: "status",
+            title: () => title(`Code execution policy for ${target}`),
+            showAiHelpOption: true,
+            options: [
+                {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
+                {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
+            ],
+        },
+        lifetime: {
+            type: "select",
+            key: "lifetime",
+            title: () => title("Code execution policy lifetime"),
+            showAiHelpOption: false,
+            options: [PolicyLifetime.ONCE, PolicyLifetime.SESSION, PolicyLifetime.FOREVER].map((lifetime) => ({
+                title: () => lifetime,
+                value: lifetime,
+                next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null,
+            })),
+        },
+        reason: {
+            type: "input",
+            key: "reason",
+            title: () => title("Reason for denying this code execution policy (optional)"),
+            placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
+            next: () => null,
+        },
+    } satisfies Record<keyof CodeExecPolicyApproval, UiDecision<CodeExecPolicyApproval>>;
 
-    const onCancelReturn = (state: Partial<CodeExecPolicyApproval>): CodeExecPolicyApproval => ({
-        scope: state.scope ?? scopes[0],
-        status: PolicyStatus.DENIED,
-        lifetime: PolicyLifetime.ONCE,
-        reason: `Code execution denied: ${codeExecFlowCancelReason(state)}`,
-    });
-
-    const scopeDecision = {
-        type: "select",
-        key: "scope",
-        title: () => codeExecTitle(`Select code execution policy scope for ${target}`, input, effectsHelp),
-        showAiHelpOption: !!effectsHelp,
-        options: scopes.map((scope) => ({
-            title: () => scope.label,
-            value: scope,
-            next: () => "status",
-        })),
-    } satisfies UiDecision<CodeExecPolicyApproval>;
-
-    const statusDecision = {
-        type: "select",
-        key: "status",
-        title: () => codeExecTitle(`Code execution policy for ${target}`, input, effectsHelp),
-        showAiHelpOption: !!effectsHelp,
-        options: [
-            {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
-            {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
-        ],
-    } satisfies UiDecision<CodeExecPolicyApproval>;
-
-    const lifetimeDecision = {
-        type: "select",
-        key: "lifetime",
-        title: () => codeExecTitle("Code execution policy lifetime", input, effectsHelp),
-        showAiHelpOption: false,
-        options: [
-            {
-                title: () => PolicyLifetime.ONCE,
-                value: PolicyLifetime.ONCE,
-                next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null
-            },
-            {
-                title: () => PolicyLifetime.SESSION,
-                value: PolicyLifetime.SESSION,
-                next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null
-            },
-            {
-                title: () => PolicyLifetime.FOREVER,
-                value: PolicyLifetime.FOREVER,
-                next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null
-            },
-        ],
-    } satisfies UiDecision<CodeExecPolicyApproval>;
-
-    const reasonDecision = {
-        type: "input",
-        key: "reason",
-        title: () => codeExecTitle("Reason for denying this code execution policy (optional)", input, effectsHelp),
-        placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
-        next: () => null,
-    } satisfies UiDecision<CodeExecPolicyApproval>;
-
-    const approval = await new UiDecisionFlowManager(ctx).runFlow(
-        scopeDecision,
-        {scope: scopeDecision, status: statusDecision, lifetime: lifetimeDecision, reason: reasonDecision},
-        onCancelReturn,
-        effectsHelp,
+    const fullItem = [
+        `Language: ${input.language}`,
+        `Args: ${input.args.join(" ") ?? '(none)'}`,
+        `Stdin: ${input.stdin ?? '(none)'}`,
+        "-----",
+        input.source
+    ].join("\n")
+    const approval = await new UiDecisionFlowManager(ctx).runFlow<CodeExecPolicyApproval>(
+        decisions.scope,
+        decisions,
+        (state) => ({
+            scope: state.scope ?? scopes[0],
+            status: PolicyStatus.DENIED,
+            lifetime: PolicyLifetime.ONCE,
+            reason: `Code execution denied: ${codeExecFlowCancelReason(state)}`,
+        }),
+        new UIAiHelpWrap({
+            task: "You explain code execution approval requests. Be concise, neutral, and focus on what would run. Dont explain language, core context is provided alongside your summary",
+            fullItem: fullItem,
+            subItems: [],
+            optionLabel: "ⓘ Explain what this code execution request does before deciding",
+        }),
     );
 
-    return {
-        ...approval,
-        reason: approval.reason || defaultReason(approval.status),
-    };
-}
-
-function codeExecTitle(title: string, input: CodeExecApprovalInput, effectsHelp?: UIAiHelpWrap): string {
-    return [
-        title,
-        `Approval target: ${input.language} ${input.mode}`,
-        `Language: ${input.language}`,
-        `Mode: ${input.mode}`,
-        ...contextLines(input.context),
-        input.effectsReport !== undefined && !effectsHelp ? formatEffectsReport(input.effectsReport) : undefined,
-    ].filter(Boolean).join("\n");
+    return {...approval, reason: approval.reason || defaultReason(approval.status)};
 }
 
 function codeExecFlowCancelReason(state: Partial<CodeExecPolicyApproval>): string {
@@ -205,9 +159,4 @@ function codeExecFlowCancelReason(state: Partial<CodeExecPolicyApproval>): strin
     if (!state.status) return "No code execution policy decision selected.";
     if (!state.lifetime) return "No code execution policy lifetime selected.";
     return "No code execution policy reason selected.";
-}
-
-function contextLines(context?: string | string[]): string[] {
-    if (!context) return [];
-    return Array.isArray(context) ? context : [context];
 }

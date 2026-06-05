@@ -187,7 +187,6 @@ function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
   const details = {
     codePolicy,
     pathChecks,
-    note: "Static inferred path effects are analyzed during execute_code approval and are not evaluated by policy_info.",
   };
   return successResult(JSON.stringify(details, null, 2), details);
 }

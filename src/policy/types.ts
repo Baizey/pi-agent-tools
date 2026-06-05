@@ -136,21 +136,6 @@ export type CodeExecPolicyScopeOption = {
   mode: CodeExecPolicyMode;
 };
 
-export type CodeExecEffectsReport = {
-  summary: string;
-  confidence: "low" | "medium" | "high";
-  paths: Array<{
-    path: string;
-    accessTypes: FsAccessType[];
-    reason: string;
-    confidence: "low" | "medium" | "high";
-  }>;
-  processEffects: string[];
-  networkEffects: string[];
-  environmentEffects: string[];
-  unknowns: string[];
-};
-
 export enum WebAccessType {
   READ = "READ",
   SEARCH = "SEARCH",

@@ -44,22 +44,6 @@ export function isLanguage(value: string): value is CodeLanguage {
   return (languages as readonly string[]).includes(value);
 }
 
-export function codeApprovalContext(input: {mode: "inline" | "file"; source: string; args: string[]; stdin?: string; cwd: string}): string[] {
-  const lines = [
-    `Current working directory: ${input.cwd}`,
-    input.args.length > 0 ? `Arguments: ${JSON.stringify(input.args)}` : "Arguments: none",
-    input.stdin === undefined ? "Stdin: none" : `Stdin: provided (${input.stdin.length} characters)`,
-  ];
-  if (input.mode === "file") return [...lines, `Source file: ${input.source}`];
-  return [...lines, fencedCode("Inline code", input.source)];
-}
-
 export function contextForCwd(ctx: ExtensionContext | undefined, cwd: string): ExtensionContext {
   return ctx ? {...ctx, cwd} : {cwd, hasUI: false};
-}
-
-function fencedCode(label: string, code: string): string {
-  const maxLength = 4000;
-  const body = code.length > maxLength ? `${code.slice(0, maxLength)}\n… [truncated ${code.length - maxLength} chars]` : code;
-  return `${label}:\n\`\`\`\n${body}\n\`\`\``;
 }
