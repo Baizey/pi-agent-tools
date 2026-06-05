@@ -1,5 +1,4 @@
 import {ExtensionContext} from "../../../pi/types";
-import {agentEnv} from "../../../shared/env";
 import {agentModelProfiles, resolveAgentModelProfile, runSyncSubagent, subagentProfileNames} from "../../subagent";
 
 export type UiSelectDecisionOption<T> = {
@@ -7,7 +6,7 @@ export type UiSelectDecisionOption<T> = {
     /**
      * Should technically be bound to T[keyof T] for the relevant key, but please just remember this on usage
      */
-    value: any
+    value: T[keyof T]
     /**
      * Returns the key of the next decision to run
      * Return null if the flow is completed and should finish
@@ -86,7 +85,7 @@ export class UiDecisionFlowManager {
                 if (input === undefined) return null;
                 return {
                     title: () => "",
-                    value: input || "",
+                    value: (input || "") as T[keyof T],
                     next: decision.next,
                 } satisfies UiSelectDecisionOption<T>
             default:
