@@ -1,8 +1,8 @@
 import {ExtensionContext} from "../../../pi/types";
 import {AgentRuntime} from "../../../pi/runtime";
 import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult, ShellPolicyScopeOption} from "../../../policy/types";
-import {UiDecision, UiDecisionFlowManager} from "../../ui-flow";
-import {UIAiHelpWrap} from "../../ui-flow/DecisionAiHelper";
+import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
+import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
 
 export async function ensureShellAllowed(
   ctx: ExtensionContext,

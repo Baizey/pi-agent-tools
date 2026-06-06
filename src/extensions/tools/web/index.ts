@@ -5,7 +5,7 @@ import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
-import {UiDecision, UiDecisionFlowManager} from "../../ui-flow";
+import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";

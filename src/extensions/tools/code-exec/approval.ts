@@ -7,8 +7,8 @@ import {
     PolicyLifetime,
     PolicyStatus
 } from "../../../policy/types";
-import {UiDecision, UiDecisionFlowManager} from "../../ui-flow";
-import {UIAiHelpWrap} from "../../ui-flow/DecisionAiHelper";
+import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
+import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
 import {ParsedExecInput} from "./types";
 
 export async function ensureCodeExecAllowed(

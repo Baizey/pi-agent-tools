@@ -1,8 +1,6 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
-import {stringValue} from "../../../shared/values";
-import {getBashSummary} from "./approval-descriptions";
 
 type BashToolLike = {
   description: string;
@@ -38,17 +36,12 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
     description: originalBash.description,
     parameters: originalBash.parameters,
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      const result = await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
-      const command = stringValue(params.command);
-      const summary = command ? getBashSummary(command) : undefined;
-      return summary ? {...result, details: {...result.details, agentToolsBashSummary: summary}} : result;
+      return await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
     },
     renderCall(args, theme) {
-      const command = stringValue(args.command);
-      const summary = command ? getBashSummary(command) : undefined;
       return renderToolCallInput(
         toolNames.bash,
-        summary ? {...args, summary} : args,
+        args,
         theme as never,
       );
     },
