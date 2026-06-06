@@ -114,52 +114,52 @@ async function askPathPolicyWithFlow(
     const scopeDecision = {
         type: "select",
         key: "scope",
-        title: () => [
+        title: [
             `Policy scope for ${accessType} ${evaluatedPath}`,
         ].join("\n"),
         showAiHelpOption: false,
         options: scopes.map((scope) => ({
-            title: () => scope,
+            title: scope,
             value: scope,
-            next: () => "status",
+            next: "status",
         })),
     } satisfies UiDecision<PathPolicyApproval>;
 
     const statusDecision = {
         type: "select",
         key: "status",
-        title: () => [
+        title: [
             `Policy status`,
             `Approval target: ${accessType} ${evaluatedPath}`,
         ].join('\n'),
         showAiHelpOption: false,
         options: [
-            {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
-            {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
+            {title: "Allow", value: PolicyStatus.ALLOWED, next: "lifetime"},
+            {title: "Deny", value: PolicyStatus.DENIED, next: "lifetime"},
         ],
     } satisfies UiDecision<PathPolicyApproval>;
 
     const lifetimeDecision = {
         type: "select",
         key: "lifetime",
-        title: () => [
+        title: [
             `Policy lifetime`,
             `Approval target: ${accessType} ${evaluatedPath}`,
         ].join('\n'),
         showAiHelpOption: false,
         options: [
             {
-                title: () => PolicyLifetime.ONCE,
+                title: PolicyLifetime.ONCE,
                 value: PolicyLifetime.ONCE,
                 next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null
             },
             {
-                title: () => PolicyLifetime.SESSION,
+                title: PolicyLifetime.SESSION,
                 value: PolicyLifetime.SESSION,
                 next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null
             },
             {
-                title: () => PolicyLifetime.FOREVER,
+                title: PolicyLifetime.FOREVER,
                 value: PolicyLifetime.FOREVER,
                 next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null
             },
@@ -169,12 +169,12 @@ async function askPathPolicyWithFlow(
     const reasonDecision = {
         type: "input",
         key: "reason",
-        title: () => [
+        title: [
             `Reason for denying this policy (optional)`,
             `Approval target: ${accessType} ${evaluatedPath}`,
         ].join('\n'),
         placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
-        next: () => null,
+        next: null,
     } satisfies UiDecision<PathPolicyApproval>;
 
     const approval = await new UiDecisionFlowManager(ctx).runFlow(

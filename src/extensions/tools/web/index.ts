@@ -140,53 +140,53 @@ async function askWebPolicyWithFlow(
   const scopeDecision = {
     type: "select",
     key: "scope",
-    title: () => `Policy scope for ${accessType} ${url}`,
+    title: `Policy scope for ${accessType} ${url}`,
     showAiHelpOption: false,
     options: scopes.map((scope) => ({
-      title: () => scope.label,
+      title: scope.label,
       value: scope,
-      next: () => "status",
+      next: "status",
     })),
   } satisfies UiDecision<WebPolicyApproval>;
 
   const statusDecision = {
     type: "select",
     key: "status",
-    title: () => [
+    title: [
       `No ${accessType} web policy for ${url}`,
       `Approval target: ${accessType} ${url}`,
     ].join("\n"),
     showAiHelpOption: false,
     options: [
-      {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
-      {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
+      {title: "Allow", value: PolicyStatus.ALLOWED, next: "lifetime"},
+      {title: "Deny", value: PolicyStatus.DENIED, next: "lifetime"},
     ],
   } satisfies UiDecision<WebPolicyApproval>;
 
   const lifetimeDecision = {
     type: "select",
     key: "lifetime",
-    title: () => [
+    title: [
       "Web policy lifetime",
       `Approval target: ${accessType} ${url}`,
     ].join("\n"),
     showAiHelpOption: false,
     options: [
-      {title: () => PolicyLifetime.ONCE, value: PolicyLifetime.ONCE, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
-      {title: () => PolicyLifetime.SESSION, value: PolicyLifetime.SESSION, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
-      {title: () => PolicyLifetime.FOREVER, value: PolicyLifetime.FOREVER, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: PolicyLifetime.ONCE, value: PolicyLifetime.ONCE, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: PolicyLifetime.SESSION, value: PolicyLifetime.SESSION, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: PolicyLifetime.FOREVER, value: PolicyLifetime.FOREVER, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
     ],
   } satisfies UiDecision<WebPolicyApproval>;
 
   const reasonDecision = {
     type: "input",
     key: "reason",
-    title: () => [
+    title: [
       "Reason for denying this web policy (optional)",
       `Approval target: ${accessType} ${url}`,
     ].join("\n"),
     placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
-    next: () => null,
+    next: null,
   } satisfies UiDecision<WebPolicyApproval>;
 
   const approval = await new UiDecisionFlowManager(ctx).runFlow(

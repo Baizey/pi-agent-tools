@@ -86,34 +86,33 @@ async function askCodeExecPolicyWithFlow(
     scopes: CodeExecPolicyScopeOption[],
 ): Promise<CodeExecPolicyApproval> {
     const target = `${input.language} ${input.mode}`;
-    const title = (value: string) => `${value}`;
     const defaultReason = (status: PolicyStatus) => `User selected ${status} for code execution.`;
 
     const decisions = {
         scope: {
             type: "select",
             key: "scope",
-            title: () => title(`Select code execution policy scope for ${target}`),
+            title: `Select code execution policy scope for ${target}`,
             showAiHelpOption: true,
-            options: scopes.map((scope) => ({title: () => scope.label, value: scope, next: () => "status"})),
+            options: scopes.map((scope) => ({title: scope.label, value: scope, next: "status"})),
         },
         status: {
             type: "select",
             key: "status",
-            title: () => title(`Code execution policy for ${target}`),
+            title: `Code execution policy for ${target}`,
             showAiHelpOption: true,
             options: [
-                {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
-                {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
+                {title: "Allow", value: PolicyStatus.ALLOWED, next: "lifetime"},
+                {title: "Deny", value: PolicyStatus.DENIED, next: "lifetime"},
             ],
         },
         lifetime: {
             type: "select",
             key: "lifetime",
-            title: () => title("Code execution policy lifetime"),
+            title: "Code execution policy lifetime",
             showAiHelpOption: false,
             options: [PolicyLifetime.ONCE, PolicyLifetime.SESSION, PolicyLifetime.FOREVER].map((lifetime) => ({
-                title: () => lifetime,
+                title: lifetime,
                 value: lifetime,
                 next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null,
             })),
@@ -121,9 +120,9 @@ async function askCodeExecPolicyWithFlow(
         reason: {
             type: "input",
             key: "reason",
-            title: () => title("Reason for denying this code execution policy (optional)"),
+            title: "Reason for denying this code execution policy (optional)",
             placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
-            next: () => null,
+            next: null,
         },
     } satisfies Record<keyof CodeExecPolicyApproval, UiDecision<CodeExecPolicyApproval>>;
 

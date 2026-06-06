@@ -111,16 +111,16 @@ async function askShellPolicyWithFlow(
   const scopeDecision = {
     type: "select",
     key: "scope",
-    title: () => [
+    title: [
       `Select shell policy scope for unmatched command in: ${command}`,
       `Approval target: ${command}`,
       `Current working directory: ${ctx.cwd}`,
     ].join("\n"),
     showAiHelpOption: true,
     options: scopes.map((scope) => ({
-      title: () => scope.label,
+      title: scope.label,
       value: scope,
-      next: () => "status",
+      next: "status",
     })),
   } satisfies UiDecision<ShellPolicyApproval>;
 
@@ -134,35 +134,35 @@ async function askShellPolicyWithFlow(
     ].join("\n"),
     showAiHelpOption: true,
     options: [
-      {title: () => "Allow", value: PolicyStatus.ALLOWED, next: () => "lifetime"},
-      {title: () => "Deny", value: PolicyStatus.DENIED, next: () => "lifetime"},
+      {title: "Allow", value: PolicyStatus.ALLOWED, next: "lifetime"},
+      {title: "Deny", value: PolicyStatus.DENIED, next: "lifetime"},
     ],
   } satisfies UiDecision<ShellPolicyApproval>;
 
   const lifetimeDecision = {
     type: "select",
     key: "lifetime",
-    title: () => [
+    title: [
       "Shell policy lifetime",
       `Approval target: ${command}`,
     ].join("\n"),
     showAiHelpOption: false,
     options: [
-      {title: () => PolicyLifetime.ONCE, value: PolicyLifetime.ONCE, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
-      {title: () => PolicyLifetime.SESSION, value: PolicyLifetime.SESSION, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
-      {title: () => PolicyLifetime.FOREVER, value: PolicyLifetime.FOREVER, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: PolicyLifetime.ONCE, value: PolicyLifetime.ONCE, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: PolicyLifetime.SESSION, value: PolicyLifetime.SESSION, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
+      {title: PolicyLifetime.FOREVER, value: PolicyLifetime.FOREVER, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
     ],
   } satisfies UiDecision<ShellPolicyApproval>;
 
   const reasonDecision = {
     type: "input",
     key: "reason",
-    title: () => [
+    title: [
       "Reason for denying this shell policy (optional)",
       `Approval target: ${command}`,
     ].join("\n"),
     placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
-    next: () => null,
+    next: null,
   } satisfies UiDecision<ShellPolicyApproval>;
 
   const approval = await new UiDecisionFlowManager(ctx).runFlow(
