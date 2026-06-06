@@ -6,7 +6,7 @@ import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../.
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {standardizePath} from "../../../shared/paths";
 import {toolNames} from "../../../shared/toolNames";
-import {UiDecision, UiDecisionFlowManager, UiInputDecision, UiSelectDecision} from "../ui-flow";
+import {UiDecision, UiDecisionFlowManager} from "../../ui-flow";
 import {stringValues} from "../../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {

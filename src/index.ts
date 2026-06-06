@@ -17,7 +17,7 @@ export * from "./shared/toolResults";
 export * from "./extensions/tools/code-exec";
 export * from "./extensions/tools/file-tools";
 export * from "./extensions/policy/path-policy";
-export * from "./extensions/policy/policy-info";
+export * from "./extensions/tools/policy-info";
 export * from "./extensions/shared/policy-approval";
 export * from "./extensions/policy/shell-policy";
 export * from "./extensions/subagent";

@@ -1,5 +1,5 @@
-import {ExtensionContext} from "../../../pi/types";
-import {agentModelProfiles, resolveAgentModelProfile, runSyncSubagent, subagentProfileNames} from "../../subagent";
+import {ExtensionContext} from "../../pi/types";
+import {agentModelProfiles, resolveAgentModelProfile, runSyncSubagent, subagentProfileNames} from "../subagent";
 
 export type UIAiHelpOptionInfo = {
     task: string

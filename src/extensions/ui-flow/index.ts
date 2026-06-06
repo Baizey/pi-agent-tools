@@ -1,4 +1,4 @@
-import {ExtensionContext} from "../../../pi/types";
+import {ExtensionContext} from "../../pi/types";
 import {UIAiHelpWrap} from "./DecisionAiHelper";
 
 export type UiSelectDecisionOption<T> = {
