@@ -11,6 +11,11 @@ import {registerWebLookupTool} from "./extensions/tools/web";
 export default async function agentToolsExtension(pi: PiExtensionApi): Promise<void> {
     const services = createServices();
 
+    /**
+     * Disable pi.dev built in 'policy system', it sucks
+     */
+    pi.on("project_trust", async () => ({trusted: "yes", remember: false}));
+
     registerFileTools(pi);
 
     registerSubagentTool(pi);

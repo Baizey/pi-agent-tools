@@ -11,7 +11,24 @@ export type PiExtensionApi = {
     event: "before_agent_start",
     handler: (event: BeforeAgentStartEvent, ctx: ExtensionContext) => Promise<BeforeAgentStartDecision | void> | BeforeAgentStartDecision | void,
   ): void;
+  on(
+    event: "project_trust",
+    handler: (event: ProjectTrustEvent, ctx: ProjectTrustContext) => Promise<ProjectTrustDecision | void> | ProjectTrustDecision | void,
+  ): void;
   registerTool?(definition: ToolDefinition): void;
+};
+
+export type ProjectTrustEvent = {
+  cwd: string;
+};
+
+export type ProjectTrustDecision = {
+  trusted: "yes" | "no" | "undecided";
+  remember?: boolean;
+};
+
+export type ProjectTrustContext = Pick<ExtensionContext, "cwd" | "hasUI" | "ui"> & {
+  mode?: "tui" | "rpc" | "json" | "print" | string;
 };
 
 export type ToolCallEvent = {
