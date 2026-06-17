@@ -1,6 +1,8 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
+import {renderBlockToolCall} from "../../../shared/blockToolRendering";
+import {stringValue} from "../../../shared/values";
 
 type BashToolLike = {
   description: string;
@@ -39,10 +41,15 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
       return await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
     },
     renderCall(args, theme) {
-      return renderToolCallInput(
+      const command = stringValue(args.command);
+      if (!command) return renderToolCallInput(toolNames.bash, args, theme as never);
+      return renderBlockToolCall(
         toolNames.bash,
-        args,
-        theme as never,
+        [
+          typeof args.timeout === "number" ? `  timeout: ${args.timeout}` : null,
+        ],
+        "command",
+        command,
       );
     },
   });

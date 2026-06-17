@@ -13,6 +13,7 @@ export * from "./shared/env";
 export * from "./shared/subagents";
 export * from "./storage";
 export * from "./shared/toolNames";
+export * from "./shared/blockToolRendering";
 export * from "./shared/toolRendering";
 export * from "./shared/toolResults";
 export * from "./extensions/tools/code-exec";

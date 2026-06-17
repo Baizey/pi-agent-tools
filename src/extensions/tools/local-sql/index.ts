@@ -1,6 +1,7 @@
 import {PiExtensionApi} from "../../../pi/types";
 import {database_filename, SqliteDatabase} from "../../../storage";
 import {toolNames} from "../../../shared/toolNames";
+import {renderBlockToolCall} from "../../../shared/blockToolRendering";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {errorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
@@ -88,7 +89,19 @@ export function registerLocalSqlTool(
             }
         },
         renderCall(args, theme) {
-            return renderToolCallInput(toolNames.localSql, args, theme as never);
+            const sql = stringValue((args as LocalSqlParams).sql);
+            if (!sql) return renderToolCallInput(toolNames.localSql, args, theme as never);
+            const params = (args as LocalSqlParams).params;
+            return renderBlockToolCall(
+                toolNames.localSql,
+                [
+                    `  action: ${stringValue((args as LocalSqlParams).action) ?? "query"}`,
+                    (args as LocalSqlParams).limit === undefined ? null : `  limit: ${String((args as LocalSqlParams).limit)}`,
+                    params && typeof params === "object" ? `  params: ${JSON.stringify(params)}` : null,
+                ],
+                "sql",
+                sql,
+            );
         },
     });
 }
