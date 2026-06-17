@@ -36,6 +36,7 @@ function registeredWebTool(options: {allowed?: boolean; onEvaluate?: (url: strin
   };
 
   registerWebLookupTool(pi, {
+    sessionDao: {} as never,
     runtimeFor: () => ({
       webPolicy: {
         evaluate: (url: string, accessType: WebAccessType) => {

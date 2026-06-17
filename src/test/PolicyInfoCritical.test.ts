@@ -15,6 +15,7 @@ function registeredPolicyInfoTool() {
   } satisfies PiExtensionApi;
 
   registerPolicyInfoTool(pi, {
+    sessionDao: {} as never,
     runtimeFor: (cwd: string) => {
       runtimeCwd = cwd;
       return {
