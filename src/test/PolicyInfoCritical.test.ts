@@ -16,6 +16,7 @@ function registeredPolicyInfoTool() {
 
   registerPolicyInfoTool(pi, {
     sessionDao: {} as never,
+    subagentDao: {} as never,
     runtimeFor: (cwd: string) => {
       runtimeCwd = cwd;
       return {

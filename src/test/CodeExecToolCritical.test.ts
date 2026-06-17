@@ -16,6 +16,7 @@ async function registeredExecuteCodeTool(deny: {path: string; accessType: FsAcce
 
   await registerCodeExecutionTool(pi, {
     sessionDao: {} as never,
+    subagentDao: {} as never,
     runtimeFor: () => ({
       pathPolicy: {
         evaluate(path: string, accessType: FsAccessType, denyByDefault: boolean) {

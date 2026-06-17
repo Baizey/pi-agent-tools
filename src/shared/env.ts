@@ -9,7 +9,6 @@ export const agentEnv = {
   subagentParentId: "PI_AGENT_SUBAGENT_PARENT_ID",
   subagentNodeId: "PI_AGENT_SUBAGENT_NODE_ID",
   subagentDepth: "PI_AGENT_SUBAGENT_DEPTH",
-  subagentTreeDir: "PI_AGENT_SUBAGENT_TREE_DIR",
 } as const;
 
 export type AgentEnvName = typeof agentEnv[keyof typeof agentEnv];
@@ -25,7 +24,6 @@ export const agentEnvDescriptions = {
   [agentEnv.subagentParentId]: "Lineage id for the parent subagent node this process was spawned by.",
   [agentEnv.subagentNodeId]: "Lineage id for the current subagent node represented by this process.",
   [agentEnv.subagentDepth]: "Numeric depth of the current subagent node in its subagent tree.",
-  [agentEnv.subagentTreeDir]: "Directory used by subagent processes to publish current tree node state.",
 } satisfies Record<AgentEnvName, string>;
 
 export function isAgentEnvEnabled(name: AgentEnvName): boolean {

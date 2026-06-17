@@ -84,6 +84,7 @@ export type PiExtensionApi = {
   on(event: "user_bash", handler: ExtensionHandler<UserBashEvent, UserBashDecision>): void;
   on(event: string, handler: ExtensionHandler<Record<string, unknown>, unknown>): void;
   registerTool?(definition: ToolDefinition): void;
+  registerCommand?(name: string, options: CommandDefinition): void;
 };
 
 export type ExtensionHandler<TEvent, TResult = void> = (
@@ -142,6 +143,12 @@ export type ToolCallEvent = {
 export type ToolCallDecision = {
   block: true;
   reason: string;
+};
+
+export type CommandDefinition = {
+  description?: string;
+  handler(args: string, ctx: ExtensionContext): Promise<void> | void;
+  getArgumentCompletions?(prefix: string): Array<{value: string; label?: string}> | null;
 };
 
 export type ToolDefinition = {

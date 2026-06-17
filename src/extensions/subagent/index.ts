@@ -1,4 +1,4 @@
-import {PiExtensionApi} from "../../pi/types";
+import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {toolNames} from "../../shared/toolNames";
 import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
@@ -18,9 +18,11 @@ import {agentModelProfiles, resolveAgentModelProfile} from "./model-profiles";
 import {subagentProfiles, subagentRunModes} from "./profiles";
 import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
-import {runSubagent} from "./runner";
+import {registerSubagentCommands, updateSubagentWidget} from "./commands";
+import {runSubagent, type SubagentUpdate} from "./runner";
 
 export function registerSubagentTool(pi: PiExtensionApi): void {
+  registerSubagentCommands(pi);
   registerSubagent(pi);
   registerSubagentStatus(pi);
   registerSubagentAwait(pi);
@@ -38,9 +40,11 @@ function registerSubagent(pi: PiExtensionApi): void {
       const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());
       if ("error" in request) return errorResult(request.error);
       request.model = await resolveAgentModelProfile(ctx, request.model);
+      request.rootSessionId = ctx?.sessionManager?.getSessionId();
+      const treeUpdate = subagentUiUpdater(onUpdate, ctx);
 
       if (request.mode === subagentRunModes.async || request.mode === subagentRunModes.conversation) {
-        const job = startAsyncSubagentJob(request);
+        const job = startAsyncSubagentJob(request, treeUpdate);
         return successResult(
           request.mode === subagentRunModes.conversation
             ? `Started conversation subagent ${job.id}. Use ${toolNames.subagentMessage} to continue or ${toolNames.subagentCancel} when done.`
@@ -52,7 +56,7 @@ function registerSubagent(pi: PiExtensionApi): void {
       const result = await runSubagent(
         request,
         signal,
-        typeof onUpdate === "function" ? (onUpdate as never) : undefined,
+        treeUpdate,
       );
       return subagentResultResponse(request, result);
     },
@@ -136,7 +140,7 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
         task: {type: "string", description: "Next message/task for the conversation subagent."},
       },
     },
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, onUpdate, ctx) {
       const input = params as RawJobParams & {task?: unknown};
       const jobId = stringValue(input.jobId);
       if (!jobId) return errorResult("Missing required parameter: jobId.");
@@ -147,7 +151,7 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
       if (job.request.mode !== subagentRunModes.conversation) return errorResult(`Subagent job ${jobId} is not a conversation.`);
       if (job.status !== subagentJobStatuses.idle) return errorResult(`Conversation subagent ${jobId} is ${job.status}, not idle.`);
 
-      sendConversationMessage(job, task);
+      sendConversationMessage(job, task, subagentUiUpdater(onUpdate, ctx));
       return successResult(`Sent message to conversation subagent ${job.id}.`, jobDetails(job));
     },
     renderCall(args, theme) {
@@ -162,7 +166,7 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
     label: "Cancel Subagent",
     description: "Cancel a running async subagent job.",
     parameters: singleJobParameters(),
-    async execute(_toolCallId, params) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const jobId = stringValue((params as RawJobParams).jobId);
       if (!jobId) return errorResult("Missing required parameter: jobId.");
       const job = getAsyncSubagentJob(jobId);
@@ -172,12 +176,21 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       }
 
       cancelAsyncSubagentJob(job);
+      updateSubagentWidget(ctx, job.request.treeRootId);
       return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));
     },
     renderCall(args, theme) {
       return renderToolCallInput(toolNames.subagentCancel, args, theme as never);
     },
   });
+}
+
+function subagentUiUpdater(onUpdate: unknown, ctx: Pick<ExtensionContext, "ui" | "sessionManager"> | undefined): SubagentUpdate | undefined {
+  if (typeof onUpdate !== "function" && !ctx?.ui?.setWidget) return undefined;
+  return (partial) => {
+    if (typeof onUpdate === "function") (onUpdate as SubagentUpdate)(partial);
+    updateSubagentWidget(ctx);
+  };
 }
 
 function subagentParameters(): Record<string, unknown> {

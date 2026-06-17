@@ -1,6 +1,7 @@
-import {readSubagentTreeContext, nextChildId, nextRootSubagentId} from "./tree-ui";
+import {readSubagentTreeContext} from "./tree-ui";
 import {subagentRunModes} from "./profiles";
-import {runSubagent, SubagentRequest, SubagentResult} from "./runner";
+import {database_filename, SqliteDatabase, SubagentDao} from "../../storage";
+import {runSubagent, SubagentRequest, SubagentResult, SubagentUpdate} from "./runner";
 
 export const subagentJobStatuses = {
   running: "running",
@@ -26,25 +27,25 @@ export type AsyncSubagentJob = {
 
 const asyncJobs = new Map<string, AsyncSubagentJob>();
 
-export function startAsyncSubagentJob(request: SubagentRequest): AsyncSubagentJob {
+export function startAsyncSubagentJob(request: SubagentRequest, onUpdate?: SubagentUpdate): AsyncSubagentJob {
   const context = readSubagentTreeContext();
-  const id = context.nodeId ? nextChildId(context.nodeId) : nextRootSubagentId();
-  request.treeNodeId = id;
-  request.treeParentId = context.nodeId;
-  request.treeRootId = context.rootId ?? id;
-  request.treeDepth = context.nodeId ? context.depth + 1 : 0;
+  const identity = reserveJobIdentity(request, context);
+  request.treeNodeId = identity.id;
+  request.treeParentId = identity.parentId;
+  request.treeRootId = identity.rootId;
+  request.treeDepth = identity.depth;
   const controller = new AbortController();
   const job: AsyncSubagentJob = {
-    id,
+    id: identity.id,
     request,
     status: subagentJobStatuses.running,
     startedAt: Date.now(),
     controller,
     history: [],
   };
-  asyncJobs.set(id, job);
+  asyncJobs.set(identity.id, job);
 
-  runJob(job, request, request.task);
+  runJob(job, request, request.task, onUpdate);
   return job;
 }
 
@@ -65,7 +66,7 @@ export function getAsyncSubagentJobs(jobIds: string[]): {jobs: AsyncSubagentJob[
   return {jobs, missing};
 }
 
-export function sendConversationMessage(job: AsyncSubagentJob, task: string): void {
+export function sendConversationMessage(job: AsyncSubagentJob, task: string, onUpdate?: SubagentUpdate): void {
   if (job.status !== subagentJobStatuses.idle) return;
   job.status = subagentJobStatuses.running;
   job.finishedAt = undefined;
@@ -82,13 +83,14 @@ export function sendConversationMessage(job: AsyncSubagentJob, task: string): vo
     ].filter(Boolean).join("\n\n"),
   };
   job.request = request;
-  runJob(job, request, task);
+  runJob(job, request, task, onUpdate);
 }
 
 export function cancelAsyncSubagentJob(job: AsyncSubagentJob): void {
   if (job.status !== subagentJobStatuses.running && job.status !== subagentJobStatuses.idle) return;
   job.status = subagentJobStatuses.cancelled;
   job.finishedAt = Date.now();
+  updatePersistedJob(job.id, subagentJobStatuses.cancelled, "cancelled");
   job.controller.abort();
 }
 
@@ -132,8 +134,45 @@ export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
   };
 }
 
-function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string): void {
-  void runSubagent(request, job.controller.signal)
+function updatePersistedJob(id: string, status: "cancelled" | "failed", latestLine: string): void {
+  const db = SqliteDatabase.readwrite(database_filename);
+  try {
+    new SubagentDao(db).initializeSchema().finishRun(id, status, {latestLine, error: status === "failed" ? latestLine : null});
+  } finally {
+    db.close();
+  }
+}
+
+function reserveJobIdentity(
+  request: SubagentRequest,
+  context: {rootId?: string; nodeId?: string; depth: number},
+): {id: string; parentId: string | undefined; rootId: string; depth: number} {
+  const db = SqliteDatabase.readwrite(database_filename);
+  try {
+    const subagents = new SubagentDao(db).initializeSchema();
+    const parentId = context.nodeId;
+    const rootId = context.rootId ?? request.rootSessionId ?? `subagent-${process.pid}-${Date.now()}`;
+    const ordinal = subagents.nextOrdinal(parentId ?? null, rootId);
+    const id = parentId ? `${parentId}-${ordinal}` : `${rootId}-${ordinal}`;
+    subagents.startRun({
+      id,
+      rootId,
+      parentId,
+      ordinal,
+      depth: parentId ? context.depth + 1 : 0,
+      mode: request.mode,
+      task: request.task,
+      profiles: request.profiles,
+      tools: [],
+    });
+    return {id, parentId, rootId, depth: parentId ? context.depth + 1 : 0};
+  } finally {
+    db.close();
+  }
+}
+
+function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, onUpdate?: SubagentUpdate): void {
+  void runSubagent(request, job.controller.signal, onUpdate)
     .then((result) => {
       if (job.status === subagentJobStatuses.cancelled) return;
       job.result = result;
@@ -148,5 +187,6 @@ function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string): 
       job.status = subagentJobStatuses.failed;
       job.error = error instanceof Error ? error.message : String(error);
       job.finishedAt = Date.now();
+      updatePersistedJob(job.id, subagentJobStatuses.failed, job.error);
     });
 }

@@ -27,23 +27,9 @@ export type SubagentNode = {
   children: string[];
 };
 
-export type StartSubagentNodeInput = {
-  id?: string;
-  parentId?: string;
-  rootId?: string;
-  depth?: number;
-  mode: SubagentRunMode;
-  task: string;
-  profiles: SubagentProfile[];
-  tools: string[];
-};
-
-export type SubagentNodeUpdate = Partial<Pick<SubagentNode, "status" | "latestLine" | "finishedAt">>;
-
 export type SubagentTreeContext = {
   rootId?: string;
   parentId?: string;
   nodeId?: string;
   depth: number;
-  treeDir?: string;
 };

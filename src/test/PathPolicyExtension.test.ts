@@ -41,7 +41,7 @@ function capturePathHook(denied?: {path: string; accessType: FsAccessType}) {
       },
     },
   };
-  registerPathPolicy(pi, {sessionDao: {} as never, runtimeFor: () => runtime as never});
+  registerPathPolicy(pi, {sessionDao: {} as never, subagentDao: {} as never, runtimeFor: () => runtime as never});
   assert.ok(handler);
   return {handler, accesses};
 }
