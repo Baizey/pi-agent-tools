@@ -172,7 +172,6 @@ export class SessionDao {
             "file",
             "cwd",
             "name",
-            "title",
             "parentSession",
             "startedAt",
             "updatedAt",

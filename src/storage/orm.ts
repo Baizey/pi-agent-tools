@@ -169,7 +169,7 @@ export class Orm {
         const options = typeof optionsOrLimit === "number" ? {limit: optionsOrLimit} : optionsOrLimit ?? {};
         const whereSql = buildWhere(where);
         const orderSql = buildOrderBy(options.orderBy);
-        const limitSql = options.limit === undefined ? "" : ` limit ${options.limit}`;
+        const limitSql = buildLimit(options.limit);
         const sql = `select * from ${quoteIdent(target.name)}${whereSql.sql}${orderSql}${limitSql}`;
         const rows = this.db.prepare(sql).all(encodeValues(target, where)) as Record<string, unknown>[];
         return rows.map(row => decodeRow(target, row));
@@ -181,6 +181,7 @@ export class Orm {
 
         const setSql = patchEntries.map(name => `${quoteIdent(name)} = @set_${name}`).join(", ");
         const whereSql = buildWhere(where, "where_");
+        if (!whereSql.sql) throw new Error(`Refusing to update all rows from ${target.name}`);
         const sql = `update ${quoteIdent(target.name)} set ${setSql}${whereSql.sql}`;
         const values = {
             ...encodeValues(target, patch, "set_"),
@@ -234,11 +235,19 @@ function decodeRow<TTable extends Table<ColumnMap>>(target: TTable, row: Record<
 }
 
 function buildWhere(where: object, prefix = "") {
-    const keys = Object.keys(where);
-    if (keys.length === 0) return {sql: ""};
+    const entries = Object.entries(where);
+    if (entries.length === 0) return {sql: ""};
     return {
-        sql: ` where ${keys.map(name => `${quoteIdent(name)} = @${prefix}${name}`).join(" and ")}`,
+        sql: ` where ${entries.map(([name, value]) => value === null || value === undefined
+            ? `${quoteIdent(name)} is null`
+            : `${quoteIdent(name)} = @${prefix}${name}`).join(" and ")}`,
     };
+}
+
+function buildLimit(limit?: number) {
+    if (limit === undefined) return "";
+    if (!Number.isInteger(limit) || limit < 0) throw new Error(`Invalid sqlite limit: ${limit}`);
+    return ` limit ${limit}`;
 }
 
 function buildOrderBy<TTable extends Table<ColumnMap>>(orderBy?: OrderBy<TTable> | Array<OrderBy<TTable>>) {
