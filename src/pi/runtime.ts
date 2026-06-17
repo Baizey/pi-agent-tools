@@ -9,6 +9,8 @@ import {ShellPolicyLogicStore} from "../policy/shell/ShellPolicyLogicStore";
 import {WebPolicyLogic} from "../policy/web/WebPolicyLogic";
 import {WebPolicyLogicStore} from "../policy/web/WebPolicyLogicStore";
 import {standardizePath} from "../shared/paths";
+import {database_filename, SqliteDatabase} from "../storage";
+import {SessionDao} from "../storage";
 
 export type AgentRuntime = {
   pathPolicy: PathPolicyLogic;
@@ -22,13 +24,17 @@ export type AgentRuntime = {
 };
 
 export type AgentServices = {
+  sessionDao: SessionDao;
   runtimeFor(cwd: string): AgentRuntime;
 };
 
 export function createServices(): AgentServices {
   const runtimes = new Map<string, AgentRuntime>();
+  const agentDb = SqliteDatabase.readwrite(database_filename);
+  const sessionDao = new SessionDao(agentDb).initializeSchema();
 
   return {
+    sessionDao,
     runtimeFor(cwd: string): AgentRuntime {
       const key = path.resolve(cwd);
       const existing = runtimes.get(key);

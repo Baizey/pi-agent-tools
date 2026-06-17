@@ -15,6 +15,9 @@ export const toolNames = {
     // policy expansion
     policyInfo: "policy_info",
 
+    // local data expansion
+    localSql: "local_sql",
+
     // subagent expansion
     subagentSpawn: "subagent_spawn",
     subagentAwait: "subagent_await",

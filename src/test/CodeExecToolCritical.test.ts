@@ -15,6 +15,7 @@ async function registeredExecuteCodeTool(deny: {path: string; accessType: FsAcce
   } satisfies PiExtensionApi;
 
   await registerCodeExecutionTool(pi, {
+    sessionDao: {} as never,
     runtimeFor: () => ({
       pathPolicy: {
         evaluate(path: string, accessType: FsAccessType, denyByDefault: boolean) {
