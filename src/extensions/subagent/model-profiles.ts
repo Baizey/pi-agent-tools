@@ -1,16 +1,10 @@
 import {ExtensionContext} from "../../pi/types";
+import {autoModelProfileConfig, configuredModelForProfile, ModelProfileConfig, ModelProfileConfigStore} from "./model-profile-config";
+import {AgentModelProfile, agentModelProfiles} from "./model-profile-types";
 
-export const agentModelProfiles = {
-  textLow: "text_low",
-  textHigh: "text_high",
-  reasoningLow: "reasoning_low",
-  reasoningHigh: "reasoning_high",
-} as const;
-
-export type AgentModelProfile = typeof agentModelProfiles[keyof typeof agentModelProfiles];
+export {AgentModelProfile, agentModelProfiles};
 
 const agentModelProfileValues = new Set<string>(Object.values(agentModelProfiles));
-const cachedResolvedModels = new Map<AgentModelProfile, string | undefined>();
 
 export function isAgentModelProfile(value: string): value is AgentModelProfile {
   return agentModelProfileValues.has(value);
@@ -23,26 +17,55 @@ export async function resolveAgentModelProfile(
   const configured = model?.trim();
   if (!configured) return undefined;
   if (!isAgentModelProfile(configured)) return configured;
+
+  const profileConfigured = configuredModelForProfile(configured);
+  if (profileConfigured !== autoModelProfileConfig) return profileConfigured;
   return resolveAgentModel(ctx, configured);
+}
+
+export async function resolvedModelForProfile(
+  ctx: ExtensionContext | undefined,
+  profile: AgentModelProfile,
+  config: ModelProfileConfig = new ModelProfileConfigStore().load(),
+): Promise<{configured: string; resolved: string | undefined; automatic: boolean}> {
+  const configured = configuredModelForProfile(profile, config);
+  if (configured !== autoModelProfileConfig) return {configured, resolved: configured, automatic: false};
+  return {configured, resolved: await resolveAgentModel(ctx, profile), automatic: true};
+}
+
+export async function renderModelProfileConfig(
+  ctx: ExtensionContext | undefined,
+  config: ModelProfileConfig = new ModelProfileConfigStore().load(),
+): Promise<string[]> {
+  const rows = await Promise.all(Object.values(agentModelProfiles).map(async (profile) => ({
+    profile,
+    ...(await resolvedModelForProfile(ctx, profile, config)),
+  })));
+  const profileWidth = Math.max(...rows.map((row) => row.profile.length));
+  const modelWidth = Math.max(...rows.map((row) => (row.resolved ?? "unresolved").length));
+
+  return [
+    "Model profiles",
+    "",
+    ...rows.map((row) => {
+      const model = row.resolved ?? "unresolved";
+      const suffix = row.automatic ? "  auto" : "";
+      return `${row.profile.padEnd(profileWidth)}  → ${model.padEnd(modelWidth)}${suffix}`;
+    }),
+  ];
 }
 
 export async function resolveAgentModel(
   ctx: ExtensionContext | undefined,
   profile: AgentModelProfile,
 ): Promise<string | undefined> {
-  if (cachedResolvedModels.has(profile)) return cachedResolvedModels.get(profile);
-
-  let resolved: string | undefined;
   try {
     const available = await ctx?.modelRegistry?.getAvailable();
     const selected = selectAgentModel(available ?? [], profile);
-    resolved = selected ? `${selected.provider}/${selected.id}` : undefined;
+    return selected ? `${selected.provider}/${selected.id}` : undefined;
   } catch {
-    resolved = undefined;
+    return undefined;
   }
-
-  cachedResolvedModels.set(profile, resolved);
-  return resolved;
 }
 
 type AgentModelCandidate = Awaited<ReturnType<NonNullable<ExtensionContext["modelRegistry"]>["getAvailable"]>>[number];
@@ -65,6 +88,6 @@ function wantsLowCost(profile: AgentModelProfile): boolean {
 
 function modelCostScore(model: AgentModelCandidate): number {
   const cost = model.cost;
-  if (!cost) return Number.POSITIVE_INFINITY;
+  if (!cost) return 0.1;
   return cost.input + cost.output;
 }

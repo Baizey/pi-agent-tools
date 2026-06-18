@@ -1,5 +1,7 @@
 import {PiExtensionApi, ExtensionContext} from "../../pi/types";
 import {database_filename, SqliteDatabase, SubagentDao} from "../../storage";
+import {AgentModelProfile, agentModelProfiles, isAgentModelProfile, renderModelProfileConfig} from "./model-profiles";
+import {autoModelProfileConfig, ModelProfileConfigStore, normalizeConfigValue} from "./model-profile-config";
 import {renderSubagentRunTree, SubagentTreeFilter} from "./tree-ui";
 
 const filterValues = Object.values(SubagentTreeFilter);
@@ -16,6 +18,8 @@ const widgetState: SubagentWidgetState = {
 };
 
 export function registerSubagentCommands(pi: PiExtensionApi): void {
+  registerModelProfileCommand(pi);
+
   pi.registerCommand?.("subagents", {
     description: "Show or hide the subagent tree widget. Usage: /subagents [on|off] [all|done|running]",
     getArgumentCompletions(prefix) {
@@ -44,6 +48,37 @@ export function registerSubagentCommands(pi: PiExtensionApi): void {
           : "Subagent widget off.",
         "info",
       );
+    },
+  });
+}
+
+function registerModelProfileCommand(pi: PiExtensionApi): void {
+  pi.registerCommand?.("model-profiles", {
+    description: "Show or configure model profile resolution. Usage: /model-profiles [profile auto|model] | reset [profile]",
+    getArgumentCompletions(prefix) {
+      const parts = prefix.trim().split(/\s+/).filter(Boolean);
+      const current = parts.length > 0 ? parts[parts.length - 1] : "";
+      const options = modelProfileCompletionOptions(parts);
+      return options
+        .filter(option => option.startsWith(current))
+        .map(option => ({value: option, label: option}));
+    },
+    async handler(args, ctx) {
+      const parsed = parseModelProfileCommandArgs(args);
+      if (parsed.action === "error") {
+        ctx.ui?.notify?.(parsed.error, "error");
+        return;
+      }
+
+      const store = new ModelProfileConfigStore();
+      if (parsed.action === "set") {
+        store.set(parsed.profile, parsed.value);
+      } else if (parsed.action === "reset") {
+        store.reset(parsed.profile);
+      }
+
+      const lines = await renderModelProfileConfig(ctx, store.load());
+      ctx.ui?.notify?.(lines.join("\n"), "info");
     },
   });
 }
@@ -102,6 +137,42 @@ function parseSubagentCommandArgs(args: string): {enabled: boolean; filter: Suba
   }
 
   return {enabled, filter};
+}
+
+export type ModelProfileCommand =
+  | {action: "show"}
+  | {action: "set"; profile: AgentModelProfile; value: string}
+  | {action: "reset"; profile?: AgentModelProfile}
+  | {action: "error"; error: string};
+
+export function parseModelProfileCommandArgs(args: string): ModelProfileCommand {
+  const parts = args.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {action: "show"};
+
+  if (parts[0] === "reset") {
+    if (parts.length === 1) return {action: "reset"};
+    if (parts.length === 2 && isAgentModelProfile(parts[1])) return {action: "reset", profile: parts[1]};
+    return {action: "error", error: `Usage: /model-profiles reset [${Object.values(agentModelProfiles).join("|")}]`};
+  }
+
+  if (!isAgentModelProfile(parts[0])) {
+    return {action: "error", error: `Unknown model profile: ${parts[0]}`};
+  }
+  if (parts.length < 2) {
+    return {action: "error", error: `Missing model value for ${parts[0]}. Use '${autoModelProfileConfig}' or a concrete provider/model id.`};
+  }
+  if (parts.length > 2) {
+    return {action: "error", error: "Model profile values cannot contain whitespace."};
+  }
+
+  return {action: "set", profile: parts[0], value: normalizeConfigValue(parts[1])};
+}
+
+function modelProfileCompletionOptions(parts: string[]): string[] {
+  if (parts.length <= 1) return ["reset", ...Object.values(agentModelProfiles)];
+  if (parts[0] === "reset") return Object.values(agentModelProfiles);
+  if (isAgentModelProfile(parts[0]) && parts.length === 2) return [autoModelProfileConfig];
+  return [];
 }
 
 function isFilter(value: string): value is SubagentTreeFilter {
