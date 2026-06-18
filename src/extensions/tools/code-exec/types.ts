@@ -19,6 +19,7 @@ export type ExecutionMode = "inline" | "file";
 
 export type ExecInput = {
   language?: unknown;
+  purpose?: unknown;
   code?: unknown;
   file?: unknown;
   args?: unknown;

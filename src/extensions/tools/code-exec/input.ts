@@ -16,6 +16,7 @@ export function executeCodeParameters(availableLanguages: CodeLanguage[]): Recor
           ? `Language runtime to use. Available: ${availableLanguages.join(", ")}.`
           : "No supported language runtimes were detected at extension startup.",
       },
+      purpose: {type: "string", description: "Briefly describe what this code is intended to achieve."},
       code: {type: "string", description: "Inline code to execute. Mutually exclusive with file."},
       file: {type: "string", description: "Path to a source/script file to execute. Mutually exclusive with code."},
       args: {type: "array", items: {type: "string"}, description: "Arguments passed to the executed program/script."},

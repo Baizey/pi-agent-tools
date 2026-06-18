@@ -12,6 +12,7 @@ export function renderCodeExecCall(args: Record<string, unknown>, theme?: unknow
     toolNames.executeCode,
     [
       `  language: ${stringValue((args as ExecInput).language) ?? "<missing>"}`,
+      stringValue((args as ExecInput).purpose) ? `  purpose: ${stringValue((args as ExecInput).purpose)}` : null,
       "  mode: inline",
       Array.isArray((args as ExecInput).args) ? `  args: ${JSON.stringify((args as ExecInput).args)}` : null,
       stringValue((args as ExecInput).cwd) ? `  cwd: ${stringValue((args as ExecInput).cwd)}` : null,

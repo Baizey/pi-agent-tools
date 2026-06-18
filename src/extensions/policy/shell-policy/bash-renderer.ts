@@ -36,9 +36,10 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
     name: toolNames.bash,
     label: "bash",
     description: originalBash.description,
-    parameters: originalBash.parameters,
+    parameters: addPurposeParameter(originalBash.parameters, "Briefly describe what this bash command is intended to achieve."),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
-      return await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
+      const {purpose: _purpose, ...bashParams} = params;
+      return await originalBash.execute(toolCallId, bashParams, signal, onUpdate, ctx);
     },
     renderCall(args, theme, context) {
       const command = stringValue(args.command);
@@ -46,6 +47,7 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
       return renderBlockToolCall(
         toolNames.bash,
         [
+          stringValue(args.purpose) ? `  purpose: ${stringValue(args.purpose)}` : null,
           typeof args.timeout === "number" ? `  timeout: ${args.timeout}` : null,
         ],
         "command",
@@ -54,4 +56,17 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
       );
     },
   });
+}
+
+function addPurposeParameter(parameters: Record<string, unknown>, description: string): Record<string, unknown> {
+  const properties = parameters.properties && typeof parameters.properties === "object" && !Array.isArray(parameters.properties)
+    ? parameters.properties as Record<string, unknown>
+    : {};
+  return {
+    ...parameters,
+    properties: {
+      ...properties,
+      purpose: {type: "string", description},
+    },
+  };
 }

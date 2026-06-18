@@ -8,6 +8,7 @@ import {stringValue} from "../../../shared/values";
 
 type LocalSqlParams = {
     action?: unknown;
+    purpose?: unknown;
     sql?: unknown;
     params?: unknown;
     limit?: unknown;
@@ -43,6 +44,10 @@ export function registerLocalSqlTool(
                     enum: ["schema", "query"],
                     description: "Use schema to inspect available tables, or query to run a readonly SELECT/WITH statement. Defaults to schema.",
                     default: "schema",
+                },
+                purpose: {
+                    type: "string",
+                    description: "Briefly describe what this SQL query is intended to achieve.",
                 },
                 sql: {
                     type: "string",
@@ -96,6 +101,7 @@ export function registerLocalSqlTool(
                 toolNames.localSql,
                 [
                     `  action: ${stringValue((args as LocalSqlParams).action) ?? "query"}`,
+                    stringValue((args as LocalSqlParams).purpose) ? `  purpose: ${stringValue((args as LocalSqlParams).purpose)}` : null,
                     (args as LocalSqlParams).limit === undefined ? null : `  limit: ${String((args as LocalSqlParams).limit)}`,
                     params && typeof params === "object" ? `  params: ${JSON.stringify(params)}` : null,
                 ],
