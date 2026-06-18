@@ -88,7 +88,7 @@ export function registerLocalSqlTool(
                 db.close();
             }
         },
-        renderCall(args, theme) {
+        renderCall(args, theme, context) {
             const sql = stringValue((args as LocalSqlParams).sql);
             if (!sql) return renderToolCallInput(toolNames.localSql, args, theme as never);
             const params = (args as LocalSqlParams).params;
@@ -101,6 +101,7 @@ export function registerLocalSqlTool(
                 ],
                 "sql",
                 sql,
+                context as {expanded?: boolean} | undefined,
             );
         },
     });

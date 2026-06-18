@@ -1,27 +1,25 @@
+import {renderBlockToolCall} from "../../../shared/blockToolRendering";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
 import {ExecInput, RuntimeInfo} from "./types";
 import {ProcessResult} from "./process";
 
-export function renderCodeExecCall(args: Record<string, unknown>, theme?: unknown) {
+export function renderCodeExecCall(args: Record<string, unknown>, theme?: unknown, context?: unknown) {
   const code = stringValue((args as ExecInput).code);
   if (!code) return renderToolCallInput(toolNames.executeCode, args, theme as never);
-  const lines = [
+  return renderBlockToolCall(
     toolNames.executeCode,
-    `  language: ${stringValue((args as ExecInput).language) ?? "<missing>"}`,
-    "  mode: inline",
-    Array.isArray((args as ExecInput).args) ? `  args: ${JSON.stringify((args as ExecInput).args)}` : "",
-    stringValue((args as ExecInput).cwd) ? `  cwd: ${stringValue((args as ExecInput).cwd)}` : "",
-    "  code:",
-    ...code.split(/\r?\n/).map((line) => `    ${line}`),
-  ].filter(Boolean);
-  return {
-    render(width: number): string[] {
-      return lines.map((line) => width > 0 && line.length > width ? `${line.slice(0, Math.max(0, width - 1))}…` : line);
-    },
-    invalidate(): void {},
-  };
+    [
+      `  language: ${stringValue((args as ExecInput).language) ?? "<missing>"}`,
+      "  mode: inline",
+      Array.isArray((args as ExecInput).args) ? `  args: ${JSON.stringify((args as ExecInput).args)}` : null,
+      stringValue((args as ExecInput).cwd) ? `  cwd: ${stringValue((args as ExecInput).cwd)}` : null,
+    ],
+    "code",
+    code,
+    context as {expanded?: boolean} | undefined,
+  );
 }
 
 export function formatRuntimeInfo(runtimes: RuntimeInfo[]): string {

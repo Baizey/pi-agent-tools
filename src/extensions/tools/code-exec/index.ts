@@ -69,8 +69,8 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
         await plan.cleanup?.().catch(() => undefined);
       }
     },
-    renderCall(args, theme) {
-      return renderCodeExecCall(args, theme as never);
+    renderCall(args, theme, context) {
+      return renderCodeExecCall(args, theme as never, context);
     },
   });
 

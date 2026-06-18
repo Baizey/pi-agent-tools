@@ -40,7 +40,7 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       return await originalBash.execute(toolCallId, params, signal, onUpdate, ctx);
     },
-    renderCall(args, theme) {
+    renderCall(args, theme, context) {
       const command = stringValue(args.command);
       if (!command) return renderToolCallInput(toolNames.bash, args, theme as never);
       return renderBlockToolCall(
@@ -50,6 +50,7 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
         ],
         "command",
         command,
+        context as {expanded?: boolean} | undefined,
       );
     },
   });
