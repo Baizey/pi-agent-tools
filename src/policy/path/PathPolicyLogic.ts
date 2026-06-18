@@ -7,6 +7,8 @@ import {
   PathPolicyResult,
   PathPolicyStatus,
   PolicyLifetime,
+  PolicyResolutionSource,
+  policyResolutionSourceText,
   PolicyStatus,
 } from "../types";
 
@@ -68,6 +70,7 @@ export class PathPolicyLogic {
         matchedReason: denyByDefault
           ? "No matching policy found. denied by default, you cannot access this"
           : "No matching policy found. Ask for permission if you want to proceed.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
       };
     }
 
@@ -79,6 +82,7 @@ export class PathPolicyLogic {
       matchedLifetime: status.lifetime,
       matchedStatus: status.status,
       matchedReason: status.reason,
+      resolutionSource: PolicyResolutionSource.EXISTING_USER_POLICY,
     };
   }
 
@@ -141,6 +145,8 @@ export class PathPolicyLogic {
       `Evaluated access type: ${result.evaluatedAccessType}`,
       `Policy lifetime: ${result.matchedLifetime}`,
       `Policy path: '${result.matchedPattern}'`,
+      `Policy resolution source: ${result.resolutionSource}`,
+      `Policy resolution meaning: ${policyResolutionSourceText(result.resolutionSource)}`,
       `Policy reason: ${result.matchedReason}`,
     ].join("\n");
   }

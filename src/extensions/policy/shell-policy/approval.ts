@@ -1,6 +1,6 @@
 import {ExtensionContext} from "../../../pi/types";
 import {AgentRuntime} from "../../../pi/runtime";
-import {PolicyLifetime, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult, ShellPolicyScopeOption} from "../../../policy/types";
+import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult, ShellPolicyScopeOption} from "../../../policy/types";
 import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
 import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
 
@@ -13,16 +13,21 @@ export async function ensureShellAllowed(
   const oneShotPolicies: ShellPolicyDeleteRequest[] = [];
 
   try {
+    let usedNewUserDecision = false;
     for (let attempts = 0; attempts < 10; attempts++) {
       const result = runtime.shellPolicy.evaluate(command, denyByDefault);
       if (result === null) {
         const promptResult = await askForShellPolicy(ctx, runtime, command, oneShotPolicies);
-        if (promptResult === null) continue;
+        if (promptResult === null) {
+          usedNewUserDecision = true;
+          continue;
+        }
         return runtime.shellPolicy.toDenyReasonOrNull(promptResult) ?? "Execution denied.";
       }
 
-      if (result.allowed) return null;
-      return runtime.shellPolicy.toDenyReasonOrNull(result) ?? "Execution denied.";
+      const resolvedResult = usedNewUserDecision ? withShellResolutionSource(result, PolicyResolutionSource.NEW_USER_DECISION) : result;
+      if (resolvedResult.allowed) return null;
+      return runtime.shellPolicy.toDenyReasonOrNull(resolvedResult) ?? "Execution denied.";
     }
 
     return "Execution denied: shell policy could not be resolved.";
@@ -47,10 +52,12 @@ async function askForShellPolicy(
         lifetime: PolicyLifetime.ONCE,
         status: PolicyStatus.DENIED,
         reason,
+        resolutionSource: PolicyResolutionSource.SYSTEM,
         allowed: false,
         denied: true,
       },
     ],
+    resolutionSource: PolicyResolutionSource.SYSTEM,
     allowed: false,
     denied: true,
   });
@@ -175,6 +182,14 @@ async function askShellPolicyWithFlow(
   return {
     ...approval,
     reason: approval.reason || defaultReason(approval.status),
+  };
+}
+
+function withShellResolutionSource(result: ShellPolicyResult, source: PolicyResolutionSource): ShellPolicyResult {
+  return {
+    ...result,
+    resolutionSource: source,
+    segmentResults: result.segmentResults.map((segment) => ({...segment, resolutionSource: source})),
   };
 }
 

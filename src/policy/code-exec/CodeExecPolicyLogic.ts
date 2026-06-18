@@ -6,6 +6,8 @@ import {
   CodeExecPolicyScopeOption,
   isPersistedLifetime,
   PolicyLifetime,
+  PolicyResolutionSource,
+  policyResolutionSourceText,
   PolicyStatus,
 } from "../types";
 
@@ -45,6 +47,7 @@ export class CodeExecPolicyLogic {
         matchedLifetime: PolicyLifetime.FOREVER,
         matchedStatus: PolicyStatus.DENIED,
         matchedReason: "No matching code execution policy found. denied by default, you cannot execute this.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
       };
     }
 
@@ -57,6 +60,7 @@ export class CodeExecPolicyLogic {
       matchedLifetime: policy.lifetime,
       matchedStatus: policy.status,
       matchedReason: policy.reason,
+      resolutionSource: PolicyResolutionSource.EXISTING_USER_POLICY,
     };
   }
 
@@ -118,6 +122,8 @@ export class CodeExecPolicyLogic {
       `Mode: ${result.mode}`,
       `Policy lifetime: ${result.matchedLifetime}`,
       `Policy scope: '${result.matchedScope}'`,
+      `Policy resolution source: ${result.resolutionSource}`,
+      `Policy resolution meaning: ${policyResolutionSourceText(result.resolutionSource)}`,
       `Policy reason: ${result.matchedReason}`,
     ].join("\n");
   }

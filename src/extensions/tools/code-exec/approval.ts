@@ -5,6 +5,7 @@ import {
     CodeExecPolicyResult,
     CodeExecPolicyScopeOption,
     PolicyLifetime,
+    PolicyResolutionSource,
     PolicyStatus
 } from "../../../policy/types";
 import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
@@ -47,6 +48,7 @@ async function askForCodeExecPolicy(
         matchedLifetime: PolicyLifetime.ONCE,
         matchedStatus: PolicyStatus.DENIED,
         matchedReason: reason,
+        resolutionSource: PolicyResolutionSource.SYSTEM,
     });
 
     if (!ctx.ui || ctx.hasUI === false) {
@@ -70,7 +72,8 @@ async function askForCodeExecPolicy(
         runtime.codeExecPolicyStore.save(runtime.codeExecPolicy);
     }
 
-    return runtime.codeExecPolicy.evaluate(input.language, input.mode, true) ?? failed("Code execution policy could not be resolved.");
+    const result = runtime.codeExecPolicy.evaluate(input.language, input.mode, true) ?? failed("Code execution policy could not be resolved.");
+    return {...result, resolutionSource: PolicyResolutionSource.NEW_USER_DECISION};
 }
 
 type CodeExecPolicyApproval = {

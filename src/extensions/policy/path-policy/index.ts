@@ -2,7 +2,7 @@ import path from "node:path";
 import {PiExtensionApi, ExtensionContext} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
 import {PathPolicyLogic} from "../../../policy/path/PathPolicyLogic";
-import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyStatus} from "../../../policy/types";
+import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyResolutionSource, PolicyStatus} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {standardizePath} from "../../../shared/paths";
 import {toolNames} from "../../../shared/toolNames";
@@ -57,6 +57,7 @@ async function askForPolicy(
         matchedLifetime: PolicyLifetime.ONCE,
         matchedStatus: PolicyStatus.DENIED,
         matchedReason: reason,
+        resolutionSource: PolicyResolutionSource.SYSTEM,
     });
 
     if (!ctx.ui || ctx.hasUI === false) {
@@ -87,6 +88,7 @@ async function askForPolicy(
         matchedLifetime: approval.lifetime,
         matchedStatus: approval.status,
         matchedReason: approval.reason,
+        resolutionSource: PolicyResolutionSource.NEW_USER_DECISION,
     };
 }
 

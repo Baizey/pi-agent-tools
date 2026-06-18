@@ -1,6 +1,6 @@
 import {PiExtensionApi} from "../../../pi/types";
 import {AgentServices} from "../../../pi/runtime";
-import {FsAccessType, PolicyStatus, WebAccessType} from "../../../policy/types";
+import {FsAccessType, PolicyResolutionSource, PolicyStatus, WebAccessType, policyResolutionSourceText} from "../../../policy/types";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {errorResult as toolErrorResult, successResult} from "../../../shared/toolResults";
@@ -129,6 +129,8 @@ function pathPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
         evaluatedAccessType: accessType,
         matchedStatus: "UNKNOWN",
         matchedReason: "No matching path policy found.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
+        resolutionSourceMeaning: policyResolutionSourceText(PolicyResolutionSource.SYSTEM),
       };
     }
     if (result.matchedReason.startsWith("No matching policy found.")) {
@@ -137,9 +139,11 @@ function pathPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
         evaluatedAccessType: result.evaluatedAccessType,
         matchedStatus: "UNKNOWN",
         matchedReason: "No matching path policy found.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
+        resolutionSourceMeaning: policyResolutionSourceText(PolicyResolutionSource.SYSTEM),
       };
     }
-    return result;
+    return {...result, resolutionSourceMeaning: policyResolutionSourceText(result.resolutionSource)};
   });
 
   return successResult(JSON.stringify(evaluations, null, 2), {evaluations});
@@ -150,12 +154,16 @@ function shellPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input
   if (!command) return errorResult("Missing required parameter for shell policy lookup: command.");
 
   const result = runtime.shellPolicy.evaluate(command, false);
-  const details = result ?? {
-    command,
-    status: "UNKNOWN",
-    reason: "No matching shell policy found.",
-    pendingPolicyScopeOptions: runtime.shellPolicy.pendingPolicyScopeOptions(command),
-  };
+  const details = result
+    ? {...result, resolutionSourceMeaning: policyResolutionSourceText(result.resolutionSource)}
+    : {
+      command,
+      status: "UNKNOWN",
+      reason: "No matching shell policy found.",
+      resolutionSource: PolicyResolutionSource.SYSTEM,
+      resolutionSourceMeaning: policyResolutionSourceText(PolicyResolutionSource.SYSTEM),
+      pendingPolicyScopeOptions: runtime.shellPolicy.pendingPolicyScopeOptions(command),
+    };
   return successResult(JSON.stringify(details, null, 2), details);
 }
 
@@ -165,13 +173,18 @@ function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
   if (!language) return errorResult("Missing required parameter for code policy lookup: language.");
   if (mode !== "inline" && mode !== "file") return errorResult("Missing or invalid required parameter for code policy lookup: mode.");
 
-  const codePolicy = runtime.codeExecPolicy.evaluate(language, mode, false) ?? {
-    language,
-    mode,
-    status: "UNKNOWN",
-    reason: "No matching code execution policy found.",
-    pendingPolicyScopeOptions: runtime.codeExecPolicy.pendingPolicyScopeOptions(language, mode),
-  };
+  const rawCodePolicy = runtime.codeExecPolicy.evaluate(language, mode, false);
+  const codePolicy = rawCodePolicy
+    ? {...rawCodePolicy, resolutionSourceMeaning: policyResolutionSourceText(rawCodePolicy.resolutionSource)}
+    : {
+      language,
+      mode,
+      status: "UNKNOWN",
+      reason: "No matching code execution policy found.",
+      resolutionSource: PolicyResolutionSource.SYSTEM,
+      resolutionSourceMeaning: policyResolutionSourceText(PolicyResolutionSource.SYSTEM),
+      pendingPolicyScopeOptions: runtime.codeExecPolicy.pendingPolicyScopeOptions(language, mode),
+    };
   const cwd = stringValue(input.cwd);
   const file = stringValue(input.file);
   const pathChecks = [
@@ -182,7 +195,14 @@ function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
     ] : []),
   ].map((check) => ({
     ...check,
-    result: check.result ?? {status: "UNKNOWN", reason: "No matching path policy found."},
+    result: check.result
+      ? {...check.result, resolutionSourceMeaning: policyResolutionSourceText(check.result.resolutionSource)}
+      : {
+        status: "UNKNOWN",
+        reason: "No matching path policy found.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
+        resolutionSourceMeaning: policyResolutionSourceText(PolicyResolutionSource.SYSTEM),
+      },
   }));
   const details = {
     codePolicy,
@@ -202,11 +222,14 @@ function webPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: 
 
   const evaluations = accessTypes.map((accessType) => {
     const result = runtime.webPolicy.evaluate(url, accessType as WebAccessType, false);
-    return result ?? {
+    if (result) return {...result, resolutionSourceMeaning: policyResolutionSourceText(result.resolutionSource)};
+    return {
       url,
       accessType,
       status: "UNKNOWN",
       reason: "No matching web policy found.",
+      resolutionSource: PolicyResolutionSource.SYSTEM,
+      resolutionSourceMeaning: policyResolutionSourceText(PolicyResolutionSource.SYSTEM),
       pendingPolicyScopeOptions: runtime.webPolicy.pendingPolicyScopeOptions(url, accessType as WebAccessType),
     };
   });

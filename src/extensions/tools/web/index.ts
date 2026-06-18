@@ -1,6 +1,6 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
-import {PolicyLifetime, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
+import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
@@ -99,6 +99,7 @@ async function askForWebPolicy(
     matchedLifetime: PolicyLifetime.ONCE,
     matchedStatus: PolicyStatus.DENIED,
     matchedReason: reason,
+    resolutionSource: PolicyResolutionSource.SYSTEM,
   });
 
   if (!ctx?.ui || ctx.hasUI === false) return failed(`No web policy matched '${url}' and interactive approval is unavailable.`);
@@ -113,7 +114,8 @@ async function askForWebPolicy(
   if (approval.lifetime === PolicyLifetime.ONCE) oneShotPolicies.push({host: scope.host, path: scope.path, accessType: scope.accessType});
   else if (approval.lifetime === PolicyLifetime.FOREVER) runtime.webPolicyStore.save(runtime.webPolicy);
 
-  return runtime.webPolicy.evaluate(url, accessType, true) ?? failed("Web policy could not be resolved.");
+  const result = runtime.webPolicy.evaluate(url, accessType, true) ?? failed("Web policy could not be resolved.");
+  return {...result, resolutionSource: PolicyResolutionSource.NEW_USER_DECISION};
 }
 
 type WebPolicyApproval = {

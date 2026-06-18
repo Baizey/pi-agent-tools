@@ -1,6 +1,8 @@
 import {
   isPersistedLifetime,
   PolicyLifetime,
+  PolicyResolutionSource,
+  policyResolutionSourceText,
   PolicyStatus,
   ShellFlagPolicyStatus,
   ShellPolicy,
@@ -238,6 +240,7 @@ export class ShellPolicyLogic {
       lifetime: commandPolicy.lifetime,
       status: commandPolicy.status,
       reason: commandPolicy.reason,
+      resolutionSource: PolicyResolutionSource.EXISTING_USER_POLICY,
     });
   }
 
@@ -257,6 +260,7 @@ export class ShellPolicyLogic {
       reason: denyByDefault
         ? `${reason} denied by default, you cannot execute this.`
         : `${reason} Ask for permission if you want to proceed.`,
+      resolutionSource: PolicyResolutionSource.SYSTEM,
     });
   }
 
@@ -284,6 +288,9 @@ export class ShellPolicyLogic {
     return {
       command,
       segmentResults,
+      resolutionSource: segmentResults.some((it) => it.resolutionSource === PolicyResolutionSource.SYSTEM)
+        ? PolicyResolutionSource.SYSTEM
+        : PolicyResolutionSource.EXISTING_USER_POLICY,
       allowed: segmentResults.every((it) => it.allowed),
       denied: segmentResults.some((it) => it.denied),
     };
@@ -306,6 +313,8 @@ export class ShellPolicyLogic {
         result.commandPrefix.length > 0 ? `Matched command scope: '${result.commandPrefix.join(" ")}'` : "Matched command scope: (none)",
         `Decision: ${result.status}`,
         `Lifetime: ${result.lifetime}`,
+        `Policy resolution source: ${result.resolutionSource}`,
+        `Policy resolution meaning: ${policyResolutionSourceText(result.resolutionSource)}`,
         `Reason: ${result.reason}`,
       );
     }
@@ -318,6 +327,8 @@ export class ShellPolicyLogic {
         `Flag: '${flag.flag}'`,
         `Decision: ${isUnmatchedShellFlag(flag) ? "UNKNOWN" : flag.status}`,
         `Lifetime: ${flag.lifetime}`,
+        `Policy resolution source: ${isUnmatchedShellFlag(flag) ? PolicyResolutionSource.SYSTEM : result.resolutionSource}`,
+        `Policy resolution meaning: ${policyResolutionSourceText(isUnmatchedShellFlag(flag) ? PolicyResolutionSource.SYSTEM : result.resolutionSource)}`,
         `Reason: ${flag.reason}`,
       );
     }

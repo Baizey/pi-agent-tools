@@ -1,4 +1,4 @@
-import {isPersistedLifetime, PolicyLifetime, PolicyStatus, WebAccessType, WebPolicy, WebPolicyDeleteRequest, WebPolicyResult, WebPolicyScopeOption} from "../types";
+import {isPersistedLifetime, PolicyLifetime, PolicyResolutionSource, policyResolutionSourceText, PolicyStatus, WebAccessType, WebPolicy, WebPolicyDeleteRequest, WebPolicyResult, WebPolicyScopeOption} from "../types";
 
 export class WebPolicyLogic {
   private readonly policies: WebPolicy[] = [];
@@ -25,6 +25,7 @@ export class WebPolicyLogic {
         matchedLifetime: PolicyLifetime.ONCE,
         matchedStatus: PolicyStatus.DENIED,
         matchedReason: "Invalid URL. Web policy requires a full http(s) URL.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
       };
     }
 
@@ -42,6 +43,7 @@ export class WebPolicyLogic {
         matchedLifetime: PolicyLifetime.FOREVER,
         matchedStatus: PolicyStatus.DENIED,
         matchedReason: "No matching web policy found. denied by default, you cannot access this URL.",
+        resolutionSource: PolicyResolutionSource.SYSTEM,
       };
     }
 
@@ -56,6 +58,7 @@ export class WebPolicyLogic {
       matchedLifetime: policy.lifetime,
       matchedStatus: policy.status,
       matchedReason: policy.reason,
+      resolutionSource: PolicyResolutionSource.EXISTING_USER_POLICY,
     };
   }
 
@@ -110,6 +113,8 @@ export class WebPolicyLogic {
       `Access type: ${result.accessType}`,
       `Policy lifetime: ${result.matchedLifetime}`,
       `Policy scope: '${result.matchedScope}'`,
+      `Policy resolution source: ${result.resolutionSource}`,
+      `Policy resolution meaning: ${policyResolutionSourceText(result.resolutionSource)}`,
       `Policy reason: ${result.matchedReason}`,
     ].join("\n");
   }

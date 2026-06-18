@@ -9,6 +9,23 @@ export enum PolicyLifetime {
   FOREVER = "FOREVER",
 }
 
+export enum PolicyResolutionSource {
+  SYSTEM = "SYSTEM",
+  EXISTING_USER_POLICY = "EXISTING_USER_POLICY",
+  NEW_USER_DECISION = "NEW_USER_DECISION",
+}
+
+export const policyResolutionSourceText = (source: PolicyResolutionSource): string => {
+  switch (source) {
+    case PolicyResolutionSource.SYSTEM:
+      return "Resolved automatically by policy logic without using a stored user policy or asking the user now.";
+    case PolicyResolutionSource.EXISTING_USER_POLICY:
+      return "Resolved by an existing user policy from an earlier decision.";
+    case PolicyResolutionSource.NEW_USER_DECISION:
+      return "Resolved by a user decision provided just now for this request.";
+  }
+};
+
 export enum FsAccessType {
   DELETE = "DELETE",
   WRITE = "WRITE",
@@ -45,6 +62,7 @@ export type PathPolicyResult = {
   matchedLifetime: PolicyLifetime;
   matchedStatus: PolicyStatus;
   matchedReason: string;
+  resolutionSource: PolicyResolutionSource;
 };
 
 export type ShellFlagPolicyStatus = {
@@ -80,6 +98,7 @@ export type ShellSegmentPolicyResult = {
   lifetime: PolicyLifetime;
   status: PolicyStatus;
   reason: string;
+  resolutionSource: PolicyResolutionSource;
   allowed: boolean;
   denied: boolean;
 };
@@ -87,6 +106,7 @@ export type ShellSegmentPolicyResult = {
 export type ShellPolicyResult = {
   command: string;
   segmentResults: ShellSegmentPolicyResult[];
+  resolutionSource: PolicyResolutionSource;
   allowed: boolean;
   denied: boolean;
 };
@@ -128,6 +148,7 @@ export type CodeExecPolicyResult = {
   matchedLifetime: PolicyLifetime;
   matchedStatus: PolicyStatus;
   matchedReason: string;
+  resolutionSource: PolicyResolutionSource;
 };
 
 export type CodeExecPolicyScopeOption = {
@@ -171,6 +192,7 @@ export type WebPolicyResult = {
   matchedLifetime: PolicyLifetime;
   matchedStatus: PolicyStatus;
   matchedReason: string;
+  resolutionSource: PolicyResolutionSource;
 };
 
 export type WebPolicyScopeOption = {
