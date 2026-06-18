@@ -1,11 +1,11 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
-import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, WebAccessType, WebPolicyDeleteRequest, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
+import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, WebAccessType, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
-import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
+import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";
@@ -70,15 +70,10 @@ export async function ensureWebAllowed(
   accessType: WebAccessType,
   denyByDefault: boolean,
 ): Promise<string | null> {
-  const oneShotPolicies: WebPolicyDeleteRequest[] = [];
-  try {
-    let result = runtime.webPolicy.evaluate(url, accessType, denyByDefault);
-    if (result === null) result = await askForWebPolicy(ctx, runtime, url, accessType, oneShotPolicies);
-    if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
-    return runtime.webPolicy.toDenyReasonOrNull(result) ?? "Web access denied.";
-  } finally {
-    runtime.webPolicy.removePolicies(oneShotPolicies);
-  }
+  let result = runtime.webPolicy.evaluate(url, accessType, denyByDefault);
+  if (result === null) result = await askForWebPolicy(ctx, runtime, url, accessType);
+  if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
+  return runtime.webPolicy.toDenyReasonOrNull(result) ?? "Web access denied.";
 }
 
 async function askForWebPolicy(
@@ -86,7 +81,6 @@ async function askForWebPolicy(
   runtime: AgentRuntime,
   url: string,
   accessType: WebAccessType,
-  oneShotPolicies: WebPolicyDeleteRequest[],
 ): Promise<WebPolicyResult> {
   const failed = (reason: string): WebPolicyResult => ({
     url,
@@ -110,9 +104,24 @@ async function askForWebPolicy(
 
   const scope = approval.scope;
   const policy = runtime.webPolicy.createPolicyForScope(scope, approval.lifetime, approval.status, approval.reason);
+  if (approval.lifetime === PolicyLifetime.ONCE) {
+    return {
+      url,
+      accessType,
+      host: scope.host,
+      path: scope.path,
+      matchedHost: scope.host,
+      matchedPath: scope.path,
+      matchedScope: scope.label.replace(`${accessType} `, ""),
+      matchedLifetime: approval.lifetime,
+      matchedStatus: approval.status,
+      matchedReason: approval.reason,
+      resolutionSource: PolicyResolutionSource.NEW_USER_DECISION,
+    };
+  }
+
   runtime.webPolicy.addPolicies([policy]);
-  if (approval.lifetime === PolicyLifetime.ONCE) oneShotPolicies.push({host: scope.host, path: scope.path, accessType: scope.accessType});
-  else if (approval.lifetime === PolicyLifetime.FOREVER) runtime.webPolicyStore.save(runtime.webPolicy);
+  if (approval.lifetime === PolicyLifetime.FOREVER) runtime.webPolicyStore.save(runtime.webPolicy);
 
   const result = runtime.webPolicy.evaluate(url, accessType, true) ?? failed("Web policy could not be resolved.");
   return {...result, resolutionSource: PolicyResolutionSource.NEW_USER_DECISION};
@@ -195,7 +204,17 @@ async function askWebPolicyWithFlow(
     scopeDecision,
     {scope: scopeDecision, status: statusDecision, lifetime: lifetimeDecision, reason: reasonDecision},
     onCancelReturn,
+    undefined,
+    {enabled: true},
   );
+
+  if (approval === UiFlowShortcut.ALLOW_ALL_ONCE) {
+    return {scope: scopes[0], status: PolicyStatus.ALLOWED, lifetime: PolicyLifetime.ONCE, reason: defaultReason(PolicyStatus.ALLOWED)};
+  }
+  if (approval === UiFlowShortcut.DENY_ALL_ONCE) {
+    const reason = await ctx.ui?.input?.(`Reason for denying ${accessType} ${url} (optional)`, defaultReason(PolicyStatus.DENIED));
+    return {scope: scopes[0], status: PolicyStatus.DENIED, lifetime: PolicyLifetime.ONCE, reason: reason || defaultReason(PolicyStatus.DENIED)};
+  }
 
   return {
     ...approval,

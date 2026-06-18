@@ -6,7 +6,7 @@ import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyResolutionSource, 
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {standardizePath} from "../../../shared/paths";
 import {toolNames} from "../../../shared/toolNames";
-import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
+import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {stringValues} from "../../../shared/values";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {
@@ -188,7 +188,17 @@ async function askPathPolicyWithFlow(
             reason: reasonDecision,
         },
         onCancelReturn,
+        undefined,
+        {enabled: true},
     );
+
+    if (approval === UiFlowShortcut.ALLOW_ALL_ONCE) {
+        return {scope: scopes[0], status: PolicyStatus.ALLOWED, lifetime: PolicyLifetime.ONCE, reason: defaultReason(PolicyStatus.ALLOWED)};
+    }
+    if (approval === UiFlowShortcut.DENY_ALL_ONCE) {
+        const reason = await ctx.ui?.input?.(`Reason for denying ${accessType} ${evaluatedPath} (optional)`, defaultReason(PolicyStatus.DENIED));
+        return {scope: scopes[0], status: PolicyStatus.DENIED, lifetime: PolicyLifetime.ONCE, reason: reason || defaultReason(PolicyStatus.DENIED)};
+    }
 
     return {
         ...approval,

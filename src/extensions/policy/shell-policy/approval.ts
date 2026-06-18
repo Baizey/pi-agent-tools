@@ -1,7 +1,8 @@
 import {ExtensionContext} from "../../../pi/types";
 import {AgentRuntime} from "../../../pi/runtime";
-import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, ShellPolicyDeleteRequest, ShellPolicyResult, ShellPolicyScopeOption} from "../../../policy/types";
-import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
+import {ShellPolicyLogic} from "../../../policy/shell/ShellPolicyLogic";
+import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, ShellPolicyResult, ShellPolicyScopeOption} from "../../../policy/types";
+import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
 
 export async function ensureShellAllowed(
@@ -10,39 +11,33 @@ export async function ensureShellAllowed(
   command: string,
   denyByDefault: boolean,
 ): Promise<string | null> {
-  const oneShotPolicies: ShellPolicyDeleteRequest[] = [];
+  const requestPolicy = new ShellPolicyLogic({policies: runtime.shellPolicy.policiesSnapshot()});
+  let usedNewUserDecision = false;
 
-  try {
-    let usedNewUserDecision = false;
-    for (let attempts = 0; attempts < 10; attempts++) {
-      const result = runtime.shellPolicy.evaluate(command, denyByDefault);
-      if (result === null) {
-        const promptResult = await askForShellPolicy(ctx, runtime, command, oneShotPolicies);
-        if (promptResult === null) {
-          usedNewUserDecision = true;
-          continue;
-        }
-        return runtime.shellPolicy.toDenyReasonOrNull(promptResult) ?? "Execution denied.";
-      }
-
-      const resolvedResult = usedNewUserDecision ? withShellResolutionSource(result, PolicyResolutionSource.NEW_USER_DECISION) : result;
-      if (resolvedResult.allowed) return null;
-      return runtime.shellPolicy.toDenyReasonOrNull(resolvedResult) ?? "Execution denied.";
+  for (let attempts = 0; attempts < 20; attempts++) {
+    const result = requestPolicy.evaluate(command, denyByDefault);
+    if (result === null) {
+      const promptResult = await askForShellPolicy(ctx, runtime, requestPolicy, command);
+      usedNewUserDecision = true;
+      if (promptResult === null) continue;
+      return requestPolicy.toDenyReasonOrNull(promptResult) ?? "Execution denied.";
     }
 
-    return "Execution denied: shell policy could not be resolved.";
-  } finally {
-    runtime.shellPolicy.removePolicies(oneShotPolicies);
+    const resolvedResult = usedNewUserDecision ? withShellResolutionSource(result, PolicyResolutionSource.NEW_USER_DECISION) : result;
+    if (resolvedResult.allowed) return null;
+    return requestPolicy.toDenyReasonOrNull(resolvedResult) ?? "Execution denied.";
   }
+
+  return "Execution denied: shell policy could not be resolved.";
 }
 
 async function askForShellPolicy(
   ctx: ExtensionContext,
   runtime: AgentRuntime,
+  requestPolicy: ShellPolicyLogic,
   command: string,
-  oneShotPolicies: ShellPolicyDeleteRequest[],
 ): Promise<ShellPolicyResult | null> {
-  const failed = (reason: string): ShellPolicyResult => ({
+  const failed = (reason: string, source = PolicyResolutionSource.SYSTEM): ShellPolicyResult => ({
     command,
     segmentResults: [
       {
@@ -52,12 +47,12 @@ async function askForShellPolicy(
         lifetime: PolicyLifetime.ONCE,
         status: PolicyStatus.DENIED,
         reason,
-        resolutionSource: PolicyResolutionSource.SYSTEM,
+        resolutionSource: source,
         allowed: false,
         denied: true,
       },
     ],
-    resolutionSource: PolicyResolutionSource.SYSTEM,
+    resolutionSource: source,
     allowed: false,
     denied: true,
   });
@@ -66,21 +61,31 @@ async function askForShellPolicy(
     return failed(`No shell policy matched '${command}' and interactive approval is unavailable.`);
   }
 
-  const scopeOptions = runtime.shellPolicy.pendingPolicyScopeOptions(command);
+  const scopeOptions = requestPolicy.pendingPolicyScopeOptions(command);
   if (scopeOptions.length === 0) {
     return failed(`No safe shell policy scope could be inferred for '${command}'.`);
   }
 
   const approval = await askShellPolicyWithFlow(ctx, command, scopeOptions);
+  if (approval === UiFlowShortcut.ALLOW_ALL_ONCE) {
+    resolveAllRemainingShellScopesOnce(requestPolicy, command, `User selected ${PolicyStatus.ALLOWED} for shell command.`);
+    return null;
+  }
+  if (approval === UiFlowShortcut.DENY_ALL_ONCE) {
+    const defaultReason = `User selected ${PolicyStatus.DENIED} for shell command.`;
+    const reason = await ctx.ui?.input?.("Reason for denying shell request once (optional)", defaultReason);
+    return failed(reason || defaultReason, PolicyResolutionSource.NEW_USER_DECISION);
+  }
 
   const scope = approval.scope;
-  const policy = runtime.shellPolicy.createPolicyForScope(scope, approval.status, approval.lifetime, approval.reason);
+  const policy = requestPolicy.createPolicyForScope(scope, approval.status, approval.lifetime, approval.reason);
 
-  runtime.shellPolicy.addPolicies([policy]);
-  if (approval.lifetime === PolicyLifetime.ONCE) {
-    oneShotPolicies.push({commandArgs: scope.commandArgs, removeEntirePolicy: true, flags: []});
-  } else if (approval.lifetime === PolicyLifetime.FOREVER) {
-    runtime.shellPolicyStore.save(runtime.shellPolicy);
+  requestPolicy.addPolicies([policy]);
+  if (approval.lifetime !== PolicyLifetime.ONCE) {
+    runtime.shellPolicy.addPolicies([policy]);
+    if (approval.lifetime === PolicyLifetime.FOREVER) {
+      runtime.shellPolicyStore.save(runtime.shellPolicy);
+    }
   }
 
   // The new decision may only resolve one segment or one exact command+flag set.
@@ -100,7 +105,7 @@ async function askShellPolicyWithFlow(
   ctx: ExtensionContext,
   command: string,
   scopes: ShellPolicyScopeOption[],
-): Promise<ShellPolicyApproval> {
+): Promise<ShellPolicyApproval | UiFlowShortcut> {
   const defaultReason = (status: PolicyStatus) => `User selected ${status} for shell command.`;
   const aiHelp = new UIAiHelpWrap({
     task: "You explain bash commands and shell policy scopes for approval UI. Be concise and neutral.",
@@ -177,12 +182,27 @@ async function askShellPolicyWithFlow(
     {scope: scopeDecision, status: statusDecision, lifetime: lifetimeDecision, reason: reasonDecision},
     onCancelReturn,
     aiHelp,
+    {enabled: true},
   );
+
+  if (approval === UiFlowShortcut.ALLOW_ALL_ONCE || approval === UiFlowShortcut.DENY_ALL_ONCE) return approval;
 
   return {
     ...approval,
     reason: approval.reason || defaultReason(approval.status),
   };
+}
+
+function resolveAllRemainingShellScopesOnce(
+  policy: ShellPolicyLogic,
+  command: string,
+  reason: string,
+): void {
+  for (let attempts = 0; attempts < 20; attempts++) {
+    const scope = policy.pendingPolicyScopeOptions(command)[0];
+    if (!scope) return;
+    policy.addPolicies([policy.createPolicyForScope(scope, PolicyStatus.ALLOWED, PolicyLifetime.ONCE, reason)]);
+  }
 }
 
 function withShellResolutionSource(result: ShellPolicyResult, source: PolicyResolutionSource): ShellPolicyResult {

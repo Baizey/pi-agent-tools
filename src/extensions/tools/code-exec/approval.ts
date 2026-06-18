@@ -1,14 +1,13 @@
 import {ExtensionContext} from "../../../pi/types";
 import {AgentRuntime} from "../../../pi/runtime";
 import {
-    CodeExecPolicyDeleteRequest,
     CodeExecPolicyResult,
     CodeExecPolicyScopeOption,
     PolicyLifetime,
     PolicyResolutionSource,
     PolicyStatus
 } from "../../../policy/types";
-import {UiDecision, UiDecisionFlowManager} from "../../shared/ui-flow";
+import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
 import {ParsedExecInput} from "./types";
 
@@ -18,26 +17,19 @@ export async function ensureCodeExecAllowed(
     input: ParsedExecInput,
     denyByDefault: boolean,
 ): Promise<string | null> {
-    const oneShotPolicies: CodeExecPolicyDeleteRequest[] = [];
-
-    try {
-        let result = runtime.codeExecPolicy.evaluate(input.language, input.mode, denyByDefault);
-        if (result === null) {
-            result = await askForCodeExecPolicy(ctx, runtime, input, oneShotPolicies);
-        }
-
-        if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
-        return runtime.codeExecPolicy.toDenyReasonOrNull(result) ?? "Code execution denied.";
-    } finally {
-        runtime.codeExecPolicy.removePolicies(oneShotPolicies);
+    let result = runtime.codeExecPolicy.evaluate(input.language, input.mode, denyByDefault);
+    if (result === null) {
+        result = await askForCodeExecPolicy(ctx, runtime, input);
     }
+
+    if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
+    return runtime.codeExecPolicy.toDenyReasonOrNull(result) ?? "Code execution denied.";
 }
 
 async function askForCodeExecPolicy(
     ctx: ExtensionContext,
     runtime: AgentRuntime,
     input: ParsedExecInput,
-    oneShotPolicies: CodeExecPolicyDeleteRequest[],
 ): Promise<CodeExecPolicyResult> {
     const failed = (reason: string): CodeExecPolicyResult => ({
         language: input.language,
@@ -65,10 +57,22 @@ async function askForCodeExecPolicy(
     const scope = approval.scope;
     const policy = runtime.codeExecPolicy.createPolicyForScope(scope, approval.status, approval.lifetime, approval.reason);
 
-    runtime.codeExecPolicy.addPolicies([policy]);
     if (approval.lifetime === PolicyLifetime.ONCE) {
-        oneShotPolicies.push({language: scope.language, mode: scope.mode});
-    } else if (approval.lifetime === PolicyLifetime.FOREVER) {
+        return {
+            language: input.language,
+            mode: input.mode,
+            matchedLanguage: scope.language,
+            matchedMode: scope.mode,
+            matchedScope: scope.label,
+            matchedLifetime: approval.lifetime,
+            matchedStatus: approval.status,
+            matchedReason: approval.reason,
+            resolutionSource: PolicyResolutionSource.NEW_USER_DECISION,
+        };
+    }
+
+    runtime.codeExecPolicy.addPolicies([policy]);
+    if (approval.lifetime === PolicyLifetime.FOREVER) {
         runtime.codeExecPolicyStore.save(runtime.codeExecPolicy);
     }
 
@@ -151,7 +155,16 @@ async function askCodeExecPolicyWithFlow(
             subItems: [],
             optionLabel: "ⓘ Explain what this code execution request does before deciding",
         }),
+        {enabled: true},
     );
+
+    if (approval === UiFlowShortcut.ALLOW_ALL_ONCE) {
+        return {scope: scopes[0], status: PolicyStatus.ALLOWED, lifetime: PolicyLifetime.ONCE, reason: defaultReason(PolicyStatus.ALLOWED)};
+    }
+    if (approval === UiFlowShortcut.DENY_ALL_ONCE) {
+        const reason = await ctx.ui?.input?.(`Reason for denying code execution ${target} (optional)`, defaultReason(PolicyStatus.DENIED));
+        return {scope: scopes[0], status: PolicyStatus.DENIED, lifetime: PolicyLifetime.ONCE, reason: reason || defaultReason(PolicyStatus.DENIED)};
+    }
 
     return {...approval, reason: approval.reason || defaultReason(approval.status)};
 }
