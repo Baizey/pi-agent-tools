@@ -91,9 +91,10 @@ export class WebPolicyLogic {
     const pathScopes = scopesForPath(target.path);
     const hostScopes = scopesForHost(target.host);
     const options: WebPolicyScopeOption[] = [];
-    for (const host of hostScopes) {
-      for (const path of pathScopes) options.push({label: `${accessType} ${displayScopeLabel(host, path)}`, host, path, accessType});
-    }
+
+    for (const path of pathScopes) options.push({label: `${accessType} ${displayScopeLabel(target.host, path)}`, host: target.host, path, accessType});
+    for (const host of hostScopes.slice(1)) options.push({label: `${accessType} ${displayScopeLabel(host, "/")}`, host, path: "/", accessType});
+
     return options;
   }
 
@@ -171,7 +172,7 @@ function pathMatches(candidate: string, parent: string): boolean {
 function scopesForHost(host: string): string[] {
   const parts = host.split(".").filter(Boolean);
   const scopes: string[] = [];
-  const minimumLabels = 1;
+  const minimumLabels = parts.length === 1 ? 1 : 2;
   for (let index = 0; index <= parts.length - minimumLabels; index++) scopes.push(parts.slice(index).join("."));
   return scopes;
 }

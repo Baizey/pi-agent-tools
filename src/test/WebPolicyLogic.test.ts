@@ -63,17 +63,23 @@ test("web access types are independent", () => {
   assert.equal(policy.evaluate("https://duckduckgo.com/html/?q=test", WebAccessType.READ), null);
 });
 
-test("pending web scopes start exact and broaden path before host", () => {
+test("pending web scopes broaden path only on exact host, then broaden host roots", () => {
   const policy = new WebPolicyLogic();
   assert.deepEqual(policy.pendingPolicyScopeOptions("https://sub.example.com/a/b", WebAccessType.READ).map((it) => it.label), [
     "READ sub.example.com/a/b",
     "READ sub.example.com/a",
     "READ sub.example.com",
-    "READ example.com/a/b",
-    "READ example.com/a",
     "READ example.com",
-    "READ com/a/b",
-    "READ com/a",
-    "READ com",
+  ]);
+});
+
+test("pending web scopes do not combine parent hosts with child host paths", () => {
+  const policy = new WebPolicyLogic();
+  assert.deepEqual(policy.pendingPolicyScopeOptions("https://mail.google.com/path/to/stuff", WebAccessType.READ).map((it) => it.label), [
+    "READ mail.google.com/path/to/stuff",
+    "READ mail.google.com/path/to",
+    "READ mail.google.com/path",
+    "READ mail.google.com",
+    "READ google.com",
   ]);
 });
