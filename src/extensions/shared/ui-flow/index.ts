@@ -193,7 +193,7 @@ class ShortcutSelectComponent implements Component {
     render(width: number): string[] {
         const titleLines = this.title.split(/\r?\n/).map((line) => this.color("accent", this.bold(line)));
         const optionLines = this.options.map((option, index) => this.renderOption(option, index));
-        return [...titleLines, ...optionLines].map((line) => truncate(line, width));
+        return [...titleLines, "", ...optionLines].map((line) => truncate(line, width));
     }
 
     handleInput(data: string): void {

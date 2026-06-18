@@ -124,9 +124,9 @@ async function askShellPolicyWithFlow(
     type: "select",
     key: "scope",
     title: [
-      `Select shell policy scope for unmatched command in: ${command}`,
-      `Approval target: ${command}`,
-      `Current working directory: ${ctx.cwd}`,
+      "Shell policy approval",
+      `Working directory: ${ctx.cwd}`,
+      "Choose the narrowest scope you want this decision to apply to.",
     ].join("\n"),
     showAiHelpOption: true,
     options: scopes.map((scope) => ({
@@ -140,9 +140,9 @@ async function askShellPolicyWithFlow(
     type: "select",
     key: "status",
     title: (state) => [
-      state.scope ? `Shell policy for ${state.scope.label}` : "Shell policy",
-      `Approval target: ${command}`,
-      `Current working directory: ${ctx.cwd}`,
+      "Shell policy decision",
+      state.scope ? `Scope: ${state.scope.label}` : "Scope: (none selected)",
+      `Working directory: ${ctx.cwd}`,
     ].join("\n"),
     showAiHelpOption: true,
     options: [
@@ -154,10 +154,7 @@ async function askShellPolicyWithFlow(
   const lifetimeDecision = {
     type: "select",
     key: "lifetime",
-    title: [
-      "Shell policy lifetime",
-      `Approval target: ${command}`,
-    ].join("\n"),
+    title: "Shell policy lifetime",
     showAiHelpOption: false,
     options: [
       {title: PolicyLifetime.ONCE, value: PolicyLifetime.ONCE, next: (state) => state.status === PolicyStatus.DENIED ? "reason" : null},
@@ -169,10 +166,7 @@ async function askShellPolicyWithFlow(
   const reasonDecision = {
     type: "input",
     key: "reason",
-    title: [
-      "Reason for denying this shell policy (optional)",
-      `Approval target: ${command}`,
-    ].join("\n"),
+    title: "Reason for denying this shell policy (optional)",
     placeholder: (state) => defaultReason(state.status ?? PolicyStatus.DENIED),
     next: null,
   } satisfies UiDecision<ShellPolicyApproval>;
