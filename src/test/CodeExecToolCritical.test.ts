@@ -62,7 +62,7 @@ test("execute_code blocks before execution when cwd EXECUTE path policy denies",
   const result = await tool.execute("code", {language: "javascript", code: "process.stdout.write('should not run')", cwd}, undefined, undefined, {cwd, hasUI: false});
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /path denied for test/);
+  assert.match((result.content[0] as {text: string}).text, /path denied for test/);
   assert.deepEqual(accesses.map((it) => [it.path, it.accessType]), [[cwd, FsAccessType.EXECUTE]]);
 });
 
@@ -73,7 +73,7 @@ test("execute_code file mode checks source READ and EXECUTE before code policy/e
   const result = await tool.execute("code", {language: "javascript", file: "script.js", cwd}, undefined, undefined, {cwd, hasUI: false});
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /path denied for test/);
+  assert.match((result.content[0] as {text: string}).text, /path denied for test/);
   assert.deepEqual(accesses.map((it) => [it.path, it.accessType]), [
     [cwd, FsAccessType.EXECUTE],
     ["script.js", FsAccessType.READ],

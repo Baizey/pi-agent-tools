@@ -50,8 +50,8 @@ test("path policy hook maps multi-path filesystem tools to critical access types
   const {handler, accesses} = capturePathHook();
   const ctx = {cwd: process.cwd(), hasUI: false};
 
-  await handler({toolName: "copy", input: {from: "source.txt", to: "dest.txt"}}, ctx);
-  await handler({toolName: "move", input: {from: "old.txt", to: "new.txt", overwrite: true}}, ctx);
+  await handler({type: "tool_call", toolCallId: "copy-1", toolName: "copy", input: {from: "source.txt", to: "dest.txt"}}, ctx);
+  await handler({type: "tool_call", toolCallId: "move-1", toolName: "move", input: {from: "old.txt", to: "new.txt", overwrite: true}}, ctx);
 
   assert.deepEqual(accesses.map((it) => [it.path, it.accessType]), [
     ["source.txt", FsAccessType.READ],
@@ -66,7 +66,7 @@ test("path policy hook blocks immediately when any mapped access is denied", asy
   const {handler, accesses} = capturePathHook({path: "dest.txt", accessType: FsAccessType.WRITE});
 
   const decision = await handler(
-    {toolName: "copy", input: {from: "source.txt", to: "dest.txt"}},
+    {type: "tool_call", toolCallId: "copy-1", toolName: "copy", input: {from: "source.txt", to: "dest.txt"}},
     {cwd: process.cwd(), hasUI: false},
   );
 

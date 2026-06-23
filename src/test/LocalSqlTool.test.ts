@@ -46,8 +46,8 @@ void (async () => {
   await test("local_sql schema returns table metadata and examples", async () => withTool(async tool => {
     const result = await tool.execute("schema", {action: "schema"});
     assert.equal(result.isError, undefined);
-    assert.match(result.content[0].text, /items/);
-    assert.match(result.content[0].text, /examples/);
+    assert.match((result.content[0] as {text: string}).text, /items/);
+    assert.match((result.content[0] as {text: string}).text, /examples/);
   }));
 
   await test("local_sql runs readonly query with params, trailing semicolon, and compact details", async () => withTool(async tool => {
@@ -59,13 +59,13 @@ void (async () => {
     });
     assert.equal(result.isError, undefined);
     assert.deepEqual(result.details, {rowCount: 1, limit: 1});
-    assert.match(result.content[0].text, /Alpha/);
+    assert.match((result.content[0] as {text: string}).text, /Alpha/);
   }));
 
   await test("local_sql rejects non-readonly sql", async () => withTool(async tool => {
     const result = await tool.execute("delete", {action: "query", sql: "delete from items"});
     assert.equal(result.isError, true);
-    assert.match(result.content[0].text, /Only readonly SELECT or WITH/);
+    assert.match((result.content[0] as {text: string}).text, /Only readonly SELECT or WITH/);
   }));
 
   await test("local_sql caps returned row limit", async () => withTool(async tool => {

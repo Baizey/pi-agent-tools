@@ -61,11 +61,11 @@ void (async () => {
 
     const both = await tool.execute("1", {query: "pi", url: "https://example.com/"});
     assert.equal(both.isError, true);
-    assert.match(both.content[0].text, /either query or url, not both/);
+    assert.match((both.content[0] as {text: string}).text, /either query or url, not both/);
 
     const neither = await tool.execute("2", {});
     assert.equal(neither.isError, true);
-    assert.match(neither.content[0].text, /provide either query or url/);
+    assert.match((neither.content[0] as {text: string}).text, /provide either query or url/);
   });
 
   await test("web lookup denied policy does not call fetch", async () => {
@@ -80,7 +80,7 @@ void (async () => {
     try {
       const result = await tool.execute("denied", {url: "https://example.com/"});
       assert.equal(result.isError, true);
-      assert.match(result.content[0].text, /denied for test/);
+      assert.match((result.content[0] as {text: string}).text, /denied for test/);
       assert.equal(fetchCalled, false);
     } finally {
       globalThis.fetch = originalFetch;

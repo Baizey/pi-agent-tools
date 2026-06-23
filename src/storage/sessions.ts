@@ -82,6 +82,7 @@ export class SessionDao {
 
     syncSession(manager: ReadonlySessionManager) {
         const header = manager.getHeader();
+        if (!header) return this;
         const entries = manager.getEntries();
         const sessionFile = manager.getSessionFile() ?? null;
         const sessionName = manager.getSessionName() ?? null;
