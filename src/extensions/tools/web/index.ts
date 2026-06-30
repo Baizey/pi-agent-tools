@@ -3,7 +3,7 @@ import {AgentRuntime, AgentServices} from "../../../pi/runtime";
 import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, WebAccessType, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
-import {renderToolCallInput} from "../../../shared/toolRendering";
+import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {currentWebPolicyDefault, PolicyDefaultMode} from "../../policy/defaults";
@@ -36,8 +36,11 @@ export function registerWebLookupTool(pi: PiExtensionApi, services: AgentService
         return errorResult(error instanceof Error ? error.message : String(error));
       }
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.webLookup, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.webLookup, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }

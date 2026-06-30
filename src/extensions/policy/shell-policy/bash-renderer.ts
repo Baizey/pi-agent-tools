@@ -43,7 +43,7 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
     },
     renderCall(args, theme, context) {
       const command = stringValue(args.command);
-      if (!command) return renderToolCallInput(toolNames.bash, args, theme as never);
+      if (!command) return renderToolCallInput(toolNames.bash, args, theme as never, context);
       return renderBlockToolCall(
         toolNames.bash,
         [

@@ -2,7 +2,7 @@ import {PiExtensionApi} from "../../../pi/types";
 import {AgentServices} from "../../../pi/runtime";
 import {FsAccessType, PolicyResolutionSource, PolicyStatus, WebAccessType, policyResolutionSourceText} from "../../../policy/types";
 import {toolNames} from "../../../shared/toolNames";
-import {renderToolCallInput} from "../../../shared/toolRendering";
+import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult as toolErrorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
 import {formatPolicyDefaultSnapshot, policyDefaultSnapshot} from "../../policy/defaults";
@@ -105,8 +105,11 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       };
       return successResult(JSON.stringify(overview, null, 2), overview);
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.policyInfo, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.policyInfo, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 16});
     },
   });
 }

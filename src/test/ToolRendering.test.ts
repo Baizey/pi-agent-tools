@@ -1,9 +1,18 @@
 import assert from "node:assert/strict";
 import {test} from "./TestHarness";
 import {renderBlockToolCall} from "../shared/blockToolRendering";
-import {renderToolCallInput} from "../shared/toolRendering";
+import {
+  FoldDirection,
+  renderToolCallInput,
+  renderToolResultOutput,
+  ToolRenderDefaultKeyText,
+  ToolRenderKeybindingDescription,
+  ToolRenderTerminalInput,
+} from "../shared/toolRendering";
+import {handleToolExpandInput} from "../extensions/tool-rendering-controls";
 
 const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
+const expandHintText = `${ToolRenderDefaultKeyText.TOOLS_EXPAND} ${ToolRenderKeybindingDescription.EXPAND}`;
 
 test("tool call renderer truncates long array argument lines to render width", () => {
   const component = renderToolCallInput("subagent_spawn", {
@@ -32,13 +41,29 @@ test("tool call renderer preserves ANSI styling while truncating visible width",
   assert.match(lines[1], /\x1b\[/);
 });
 
-test("block tool call renderer respects folded context", () => {
-  const component = renderBlockToolCall("bash", ["  timeout: 30"], "command", "first\nsecond\nthird", {expanded: false});
+test("block tool call renderer shows folded head preview", () => {
+  const component = renderBlockToolCall("bash", ["  timeout: 30"], "command", "first\nsecond\nthird", {expanded: false}, {direction: FoldDirection.HEAD, previewLines: 2});
 
   assert.deepEqual(component.render(120), [
     "bash",
     "  timeout: 30",
-    "  command: first … (2 more lines)",
+    "  command:",
+    "    first",
+    "    second",
+    `    ... (1 more line, ${expandHintText})`,
+  ]);
+});
+
+
+test("block tool call renderer shows folded tail preview", () => {
+  const component = renderBlockToolCall("execute_code", [], "code", "first\nsecond\nthird", {expanded: false}, {direction: FoldDirection.TAIL, previewLines: 2});
+
+  assert.deepEqual(component.render(120), [
+    "execute_code",
+    "  code:",
+    `    ... (1 earlier line, ${expandHintText})`,
+    "    second",
+    "    third",
   ]);
 });
 
@@ -51,4 +76,37 @@ test("block tool call renderer shows full block when expanded", () => {
     "    first",
     "    second",
   ]);
+});
+
+test("tool result renderer folds head preview", () => {
+  const component = renderToolResultOutput({content: [{type: "text", text: "one\ntwo\nthree"}]}, undefined, {expanded: false}, {direction: FoldDirection.HEAD, previewLines: 2});
+
+  assert.deepEqual(component.render(120), [
+    "one",
+    "two",
+    `... (1 more line, ${expandHintText})`,
+  ]);
+});
+
+test("tool result renderer folds tail preview", () => {
+  const component = renderToolResultOutput({content: [{type: "text", text: "one\ntwo\nthree"}]}, undefined, {expanded: false}, {direction: FoldDirection.TAIL, previewLines: 2});
+
+  assert.deepEqual(component.render(120), [
+    `... (1 earlier line, ${expandHintText})`,
+    "two",
+    "three",
+  ]);
+});
+
+test("tool rendering control toggles global tool expansion on expand key", () => {
+  let expanded = false;
+  const result = handleToolExpandInput(ToolRenderTerminalInput.TOOLS_EXPAND, {
+    ui: {
+      getToolsExpanded: () => expanded,
+      setToolsExpanded: (value: boolean) => { expanded = value; },
+    } as never,
+  });
+
+  assert.deepEqual(result, {consume: true});
+  assert.equal(expanded, true);
 });

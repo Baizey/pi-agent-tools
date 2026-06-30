@@ -2,7 +2,7 @@ import {PiExtensionApi} from "../../../pi/types";
 import {database_filename, SqliteDatabase} from "../../../storage";
 import {toolNames} from "../../../shared/toolNames";
 import {renderBlockToolCall} from "../../../shared/blockToolRendering";
-import {renderToolCallInput} from "../../../shared/toolRendering";
+import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
 
@@ -95,7 +95,7 @@ export function registerLocalSqlTool(
         },
         renderCall(args, theme, context) {
             const sql = stringValue((args as LocalSqlParams).sql);
-            if (!sql) return renderToolCallInput(toolNames.localSql, args, theme as never);
+            if (!sql) return renderToolCallInput(toolNames.localSql, args, theme as never, context);
             const params = (args as LocalSqlParams).params;
             return renderBlockToolCall(
                 toolNames.localSql,
@@ -109,6 +109,9 @@ export function registerLocalSqlTool(
                 sql,
                 context as {expanded?: boolean} | undefined,
             );
+        },
+        renderResult(result, _options, theme, context) {
+            return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 16});
         },
     });
 }

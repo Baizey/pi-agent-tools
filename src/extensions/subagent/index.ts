@@ -1,6 +1,6 @@
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {toolNames} from "../../shared/toolNames";
-import {renderToolCallInput} from "../../shared/toolRendering";
+import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {
   cancelAsyncSubagentJob,
@@ -61,8 +61,11 @@ function registerSubagent(pi: PiExtensionApi): void {
       );
       return subagentResultResponse(request, result);
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.subagentSpawn, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.subagentSpawn, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }
@@ -82,8 +85,11 @@ function registerSubagentStatus(pi: PiExtensionApi): void {
       if (job.result) return subagentResultResponse(job.request, job.result, jobDetails(job));
       return successResult(`Subagent job ${job.id} is ${job.status}.`, jobDetails(job));
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.subagentStatus, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.subagentStatus, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }
@@ -121,8 +127,11 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
         isError: hasFailed,
       };
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.subagentAwait, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.subagentAwait, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }
@@ -155,8 +164,11 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
       sendConversationMessage(job, task, subagentUiUpdater(onUpdate, ctx));
       return successResult(`Sent message to conversation subagent ${job.id}.`, jobDetails(job));
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.subagentMessage, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.subagentMessage, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }
@@ -180,8 +192,11 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       updateSubagentWidget(ctx, job.request.treeRootId);
       return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.subagentCancel, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.subagentCancel, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }

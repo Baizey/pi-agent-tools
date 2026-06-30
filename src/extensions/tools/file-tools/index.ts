@@ -1,6 +1,6 @@
 import {PiExtensionApi} from "../../../pi/types";
 import {toolNames, ToolName} from "../../../shared/toolNames";
-import {renderToolCallInput} from "../../../shared/toolRendering";
+import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {booleanParam, objectSchema, stringParam} from "./common";
 import {copyPath, deletePath, makeDirectory, movePath, statPath} from "./operations";
 
@@ -25,8 +25,11 @@ function registerFileTool(pi: PiExtensionApi, tool: FileToolRegistration): void 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       return tool.execute(params, signal, ctx);
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(tool.name, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(tool.name, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD});
     },
   });
 }

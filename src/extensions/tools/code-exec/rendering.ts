@@ -7,7 +7,7 @@ import {ProcessResult} from "./process";
 
 export function renderCodeExecCall(args: Record<string, unknown>, theme?: unknown, context?: unknown) {
   const code = stringValue((args as ExecInput).code);
-  if (!code) return renderToolCallInput(toolNames.executeCode, args, theme as never);
+  if (!code) return renderToolCallInput(toolNames.executeCode, args, theme as never, context as {expanded?: boolean} | undefined);
   return renderBlockToolCall(
     toolNames.executeCode,
     [

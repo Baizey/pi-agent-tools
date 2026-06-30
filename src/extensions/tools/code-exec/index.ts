@@ -4,7 +4,7 @@ import {AgentServices} from "../../../pi/runtime";
 import {FsAccessType} from "../../../policy/types";
 import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
 import {toolNames} from "../../../shared/toolNames";
-import {renderToolCallInput} from "../../../shared/toolRendering";
+import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
 import {ensurePathAllowed} from "../../policy/path-policy";
@@ -72,6 +72,9 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
     renderCall(args, theme, context) {
       return renderCodeExecCall(args, theme as never, context);
     },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.TAIL, previewLines: 12});
+    },
   });
 
   pi.registerTool?.({
@@ -91,8 +94,11 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       const results = rawLanguage && isLanguage(rawLanguage) ? [await detect(adapters[rawLanguage])] : await detectAllRuntimes();
       return successResult(formatRuntimeInfo(results), {runtimes: results});
     },
-    renderCall(args, theme) {
-      return renderToolCallInput(toolNames.executeCodeInfo, args, theme as never);
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.executeCodeInfo, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 16});
     },
   });
 }
