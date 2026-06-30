@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {agentEnv, denyByDefaultEnv} from "../../shared/env";
+import {policyDefaultsEnvForSubagents} from "../policy/defaults";
 import {
   readSubagentTreeContext,
   renderSubagentRunTree,
@@ -201,6 +202,7 @@ async function runPiProcess(
       env: {
         ...process.env,
         ...denyByDefaultEnv(),
+        ...policyDefaultsEnvForSubagents(),
         ...subagentTreeEnv({rootId: node.rootId, parentId: node.parentId ?? undefined, nodeId: node.id, depth: node.depth}),
         [agentEnv.subagentProfileCeiling]: serializeSubagentProfileCeiling(profiles.profiles),
       },

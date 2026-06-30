@@ -18,6 +18,7 @@ export * from "./shared/toolRendering";
 export * from "./shared/toolResults";
 export * from "./extensions/tools/code-exec";
 export * from "./extensions/tools/file-tools";
+export * from "./extensions/policy/defaults";
 export * from "./extensions/policy/path-policy";
 export * from "./extensions/tools/policy-info";
 export * from "./extensions/tools/local-sql";

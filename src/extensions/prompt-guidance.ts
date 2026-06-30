@@ -42,17 +42,22 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         sections.push([
             "Policy tools:",
             "- Use policy_info to inspect active policies or evaluate an exact path, shell command, code scope, or URL before retrying blocked work.",
+            "- Tell the user to run /policy-default when they ask to change session default allow/deny/ask behavior for unmatched policy checks.",
             "- Policies and their approval system are invisible to you and are either automated or human-approved.",
         ].join("\n"));
     }
 
-    if ([toolNames.executeCode, toolNames.executeCodeInfo].some(hasTool)) {
+    if ([toolNames.executeCode, toolNames.executeCodeInfo, toolNames.bash].some(hasTool)) {
+        const bashConstraint = hasTool(toolNames.bash) ?
+            "- NEVER use bash for code execution, policies will default at denying you"
+            : ""
+        
         sections.push([
             "Code execution tools:",
-            "- NEVER use bash for code execution, policies will default at denying you",
             "- Use execute_code for short scripts or source-file runs when direct runtime execution is clearer than shell.",
             "- Use execute_code_info first when runtime availability or supported modes are uncertain.",
             "- Always provide a concise purpose; prefer inline mode for small throwaway snippets and file mode for existing source files.",
+            bashConstraint
         ].join("\n"));
     }
 

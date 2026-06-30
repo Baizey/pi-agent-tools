@@ -6,6 +6,7 @@ import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
+import {currentWebPolicyDefault, PolicyDefaultMode} from "../../policy/defaults";
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";
@@ -70,10 +71,16 @@ export async function ensureWebAllowed(
   accessType: WebAccessType,
   denyByDefault: boolean,
 ): Promise<string | null> {
-  let result = runtime.webPolicy.evaluate(url, accessType, denyByDefault);
-  if (result === null) result = await askForWebPolicy(ctx, runtime, url, accessType);
-  if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
-  return runtime.webPolicy.toDenyReasonOrNull(result) ?? "Web access denied.";
+  let result = runtime.webPolicy.evaluate(url, accessType, false);
+  if (result === null) {
+    const defaultMode = currentWebPolicyDefault(accessType, denyByDefault);
+    if (defaultMode === PolicyDefaultMode.ALLOW) return null;
+    result = defaultMode === PolicyDefaultMode.DENY
+      ? runtime.webPolicy.evaluate(url, accessType, true)
+      : await askForWebPolicy(ctx, runtime, url, accessType);
+  }
+  if (result?.matchedStatus === PolicyStatus.ALLOWED) return null;
+  return result ? runtime.webPolicy.toDenyReasonOrNull(result) ?? "Web access denied." : "Web access denied.";
 }
 
 async function askForWebPolicy(

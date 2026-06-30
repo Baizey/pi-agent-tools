@@ -9,6 +9,7 @@ import {
 } from "../../../policy/types";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
+import {currentCodeExecPolicyDefault, PolicyDefaultMode} from "../../policy/defaults";
 import {ParsedExecInput} from "./types";
 
 export async function ensureCodeExecAllowed(
@@ -17,13 +18,17 @@ export async function ensureCodeExecAllowed(
     input: ParsedExecInput,
     denyByDefault: boolean,
 ): Promise<string | null> {
-    let result = runtime.codeExecPolicy.evaluate(input.language, input.mode, denyByDefault);
+    let result = runtime.codeExecPolicy.evaluate(input.language, input.mode, false);
     if (result === null) {
-        result = await askForCodeExecPolicy(ctx, runtime, input);
+        const defaultMode = currentCodeExecPolicyDefault(denyByDefault);
+        if (defaultMode === PolicyDefaultMode.ALLOW) return null;
+        result = defaultMode === PolicyDefaultMode.DENY
+            ? runtime.codeExecPolicy.evaluate(input.language, input.mode, true)
+            : await askForCodeExecPolicy(ctx, runtime, input);
     }
 
-    if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
-    return runtime.codeExecPolicy.toDenyReasonOrNull(result) ?? "Code execution denied.";
+    if (result?.matchedStatus === PolicyStatus.ALLOWED) return null;
+    return result ? runtime.codeExecPolicy.toDenyReasonOrNull(result) ?? "Code execution denied." : "Code execution denied.";
 }
 
 async function askForCodeExecPolicy(

@@ -8,6 +8,7 @@ import {standardizePath} from "../../../shared/paths";
 import {toolNames} from "../../../shared/toolNames";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {stringValues} from "../../../shared/values";
+import {currentPathPolicyDefault, PolicyDefaultMode} from "../defaults";
 
 export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices): void {
     pi.on("tool_call", async (event, ctx) => {
@@ -35,13 +36,17 @@ export async function ensurePathAllowed(
     accessType: FsAccessType,
     denyByDefault: boolean,
 ): Promise<string | null> {
-    let result = runtime.pathPolicy.evaluate(candidatePath, accessType, denyByDefault);
+    let result = runtime.pathPolicy.evaluate(candidatePath, accessType, false);
     if (result === null) {
-        result = await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
+        const defaultMode = currentPathPolicyDefault(accessType, denyByDefault);
+        if (defaultMode === PolicyDefaultMode.ALLOW) return null;
+        result = defaultMode === PolicyDefaultMode.DENY
+            ? runtime.pathPolicy.evaluate(candidatePath, accessType, true)
+            : await askForPolicy(ctx, runtime, standardizePath(ctx.cwd, candidatePath), accessType);
     }
 
-    if (result.matchedStatus === PolicyStatus.ALLOWED) return null;
-    return runtime.pathPolicy.toDenyReasonOrNull(result) ?? "Access denied.";
+    if (result?.matchedStatus === PolicyStatus.ALLOWED) return null;
+    return result ? runtime.pathPolicy.toDenyReasonOrNull(result) ?? "Access denied." : "Access denied.";
 }
 
 async function askForPolicy(

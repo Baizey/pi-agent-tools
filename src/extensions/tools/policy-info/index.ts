@@ -5,6 +5,7 @@ import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {errorResult as toolErrorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
+import {formatPolicyDefaultSnapshot, policyDefaultSnapshot} from "../../policy/defaults";
 
 export enum PolicyInfoKind {
   OVERVIEW = "overview",
@@ -93,6 +94,10 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       if (kind === PolicyInfoKind.WEB) return webPolicyInfo(runtime, input);
 
       const overview = {
+        policyDefaults: {
+          overrides: policyDefaultSnapshot(),
+          effective: formatPolicyDefaultSnapshot(),
+        },
         pathPolicies: runtime.pathPolicy.policiesSnapshot(),
         shellPolicies: runtime.shellPolicy.policiesSnapshot(),
         codeExecPolicies: runtime.codeExecPolicy.policiesSnapshot(),

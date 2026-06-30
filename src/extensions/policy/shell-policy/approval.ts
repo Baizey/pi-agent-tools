@@ -4,6 +4,7 @@ import {ShellPolicyLogic} from "../../../policy/shell/ShellPolicyLogic";
 import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, ShellPolicyResult, ShellPolicyScopeOption} from "../../../policy/types";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
+import {currentShellPolicyDefault, PolicyDefaultMode} from "../defaults";
 
 export async function ensureShellAllowed(
   ctx: ExtensionContext,
@@ -12,20 +13,23 @@ export async function ensureShellAllowed(
   denyByDefault: boolean,
 ): Promise<string | null> {
   const requestPolicy = new ShellPolicyLogic({policies: runtime.shellPolicy.policiesSnapshot()});
-  let usedNewUserDecision = false;
+  const defaultMode = currentShellPolicyDefault(denyByDefault);
 
   for (let attempts = 0; attempts < 20; attempts++) {
-    const result = requestPolicy.evaluate(command, denyByDefault);
+    const result = requestPolicy.evaluate(command, defaultMode === PolicyDefaultMode.DENY);
     if (result === null) {
+      if (defaultMode === PolicyDefaultMode.ALLOW) {
+        if (!resolveAllRemainingShellScopesOnce(requestPolicy, command, "Allowed by session shell policy default.")) return null;
+        continue;
+      }
+
       const promptResult = await askForShellPolicy(ctx, runtime, requestPolicy, command);
-      usedNewUserDecision = true;
       if (promptResult === null) continue;
       return requestPolicy.toDenyReasonOrNull(promptResult) ?? "Execution denied.";
     }
 
-    const resolvedResult = usedNewUserDecision ? withShellResolutionSource(result, PolicyResolutionSource.NEW_USER_DECISION) : result;
-    if (resolvedResult.allowed) return null;
-    return requestPolicy.toDenyReasonOrNull(resolvedResult) ?? "Execution denied.";
+    if (result.allowed) return null;
+    return requestPolicy.toDenyReasonOrNull(result) ?? "Execution denied.";
   }
 
   return "Execution denied: shell policy could not be resolved.";
@@ -191,20 +195,15 @@ function resolveAllRemainingShellScopesOnce(
   policy: ShellPolicyLogic,
   command: string,
   reason: string,
-): void {
-  for (let attempts = 0; attempts < 20; attempts++) {
+): boolean {
+  let resolved = false;
+  for (let attempts = 0; attempts < 1000; attempts++) {
     const scope = policy.pendingPolicyScopeOptions(command)[0];
-    if (!scope) return;
+    if (!scope) return resolved;
     policy.addPolicies([policy.createPolicyForScope(scope, PolicyStatus.ALLOWED, PolicyLifetime.ONCE, reason)]);
+    resolved = true;
   }
-}
-
-function withShellResolutionSource(result: ShellPolicyResult, source: PolicyResolutionSource): ShellPolicyResult {
-  return {
-    ...result,
-    resolutionSource: source,
-    segmentResults: result.segmentResults.map((segment) => ({...segment, resolutionSource: source})),
-  };
+  return resolved;
 }
 
 function shellFlowCancelReason(state: Partial<ShellPolicyApproval>): string {

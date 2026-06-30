@@ -103,6 +103,19 @@ Set deny-by-default environment variables to block unmatched requests instead of
 | `PI_AGENT_SHELL_DENY_BY_DEFAULT=1` | Deny unmatched shell commands/flags. |
 | `PI_AGENT_CODE_EXEC_DENY_BY_DEFAULT=1` | Deny unmatched code execution scopes. |
 | `PI_AGENT_WEB_DENY_BY_DEFAULT=1` | Deny unmatched web access. |
+| `PI_AGENT_POLICY_DEFAULTS` | Internal session default overrides inherited by spawned subagents. |
+
+Session defaults for unmatched checks can be changed with `/policy-default` without writing persistent policies:
+
+```text
+/policy-default show
+/policy-default allow <target...> [--scope root|subagents|all]
+/policy-default deny <target...> [--scope root|subagents|all]
+/policy-default ask <target...> [--scope root|subagents|all]
+/policy-default reset <target...> [--scope root|subagents|all]
+```
+
+Targets: `all`, `io`, `io_read`, `io_write`, `io_execute`, `shell`, `code`, `web`, `web_read`, `web_search`. Explicit matching policies still win; defaults only handle unmatched checks. `root` affects the current agent process, `subagents` is inherited by spawned subagents, and `all` applies to both. Subagents still start from deny-by-default, unless overridden by `/policy-default ... --scope subagents`.
 
 ### Path policy
 

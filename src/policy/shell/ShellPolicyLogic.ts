@@ -54,13 +54,19 @@ export class ShellPolicyLogic {
   evaluate(command: string, denyByDefault = false): ShellPolicyResult | null {
     const segmentResults: ShellSegmentPolicyResult[] = [];
     const segments = splitShellSegments(command);
+    let hasUnknownSegment = false;
 
     for (const segment of segments.length === 0 ? [command] : segments) {
       const result = this.evaluateSegment(segment, denyByDefault);
-      if (result === null) return null;
+      if (result === null) {
+        hasUnknownSegment = true;
+        continue;
+      }
       segmentResults.push(result);
     }
 
+    if (segmentResults.some((result) => result.denied)) return this.result(command, segmentResults);
+    if (hasUnknownSegment) return null;
     return this.result(command, segmentResults);
   }
 
