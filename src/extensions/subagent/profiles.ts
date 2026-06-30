@@ -99,13 +99,13 @@ export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSu
     return {profiles, tools: [...tools], instructions};
 }
 
+export const defaultSubagentTimeoutSeconds = 15 * 60;
+
 export function defaultTimeoutSecondsForMode(mode: SubagentRunMode): number {
     switch (mode) {
         case subagentRunModes.sync:
-            return 120;
         case subagentRunModes.async:
-            return 900;
         case subagentRunModes.conversation:
-            return 120;
+            return defaultSubagentTimeoutSeconds;
     }
 }

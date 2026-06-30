@@ -4,18 +4,19 @@ import {renderToolCallInput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {
   cancelAsyncSubagentJob,
+  defaultSubagentAwaitTimeoutSeconds,
   formatAwaitedJob,
+  formatTimedOutJobs,
   getAsyncSubagentJob,
   getAsyncSubagentJobs,
   jobDetails,
   sendConversationMessage,
   subagentJobStatuses,
   startAsyncSubagentJob,
-  unfinishedJobIds,
   waitForJobs,
 } from "./jobs";
 import {agentModelProfiles, resolveAgentModelProfile} from "./model-profiles";
-import {subagentProfiles, subagentRunModes} from "./profiles";
+import {defaultSubagentTimeoutSeconds, subagentProfiles, subagentRunModes} from "./profiles";
 import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
 import {registerSubagentCommands, updateSubagentWidget} from "./commands";
@@ -100,13 +101,13 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
       const {jobs, missing} = getAsyncSubagentJobs(jobIds);
       if (missing.length > 0) return errorResult(`Unknown subagent job(s): ${missing.join(", ")}`);
 
-      const timeoutSeconds = normalizeTimeout((params as RawJobParams).timeoutSeconds, 300);
+      const timeoutSeconds = normalizeTimeout((params as RawJobParams).timeoutSeconds, defaultSubagentAwaitTimeoutSeconds);
       const timedOut = !(await waitForJobs(jobs, timeoutSeconds, signal));
-      const details = {jobs: jobs.map(jobDetails), timedOut};
+      const details = {jobs: jobs.map(jobDetails), timedOut, timeoutSeconds};
 
       if (timedOut) {
         return {
-          content: [{type: "text" as const, text: `Timed out waiting for subagent job(s): ${unfinishedJobIds(jobs).join(", ")}`}],
+          content: [{type: "text" as const, text: formatTimedOutJobs(jobs, timeoutSeconds)}],
           details,
           isError: true,
         };
@@ -223,7 +224,7 @@ function subagentParameters(): Record<string, unknown> {
       },
       timeoutSeconds: {
         type: "number",
-        description: "Timeout for this subagent run. Defaults based on mode.",
+        description: `Timeout for this subagent run. Defaults to ${defaultSubagentTimeoutSeconds} seconds (15 minutes).`,
       },
       model: {
         type: "string",
@@ -267,8 +268,8 @@ function awaitJobParameters(): Record<string, unknown> {
       },
       timeoutSeconds: {
         type: "number",
-        description: "Maximum time to wait. Defaults to 300 seconds.",
-        default: 300,
+        description: `Maximum time to wait. Defaults to ${defaultSubagentAwaitTimeoutSeconds} seconds.`,
+        default: defaultSubagentAwaitTimeoutSeconds,
       },
     },
   };

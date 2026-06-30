@@ -8,6 +8,7 @@ import {registerShellPolicy} from "./extensions/policy/shell-policy";
 import {registerSubagentTool} from "./extensions/subagent";
 import {registerWebLookupTool} from "./extensions/tools/web";
 import {registerLocalSqlTool} from "./extensions/tools/local-sql";
+import {registerAgentToolsPromptGuidance} from "./extensions/prompt-guidance";
 
 export default async function agentToolsExtension(pi: PiExtensionApi): Promise<void> {
     const services = createServices();
@@ -27,6 +28,7 @@ export default async function agentToolsExtension(pi: PiExtensionApi): Promise<v
     //pi.on("message_end", async (_event, ctx) => syncSession(ctx));
     pi.on("session_shutdown", async (_event, ctx) => syncSession(ctx));
 
+    registerAgentToolsPromptGuidance(pi);
     registerFileTools(pi);
 
     registerSubagentTool(pi);

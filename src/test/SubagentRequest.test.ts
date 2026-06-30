@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "./TestHarness";
 import {agentEnv} from "../shared/env";
 import {parseSubagentRequest} from "../extensions/subagent/request";
+import {subagentRunModes} from "../extensions/subagent";
 
 function withSubagentModel(value: string | undefined, fn: () => void): void {
   const previous = process.env[agentEnv.subagentModel];
@@ -29,4 +30,12 @@ test("subagent request model parameter overrides PI_AGENT_SUBAGENT_MODEL", () =>
     assert.ok(!("error" in request));
     assert.equal(request.model, "provider/model");
   });
+});
+
+test("subagent request defaults all run modes to fifteen minute timeouts", () => {
+  for (const mode of Object.values(subagentRunModes)) {
+    const request = parseSubagentRequest({task: "do it", mode}, process.cwd());
+    assert.ok(!("error" in request));
+    assert.equal(request.timeoutSeconds, 15 * 60);
+  }
 });

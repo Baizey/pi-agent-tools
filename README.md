@@ -198,7 +198,7 @@ Optional subagent settings:
 
 - `model`: one of the package model profiles, such as `text_low`, `text_high`, `reasoning_low`, or `reasoning_high`
 - `cwd`: working directory
-- `timeoutSeconds`: timeout for the run/job wait
+- `timeoutSeconds`: timeout for a subagent run; defaults to 900 seconds (15 minutes). `subagent_await` defaults to waiting 30 seconds and reports current job statuses on timeout.
 - `systemPrompt`: additional system instructions
 - `contextPaths`: files/directories suggested as context
 

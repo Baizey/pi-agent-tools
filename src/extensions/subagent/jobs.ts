@@ -22,8 +22,12 @@ export type AsyncSubagentJob = {
   controller: AbortController;
   result?: SubagentResult;
   error?: string;
+  latestUpdateText?: string;
+  latestUpdateDetails?: Record<string, unknown>;
   history: Array<{task: string; output: string}>;
 };
+
+export const defaultSubagentAwaitTimeoutSeconds = 30;
 
 const asyncJobs = new Map<string, AsyncSubagentJob>();
 
@@ -118,6 +122,27 @@ export function formatAwaitedJob(job: AsyncSubagentJob): string {
   return `### ${job.id} (${job.status})\n\n${job.error ?? "(no output)"}`;
 }
 
+export function formatTimedOutJobs(jobs: AsyncSubagentJob[], timeoutSeconds: number): string {
+  const unfinished = unfinishedJobIds(jobs);
+  return [
+    `Timed out after ${timeoutSeconds}s waiting for subagent job(s): ${unfinished.length > 0 ? unfinished.join(", ") : "(none still running)"}`,
+    "",
+    "Current subagent statuses:",
+    ...jobs.map(formatJobStatus),
+  ].join("\n");
+}
+
+export function formatJobStatus(job: AsyncSubagentJob): string {
+  const elapsedSeconds = Math.max(0, Math.floor(((job.finishedAt ?? Date.now()) - job.startedAt) / 1000));
+  const latest = latestStatusText(job);
+  return [
+    `- ${job.id}: ${job.status}`,
+    `task: ${shorten(job.request.task, 100)}`,
+    `elapsed: ${elapsedSeconds}s`,
+    latest ? `latest: ${shorten(latest, 140)}` : undefined,
+  ].filter(Boolean).join("; ");
+}
+
 export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
   return {
     jobId: job.id,
@@ -130,6 +155,8 @@ export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
     timeoutSeconds: job.request.timeoutSeconds,
     profiles: job.request.profiles,
     error: job.error,
+    latestUpdateText: job.latestUpdateText,
+    latestUpdateDetails: job.latestUpdateDetails,
     historyLength: job.history.length,
   };
 }
@@ -172,7 +199,18 @@ function reserveJobIdentity(
 }
 
 function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, onUpdate?: SubagentUpdate): void {
-  void runSubagent(request, job.controller.signal, onUpdate)
+  const captureUpdate: SubagentUpdate = (partial) => {
+    const text = partial.content
+      .filter((part) => part.type === "text")
+      .map((part) => part.text)
+      .join("\n")
+      .trim();
+    if (text) job.latestUpdateText = text;
+    job.latestUpdateDetails = partial.details;
+    onUpdate?.(partial);
+  };
+
+  void runSubagent(request, job.controller.signal, captureUpdate)
     .then((result) => {
       if (job.status === subagentJobStatuses.cancelled) return;
       job.result = result;
@@ -189,4 +227,21 @@ function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, o
       job.finishedAt = Date.now();
       updatePersistedJob(job.id, subagentJobStatuses.failed, job.error);
     });
+}
+
+function latestStatusText(job: AsyncSubagentJob): string | undefined {
+  if (job.latestUpdateText) return lastMeaningfulLine(job.latestUpdateText);
+  if (job.error) return job.error;
+  if (job.result?.output) return lastMeaningfulLine(job.result.output);
+  return undefined;
+}
+
+function lastMeaningfulLine(text: string): string {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  return lines[lines.length - 1] ?? text.trim();
+}
+
+function shorten(value: string, maxLength: number): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
 }
