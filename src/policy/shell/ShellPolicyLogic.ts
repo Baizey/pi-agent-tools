@@ -422,6 +422,27 @@ class ShellPolicyTree {
   }
 }
 
+export function shellPolicyCommandArgsFor(command: string): string[] {
+  const parsed = parseShellPolicyCommandScope(command);
+  return parsed?.commandArgs ?? [];
+}
+
+export function shellPolicyFlagsFor(command: string): string[] {
+  const parsed = parseShellPolicyCommandScope(command);
+  return parsed?.flags ?? [];
+}
+
+function parseShellPolicyCommandScope(command: string): {commandArgs: string[]; flags: string[]} | null {
+  const segments = splitShellSegments(command);
+  if (segments.length !== 1) return null;
+  const segment = segments[0] ?? command;
+  const tokens = tokenizeShellSegment(segment);
+  if (hasUnsafeShellSyntax(segment, tokens)) return null;
+  const commandArgs = commandPrefixFor(tokens);
+  if (commandArgs.length === 0) return null;
+  return {commandArgs, flags: flagsForTokens(tokens, commandArgs.length)};
+}
+
 const splitShellSegments = (input: string): string[] => {
   const segments: string[] = [];
   let current = "";
@@ -430,8 +451,7 @@ const splitShellSegments = (input: string): string[] => {
   let skipNext = false;
 
   const flush = (): void => {
-    const segment = current.trim();
-    if (segment.length > 0) segments.push(segment);
+    segments.push(current.trim());
     current = "";
   };
 
@@ -462,7 +482,11 @@ const splitShellSegments = (input: string): string[] => {
       continue;
     }
     const next = input[index + 1];
-    if (char === ";" || char === "|" || char === "\n" || char === "\r") flush();
+    if (char === ";" || char === "\n" || char === "\r") flush();
+    else if (char === "|" && next === "|") {
+      flush();
+      skipNext = true;
+    } else if (char === "|") flush();
     else if (char === "&" && (next === "&" || next === "|")) {
       flush();
       skipNext = true;
@@ -518,7 +542,7 @@ const tokenizeShellSegment = (input: string): ShellToken[] => {
   return tokens;
 };
 
-const isFlag = (input: string): boolean => /^--?[a-zA-Z]/.test(input);
+const isFlag = (input: string): boolean => /^--?[a-zA-Z0-9]/.test(input);
 
 const hasUnsafeShellSyntax = (rawSegment: string, tokens: ShellToken[]): boolean =>
   hasUnsafeRawShellSyntax(rawSegment) || hasUnsafeBashCommand(tokens);
@@ -566,7 +590,7 @@ const hasUnsafeBashCommand = (tokens: ShellToken[]): boolean => {
   const args = tokens.slice(1).map((it) => it.value.toLowerCase());
 
   if (["bash", "sh", "dash", "zsh", "ksh"].includes(executable)) {
-    return args.some((it) => it === "-c" || it.startsWith("-c"));
+    return args.some((it) => it === "-c" || it.startsWith("-c") || (/^-[^-]/.test(it) && it.slice(1).includes("c")));
   }
 
   if (["eval", "source", ".", "exec"].includes(executable)) return true;

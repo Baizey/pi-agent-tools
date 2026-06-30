@@ -240,6 +240,16 @@ test("runtime removePolicies can remove flags or entire command policies", () =>
   assertDenied(logic.evaluate("git commit", true));
 });
 
+test("numeric short flags require flag policy", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("ls")] });
+
+  assert.equal(logic.evaluate("ls -1", false), null);
+  logic.addPolicies([
+    ShellPolicyLogic.createPolicy("ls", PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "ls allowed", [allowFlag("-1")]),
+  ]);
+  assertAllowed(logic.evaluate("ls -1", false));
+});
+
 test("flag policy applies only to exact command words", () => {
   const logic = new ShellPolicyLogic({
     policies: [
@@ -271,6 +281,14 @@ test("bash separators make each command segment evaluated independently", () => 
     assert.equal(result.segmentResults[0].status, PolicyStatus.ALLOWED);
     assert.equal(result.segmentResults[1].status, PolicyStatus.DENIED);
   }
+});
+
+test("empty shell segments around separators are denied", () => {
+  const logic = new ShellPolicyLogic({ policies: [allowCommand("git", "status")] });
+
+  assertDenied(logic.evaluate("git status &&", false));
+  assertDenied(logic.evaluate("git status ;", false));
+  assertDenied(logic.evaluate("& git status", false));
 });
 
 test("empty command is denied", () => {
@@ -383,6 +401,8 @@ test("nested bash execution flags cannot hide denied commands", () => {
 
   assertDenied(logic.evaluate("bash -c 'git commit'", true));
   assertDenied(logic.evaluate("sh -c 'git commit'", true));
+  assertDenied(logic.evaluate("bash -lc 'git commit'", true));
+  assertDenied(logic.evaluate("sh -ec 'git commit'", true));
 });
 
 test("bash dynamic execution helpers are denied", () => {

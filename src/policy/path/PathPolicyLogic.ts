@@ -86,6 +86,10 @@ export class PathPolicyLogic {
     };
   }
 
+  policyPathFor(inputPath: string): string {
+    return this.standardizePath(inputPath);
+  }
+
   addPolicies(policies: PathPolicy[]): void {
     for (const rawPolicy of policies) {
       const policy = this.standardizePolicy(rawPolicy);

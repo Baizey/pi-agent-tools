@@ -3,6 +3,7 @@ import {createServices} from "./pi/runtime";
 import {registerCodeExecutionTool} from "./extensions/tools/code-exec";
 import {registerFileTools} from "./extensions/tools/file-tools";
 import {registerPolicyDefaultCommand} from "./extensions/policy/defaults";
+import {registerPolicyCommands} from "./extensions/policy/commands";
 import {registerPathPolicy} from "./extensions/policy/path-policy";
 import {registerPolicyInfoTool} from "./extensions/tools/policy-info";
 import {registerShellPolicy} from "./extensions/policy/shell-policy";
@@ -33,6 +34,7 @@ export default async function agentToolsExtension(pi: PiExtensionApi): Promise<v
     registerAgentToolsPromptGuidance(pi);
     registerToolRenderingControls(pi);
     registerPolicyDefaultCommand(pi);
+    registerPolicyCommands(pi, services);
     registerFileTools(pi);
 
     registerSubagentTool(pi);
