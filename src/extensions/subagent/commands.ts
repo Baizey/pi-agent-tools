@@ -20,6 +20,14 @@ const widgetState: SubagentWidgetState = {
 export function registerSubagentCommands(pi: PiExtensionApi): void {
   registerModelProfileCommand(pi);
 
+  pi.on?.("session_start", (event, ctx) => {
+    if (event.reason === "reload") return;
+    widgetState.enabled = true;
+    widgetState.filter = SubagentTreeFilter.running;
+    widgetState.rootId = ctx.sessionManager?.getSessionId() ?? widgetState.rootId;
+    refreshSubagentWidget(ctx);
+  });
+
   pi.registerCommand?.("subagents", {
     description: "Show or hide the subagent tree widget. Usage: /subagents [on|off] [all|done|running]",
     getArgumentCompletions(prefix) {
