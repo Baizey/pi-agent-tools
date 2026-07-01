@@ -62,6 +62,44 @@ Supported language adapters: `javascript`, `typescript`, `python`, `powershell`,
 | --- | --- |
 | `web_lookup` | Search DuckDuckGo HTML results with `query`, or fetch/read an `http(s)` URL. |
 
+### MCP tools
+
+MCP servers are configured in `~/.pi/agent/mcp.json`. Only tools exposed by this extension are registered as Pi tools; exposure defaults to none. Use `tools.expose` to allow specific MCP tool names, or `"*"` to expose all currently discovered tools except entries in `tools.hide`.
+
+Example:
+
+```json
+{
+  "servers": {
+    "filesystem": {
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "C:\\Repositories"],
+      "tools": {
+        "expose": ["read_file", "list_directory"],
+        "hide": []
+      }
+    }
+  }
+}
+```
+
+Supported transports are `stdio` and Streamable HTTP (`transport: "http"`, `url`, optional `headers`). Stdio `env` values are merged over the MCP SDK default inherited environment.
+
+Slash commands:
+
+```text
+/mcp show [all|server]
+/mcp connect [all|server]
+/mcp disconnect [all|server]
+/mcp refresh [all|server]
+/mcp expose <server> <tool...|*>
+/mcp hide <server> <tool...|*>
+/mcp reset <server> [tool...|*]
+```
+
+Because Pi currently has no public tool unregister API, hiding an already registered MCP tool blocks calls immediately but the tool name may remain visible until `/reload`.
+
 ### Policy introspection
 
 | Tool | Purpose |

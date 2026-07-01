@@ -27,3 +27,4 @@ export * from "./extensions/shared/policy-approval";
 export * from "./extensions/policy/shell-policy";
 export * from "./extensions/subagent";
 export * from "./extensions/tools/web";
+export * from "./extensions/mcp";

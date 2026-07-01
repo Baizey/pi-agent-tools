@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {registerWebLookupTool} from "../extensions/tools/web";
+import {registerWebLookupTool, webLookupFetchTimeoutMs} from "../extensions/tools/web";
 import {PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {PiExtensionApi, ToolDefinition} from "../pi/types";
 
@@ -103,6 +103,34 @@ void (async () => {
     assert.equal(evaluations[0].accessType, WebAccessType.SEARCH);
     assert.match(evaluations[0].url, /^https:\/\/duckduckgo\.com\/html\/\?q=pi\+tools|^https:\/\/duckduckgo\.com\/html\/\?q=pi%20tools/);
     assert.deepEqual(evaluations[1], {url: "https://example.com/docs", accessType: WebAccessType.READ});
+  });
+
+  await test("web lookup has a built-in fetch timeout", async () => {
+    const tool = registeredWebTool();
+    const originalFetch = globalThis.fetch;
+    const originalSetTimeout = globalThis.setTimeout;
+    let timeoutDelay: number | undefined;
+    let fetchSignal: AbortSignal | undefined;
+
+    globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+      fetchSignal = init?.signal ?? undefined;
+      return await new Promise<Response>(() => undefined);
+    }) as typeof fetch;
+    globalThis.setTimeout = ((handler: (...args: unknown[]) => void, timeout?: number, ...args: unknown[]) => {
+      timeoutDelay = Number(timeout);
+      return originalSetTimeout(handler, 0, ...args);
+    }) as typeof globalThis.setTimeout;
+
+    try {
+      const result = await tool.execute("timeout", {url: "https://example.com/slow"});
+      assert.equal(result.isError, true);
+      assert.equal(timeoutDelay, webLookupFetchTimeoutMs);
+      assert.equal(fetchSignal?.aborted, true);
+      assert.match((result.content[0] as {text: string}).text, /Fetch timed out/);
+    } finally {
+      globalThis.fetch = originalFetch;
+      globalThis.setTimeout = originalSetTimeout;
+    }
   });
 
   await test("web lookup passes cancellation signal to fetch", async () => {

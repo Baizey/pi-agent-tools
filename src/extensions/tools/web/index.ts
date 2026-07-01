@@ -10,7 +10,7 @@ import {currentWebPolicyDefault, PolicyDefaultMode} from "../../policy/defaults"
 import {objectSchema, stringParam, successResult, errorResult, booleanParam} from "../file-tools/common";
 
 const defaultSearchUrl = "https://duckduckgo.com/html/";
-const fetchTimeoutMs = 30_000;
+export const webLookupFetchTimeoutMs = 30_000;
 
 export function registerWebLookupTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
@@ -241,18 +241,34 @@ function webFlowCancelReason(state: Partial<WebPolicyApproval>): string {
 
 async function fetchText(url: string, signal?: AbortSignal): Promise<string> {
   const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(new Error(`Fetch timed out after ${fetchTimeoutMs}ms.`)), fetchTimeoutMs);
+  const timeoutError = new Error(`Fetch timed out after ${webLookupFetchTimeoutMs}ms.`);
+  const timer = setTimeout(() => timeout.abort(timeoutError), webLookupFetchTimeoutMs);
   const combinedSignal = combineAbortSignals(signal, timeout.signal);
   try {
-    const response = await fetch(url, {
-      headers: {"User-Agent": "pi-agent-tools/0.1 (+https://github.com/Baizey/pi-agent-tools)"},
-      signal: combinedSignal,
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
-    return await response.text();
+    return await rejectWhenAborted((async () => {
+      const response = await fetch(url, {
+        headers: {"User-Agent": "pi-agent-tools/0.1 (+https://github.com/Baizey/pi-agent-tools)"},
+        signal: combinedSignal,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      return await response.text();
+    })(), combinedSignal);
   } finally {
     clearTimeout(timer);
   }
+}
+
+function rejectWhenAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(abortSignalReason(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortSignalReason(signal));
+    signal.addEventListener("abort", onAbort, {once: true});
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
+  });
+}
+
+function abortSignalReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error(String(signal.reason ?? "Operation aborted."));
 }
 
 function combineAbortSignals(left: AbortSignal | undefined, right: AbortSignal): AbortSignal {

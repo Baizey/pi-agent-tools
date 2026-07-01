@@ -12,6 +12,7 @@ import {registerWebLookupTool} from "./extensions/tools/web";
 import {registerLocalSqlTool} from "./extensions/tools/local-sql";
 import {registerAgentToolsPromptGuidance} from "./extensions/prompt-guidance";
 import {registerToolRenderingControls} from "./extensions/tool-rendering-controls";
+import {registerMcpExtension} from "./extensions/mcp";
 
 export default async function agentToolsExtension(pi: PiExtensionApi): Promise<void> {
     const services = createServices();
@@ -33,6 +34,7 @@ export default async function agentToolsExtension(pi: PiExtensionApi): Promise<v
 
     registerAgentToolsPromptGuidance(pi);
     registerToolRenderingControls(pi);
+    registerMcpExtension(pi);
     registerPolicyDefaultCommand(pi);
     registerPolicyCommands(pi, services);
     registerFileTools(pi);
