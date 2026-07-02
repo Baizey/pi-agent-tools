@@ -21,6 +21,7 @@ export const subagentRuns = table("subagent_runs", {
     depth: column.integer().notNull(),
     mode: column.text().notNull(),
     task: column.text().notNull(),
+    persona: column.text().notNull().default("''"),
     profiles: column.json<SubagentToolkit[]>().notNull(),
     tools: column.json<string[]>().notNull(),
     status: column.text().notNull(),
@@ -46,6 +47,7 @@ export type StartSubagentRunInput = {
     depth: number;
     mode: SubagentRunMode;
     task: string;
+    persona: string;
     toolkits: SubagentToolkit[];
     tools: string[];
 };
@@ -70,12 +72,18 @@ export class SubagentDao {
     initializeSchema() {
         if (this.schemaInitialized) return this;
         this.orm.createTable(subagentRuns);
+        this.ensureColumn("persona", `alter table "subagent_runs" add column "persona" text not null default ''`);
         this.db.exec(`
             create index if not exists "idx_subagent_runs_root_parent" on "subagent_runs" ("rootId", "parentId", "ordinal");
             create index if not exists "idx_subagent_runs_updatedAt" on "subagent_runs" ("updatedAt");
         `);
         this.schemaInitialized = true;
         return this;
+    }
+
+    private ensureColumn(name: string, sql: string): void {
+        const rows = this.db.prepare(`pragma table_info("subagent_runs")`).all() as Array<{name: string}>;
+        if (!rows.some(row => row.name === name)) this.db.exec(sql);
     }
 
     nextOrdinal(parentId: string | null, rootId: string): number {
@@ -98,6 +106,7 @@ export class SubagentDao {
             depth: input.depth,
             mode: input.mode,
             task: input.task,
+            persona: input.persona,
             profiles: input.toolkits,
             tools: input.tools,
             status: subagentRunStatuses.starting,

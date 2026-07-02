@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {agentEnv, denyByDefaultEnv} from "../../shared/env";
+import {toolNames} from "../../shared/toolNames";
 import {policyDefaultsEnvForSubagents} from "../policy/defaults";
 import {
   readSubagentTreeContext,
@@ -14,14 +15,31 @@ import {
   ResolvedSubagentToolkits,
   SubagentToolkit,
   SubagentRunMode,
+  subagentRunModes,
   resolveSubagentToolkits,
   serializeSubagentToolkitCeiling,
 } from "./toolkits";
 import {database_filename, SqliteDatabase, SubagentDao, type SubagentRunRow} from "../../storage";
 
+enum AssistantMessageRole {
+  assistant = "assistant",
+}
+
+enum MessagePartType {
+  text = "text",
+  toolCall = "toolCall",
+}
+
+enum PiJsonEventType {
+  toolCall = "tool_call",
+  toolExecutionStart = "tool_execution_start",
+  toolExecutionUpdate = "tool_execution_update",
+}
+
 export type SubagentRequest = {
   mode: SubagentRunMode;
   task: string;
+  persona: string;
   toolkits: SubagentToolkit[];
   cwd: string;
   timeoutSeconds: number;
@@ -53,12 +71,7 @@ export async function runSubagent(
   signal?: AbortSignal,
   onUpdate?: SubagentUpdate,
 ): Promise<SubagentResult> {
-  switch (request.mode) {
-    case "sync":
-    case "async":
-    case "conversation":
-      return runSubagentProcess(request, signal, onUpdate);
-  }
+  return runSubagentProcess(request, signal, onUpdate);
 }
 
 export async function runSyncSubagent(
@@ -66,7 +79,7 @@ export async function runSyncSubagent(
   signal?: AbortSignal,
   onUpdate?: SubagentUpdate,
 ): Promise<SubagentResult> {
-  return runSubagent({...input, mode: "sync"}, signal, onUpdate);
+  return runSubagent({...input, mode: subagentRunModes.sync}, signal, onUpdate);
 }
 
 async function runSubagentProcess(
@@ -87,6 +100,7 @@ async function runSubagentProcess(
     depth: nodeIdentity.depth,
     mode: request.mode,
     task: request.task,
+    persona: request.persona,
     toolkits: request.toolkits,
     tools: resolvedToolkits.tools,
   });
@@ -167,6 +181,7 @@ function buildSubagentPrompt(request: SubagentRequest, toolkits: ResolvedSubagen
     "Return a concise answer to the delegated task. Do not mention implementation details of being spawned unless relevant.",
     "You cannot request additional interactive permissions. If a policy blocks access, report what was blocked and continue with available information.",
     "Run mode: " + request.mode,
+    "Persona: " + request.persona,
     "Active toolkits: " + (toolkits.toolkits.length > 0 ? toolkits.toolkits.join(", ") : "(none)"),
     "Toolkit instructions:",
     ...toolkits.instructions.map((instruction) => `- ${instruction}`),
@@ -247,10 +262,16 @@ async function runPiProcess(
       try {
         const event = JSON.parse(line);
         if (event.message) messages.push(event.message);
+        const directToolCall = toolCallFromEvent(event);
+        if (directToolCall) {
+          seenToolCalls.add(directToolCall.key);
+          subagents.updateRun(node.id, {latestLine: `→ ${directToolCall.summary}`});
+          emitTreeUpdate();
+        }
         const toolCall = toolCallFromMessage(event.message);
         if (toolCall && !seenToolCalls.has(toolCall.key)) {
           seenToolCalls.add(toolCall.key);
-          subagents.updateRun(node.id, {latestLine: `→ ${toolCall.name}`});
+          subagents.updateRun(node.id, {latestLine: `→ ${toolCall.summary}`});
           emitTreeUpdate();
         }
         const text = textFromMessage(event.message);
@@ -298,8 +319,22 @@ async function runPiProcess(
   });
 }
 
-function toolCallFromMessage(message: unknown): {key: string; name: string; task: string; mode: "sync" | "async" | "conversation"} | null {
-  if (!message || typeof message !== "object" || !("role" in message) || message.role !== "assistant") return null;
+function toolCallFromEvent(event: unknown): {key: string; summary: string} | null {
+  if (!event || typeof event !== "object") return null;
+  const type = "type" in event ? event.type : null;
+  if (type !== PiJsonEventType.toolCall && type !== PiJsonEventType.toolExecutionStart && type !== PiJsonEventType.toolExecutionUpdate) return null;
+  const name = "toolName" in event && typeof event.toolName === "string" ? event.toolName : null;
+  if (!name) return null;
+  const rawArgs = type === PiJsonEventType.toolCall
+    ? "input" in event ? event.input : null
+    : "args" in event ? event.args : null;
+  const args = recordValue(rawArgs);
+  const id = "toolCallId" in event && typeof event.toolCallId === "string" ? event.toolCallId : `${name}:${JSON.stringify(args)}`;
+  return {key: id, summary: summarizeToolCall(name, args)};
+}
+
+function toolCallFromMessage(message: unknown): {key: string; summary: string} | null {
+  if (!message || typeof message !== "object" || !("role" in message) || message.role !== AssistantMessageRole.assistant) return null;
   const content = "content" in message ? message.content : undefined;
   if (!Array.isArray(content)) return null;
   for (const part of content) {
@@ -307,20 +342,114 @@ function toolCallFromMessage(message: unknown): {key: string; name: string; task
       part &&
       typeof part === "object" &&
       "type" in part &&
-      part.type === "toolCall" &&
+      part.type === MessagePartType.toolCall &&
       "name" in part &&
       typeof part.name === "string"
     ) {
-      const args = "arguments" in part && part.arguments && typeof part.arguments === "object"
-        ? part.arguments as Record<string, unknown>
-        : {};
-      const mode = args.mode === "async" || args.mode === "conversation" ? args.mode : "sync";
+      const args = recordValue(toolCallArguments(part));
       const explicitId = "id" in part && typeof part.id === "string" ? part.id : undefined;
       const key = explicitId ?? `${part.name}:${JSON.stringify(args)}`;
-      return {key, name: part.name, task: typeof args.task === "string" ? args.task : part.name, mode};
+      return {key, summary: summarizeToolCall(part.name, args)};
     }
   }
   return null;
+}
+
+function toolCallArguments(part: object): unknown {
+  if ("arguments" in part) return part.arguments;
+  if ("input" in part) return part.input;
+  if ("args" in part) return part.args;
+  return null;
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
+function summarizeToolCall(name: string, args: Record<string, unknown>): string {
+  switch (name) {
+    case toolNames.read:
+    case toolNames.stat:
+    case toolNames.write:
+    case toolNames.edit:
+    case toolNames.delete:
+    case toolNames.mkdir:
+      return withParts(name, stringArg(args, "path"));
+    case toolNames.copy:
+      return withParts(name, arrow(stringArg(args, "from"), stringArg(args, "to")));
+    case toolNames.move:
+      return withParts(name, arrow(stringArg(args, "from"), stringArg(args, "to")));
+    case toolNames.bash:
+      return withParts(name, stringArg(args, "command"));
+    case toolNames.executeCode:
+      return withParts(name, stringArg(args, "language"), stringArg(args, "file") ?? stringArg(args, "mode") ?? "inline");
+    case toolNames.executeCodeInfo:
+      return withParts(name, stringArg(args, "language"));
+    case toolNames.webLookup:
+      return withParts(name, stringArg(args, "query") ?? stringArg(args, "url"));
+    case toolNames.localSql:
+      return withParts(name, stringArg(args, "action") ?? "schema", stringArg(args, "purpose") ?? firstLine(stringArg(args, "sql")));
+    case toolNames.policyInfo:
+      return withParts(name, stringArg(args, "kind") ?? "overview", stringArg(args, "path") ?? stringArg(args, "command") ?? stringArg(args, "url") ?? stringArg(args, "language"));
+    case toolNames.subagentSpawn:
+      return withParts(name, stringArg(args, "persona"), stringArg(args, "task"));
+    case toolNames.subagentStatus:
+    case toolNames.subagentCancel:
+      return withParts(name, stringArg(args, "jobId"));
+    case toolNames.subagentAwait:
+      return withParts(name, stringArrayArg(args, "jobIds").join(", "));
+    case toolNames.subagentMessage:
+      return withParts(name, stringArg(args, "jobId"), stringArg(args, "task"));
+    default:
+      return withParts(name, genericArgsSummary(args));
+  }
+}
+
+function withParts(...parts: Array<string | null | undefined>): string {
+  return shorten(parts.filter((part): part is string => Boolean(part && part.trim())).join(" "));
+}
+
+function stringArg(args: Record<string, unknown>, key: string): string | null {
+  const value = args[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function stringArrayArg(args: Record<string, unknown>, key: string): string[] {
+  const value = args[key];
+  if (typeof value === "string" && value.trim()) return [value];
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function arrow(left: string | null, right: string | null): string | null {
+  if (left && right) return `${left} → ${right}`;
+  return left ?? right;
+}
+
+function firstLine(value: string | null): string | null {
+  if (!value) return null;
+  return value.split(/\r?\n/).map(line => line.trim()).find(Boolean) ?? null;
+}
+
+function genericArgsSummary(args: Record<string, unknown>): string | null {
+  const entries = Object.entries(args);
+  const stringEntry = entries.find(([, value]) => typeof value === "string" && value.trim().length > 0);
+  if (stringEntry) return `${stringEntry[0]}=${stringEntry[1]}`;
+  return entries.length > 0 ? JSON.stringify(args) : null;
+}
+
+function shorten(value: string, maxLength = 140): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
 }
 
 function lastLine(text: string): string {
@@ -329,7 +458,7 @@ function lastLine(text: string): string {
 }
 
 function textFromMessage(message: unknown): string | null {
-  if (!message || typeof message !== "object" || !("role" in message) || message.role !== "assistant") return null;
+  if (!message || typeof message !== "object" || !("role" in message) || message.role !== AssistantMessageRole.assistant) return null;
   const content = "content" in message ? message.content : undefined;
   if (!Array.isArray(content)) return null;
   for (const part of content) {
@@ -337,7 +466,7 @@ function textFromMessage(message: unknown): string | null {
       part &&
       typeof part === "object" &&
       "type" in part &&
-      part.type === "text" &&
+      part.type === MessagePartType.text &&
       "text" in part &&
       typeof part.text === "string"
     ) {

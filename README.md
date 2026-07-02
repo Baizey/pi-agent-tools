@@ -224,7 +224,7 @@ Web policy uses normalized domains and URL paths, ignoring scheme and query stri
 
 ## Subagents
 
-Subagents run separate scoped Pi processes with constrained capabilities.
+Subagents run separate scoped Pi processes with constrained capabilities. Each subagent requires a `persona`, a concise title/role shown in orchestration views and injected into its prompt.
 
 Modes:
 
@@ -244,8 +244,11 @@ Toolkits are additive capability ceilings. Omitting toolkits, or passing an empt
 
 Nested subagents cannot request toolkits outside the parent process's effective ceiling. Subagent runs also force deny-by-default policy env vars so nested processes cannot prompt for more permissions interactively; if blocked, they should report what was blocked and continue with available information.
 
-Optional subagent settings:
+Use `/subagents [on|off] [running|done|all]` for the orchestration tree. Tree rows show persona, status, and latest activity; child tool calls include useful context such as file paths or shell commands.
 
+Subagent settings:
+
+- `persona`: required concise title/role for the spawned agent
 - `model`: one of the package model profiles, such as `text_low`, `text_high`, `reasoning_low`, or `reasoning_high`
 - `cwd`: working directory
 - `timeoutSeconds`: timeout for a subagent run; defaults to 900 seconds (15 minutes). `subagent_await` defaults to waiting 30 seconds and reports current job statuses on timeout.

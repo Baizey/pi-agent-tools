@@ -6,17 +6,20 @@ import {
   parseSubagentToolkitCeiling,
   resolveSubagentToolkits,
   serializeSubagentToolkitCeiling,
+  subagentToolkitNames,
 } from "../extensions/subagent";
 
-test("subagent toolkit ceiling prevents nested agents from escalating capabilities", () => {
-  const parentToolkits = ["spawn_subagent"] as const;
-  const requestedToolkits = ["spawn_subagent", "meta", "io_read", "io_write"] as const;
+const toolkit = subagentToolkitNames;
 
-  assert.deepEqual(applySubagentToolkitCeiling([...requestedToolkits], [...parentToolkits]), ["spawn_subagent"]);
+test("subagent toolkit ceiling prevents nested agents from escalating capabilities", () => {
+  const parentToolkits = [toolkit.spawnSubagent];
+  const requestedToolkits = [toolkit.spawnSubagent, toolkit.meta, toolkit.ioRead, toolkit.ioWrite];
+
+  assert.deepEqual(applySubagentToolkitCeiling(requestedToolkits, parentToolkits), ["spawn_subagent"]);
 });
 
 test("subagent toolkit ceiling falls back to no toolkits when requested toolkits exceed parent capabilities", () => {
-  assert.deepEqual(applySubagentToolkitCeiling(["io_read"], ["spawn_subagent"]), []);
+  assert.deepEqual(applySubagentToolkitCeiling([toolkit.ioRead], [toolkit.spawnSubagent]), []);
   assert.deepEqual(resolveSubagentToolkits([]).tools, []);
   assert.deepEqual(resolveSubagentToolkits([]).instructions, ["You have access to no tools."]);
 });
@@ -31,8 +34,8 @@ test("subagent toolkit normalization defaults to no toolkits", () => {
 test("subagent toolkit ceiling allows only the intersection of requested and parent capabilities", () => {
   assert.deepEqual(
     applySubagentToolkitCeiling(
-      ["meta", "io_read", "io_write", "execute_bash", "web_read", "spawn_subagent"],
-      ["meta", "io_read", "web_read", "spawn_subagent"],
+      [toolkit.meta, toolkit.ioRead, toolkit.ioWrite, toolkit.executeBash, toolkit.webRead, toolkit.spawnSubagent],
+      [toolkit.meta, toolkit.ioRead, toolkit.webRead, toolkit.spawnSubagent],
     ),
     ["meta", "io_read", "web_read", "spawn_subagent"],
   );
@@ -40,11 +43,11 @@ test("subagent toolkit ceiling allows only the intersection of requested and par
 
 test("subagent toolkit ceiling treats malformed inherited ceilings as no capabilities", () => {
   assert.deepEqual(parseSubagentToolkitCeiling("totally_fake, also_fake"), []);
-  assert.deepEqual(applySubagentToolkitCeiling(["io_read"], parseSubagentToolkitCeiling("totally_fake")), []);
+  assert.deepEqual(applySubagentToolkitCeiling([toolkit.ioRead], parseSubagentToolkitCeiling("totally_fake")), []);
 });
 
 test("subagent toolkit ceiling serialization round-trips without granting defaults", () => {
-  const serialized = serializeSubagentToolkitCeiling(["spawn_subagent"]);
+  const serialized = serializeSubagentToolkitCeiling([toolkit.spawnSubagent]);
 
   assert.equal(serialized, "spawn_subagent");
   assert.deepEqual(parseSubagentToolkitCeiling(serialized), ["spawn_subagent"]);
@@ -54,15 +57,15 @@ test("subagent toolkit ceiling serialization round-trips without granting defaul
 });
 
 test("meta toolkit grants harness introspection tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits(["meta"]).tools, ["policy_info", "local_sql"]);
+  assert.deepEqual(resolveSubagentToolkits([toolkit.meta]).tools, ["policy_info", "local_sql"]);
 });
 
 test("io_read toolkit grants read-only filesystem tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits(["io_read"]).tools, ["read", "stat"]);
+  assert.deepEqual(resolveSubagentToolkits([toolkit.ioRead]).tools, ["read", "stat"]);
 });
 
 test("spawn_subagent toolkit grants only delegation tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits(["spawn_subagent"]).tools, [
+  assert.deepEqual(resolveSubagentToolkits([toolkit.spawnSubagent]).tools, [
     "subagent_spawn",
     "subagent_status",
     "subagent_await",
@@ -72,5 +75,5 @@ test("spawn_subagent toolkit grants only delegation tooling", () => {
 });
 
 test("web_read toolkit grants web lookup tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits(["web_read"]).tools, ["web_lookup"]);
+  assert.deepEqual(resolveSubagentToolkits([toolkit.webRead]).tools, ["web_lookup"]);
 });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "./TestHarness";
-import {PiExtensionApi, registerSubagentTool, subagentRunModes, toolNames} from "../index";
+import {PiExtensionApi, registerSubagentTool, subagentRunModes, subagentToolkitNames, toolNames} from "../index";
 import {
   AsyncSubagentJob,
   defaultSubagentAwaitTimeoutSeconds,
@@ -15,6 +15,7 @@ function fakeJob(overrides: Partial<AsyncSubagentJob> = {}): AsyncSubagentJob {
     request: {
       mode: subagentRunModes.async,
       task: "scan repository for subagent status handling",
+      persona: "status scanner",
       toolkits: [],
       cwd: process.cwd(),
       timeoutSeconds: 900,
@@ -22,7 +23,7 @@ function fakeJob(overrides: Partial<AsyncSubagentJob> = {}): AsyncSubagentJob {
     status: subagentJobStatuses.running,
     startedAt,
     controller: new AbortController(),
-    latestUpdateText: "Subagents\n└─ job-1 ⏳ reading files",
+    latestUpdateText: "Subagents\n└─ status scanner (job-1) ⏳ reading files",
     history: [],
     ...overrides,
   };
@@ -53,11 +54,12 @@ test("timed out subagent await responses include current job statuses", () => {
       id: "job-2",
       status: subagentJobStatuses.completed,
       finishedAt: Date.now(),
-      latestUpdateText: "Subagents\n└─ job-2 ✓ done",
+      latestUpdateText: "Subagents\n└─ reviewer (job-2) ✓ done",
       request: {
         mode: subagentRunModes.async,
         task: "finished review",
-        toolkits: ["io_read"],
+        persona: "reviewer",
+        toolkits: [subagentToolkitNames.ioRead],
         cwd: process.cwd(),
         timeoutSeconds: 900,
       },
@@ -67,7 +69,7 @@ test("timed out subagent await responses include current job statuses", () => {
   assert.match(text, /Timed out after 30s waiting for subagent job\(s\): job-1/);
   assert.match(text, /Current subagent statuses:/);
   assert.match(text, /job-1: running/);
-  assert.match(text, /latest: └─ job-1 ⏳ reading files/);
+  assert.match(text, /latest: └─ status scanner \(job-1\) ⏳ reading files/);
   assert.match(text, /job-2: completed/);
-  assert.match(text, /latest: └─ job-2 ✓ done/);
+  assert.match(text, /latest: └─ reviewer \(job-2\) ✓ done/);
 });

@@ -26,6 +26,7 @@ test("subagent dao stores and renders a tree using explicit parent relationships
     depth: 0,
     mode: subagentRunModes.async,
     task: "root task",
+    persona: "root persona",
     toolkits: [],
     tools: [],
   });
@@ -37,6 +38,7 @@ test("subagent dao stores and renders a tree using explicit parent relationships
     depth: 1,
     mode: subagentRunModes.sync,
     task: "child task",
+    persona: "child persona",
     toolkits: [],
     tools: [],
   });
@@ -46,8 +48,8 @@ test("subagent dao stores and renders a tree using explicit parent relationships
   const tree = renderSubagentRunTree(dao.listTree("root-session"), "root-session-1");
   assert.deepEqual(tree, [
     "Subagents",
-    "└─ root-session-1 ⏳ working",
-    "   └─ root-session-1-1 ✓ done",
+    "└─ root persona (root-session-1) ⏳ working",
+    "   └─ child persona (root-session-1-1) ✓ done",
   ]);
 }));
 
@@ -60,6 +62,7 @@ test("subagent dao allocates child ordinals per parent", () => withDao(dao => {
     depth: 0,
     mode: subagentRunModes.async,
     task: "first",
+    persona: "first persona",
     toolkits: [],
     tools: [],
   });

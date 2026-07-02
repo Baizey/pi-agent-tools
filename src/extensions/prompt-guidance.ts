@@ -89,6 +89,7 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         sections.push([
             "Subagents:",
             "- Use subagent_spawn for independent research, review, or parallelizable investigation.",
+            "- Always provide a concise required persona for each subagent; it is shown in orchestration/status views.",
             "- Choose least-privilege toolkits; subagents cannot request extra interactive permissions.",
             "- Omit toolkits or pass an empty list for no tools; there is no 'none' toolkit.",
             "- Use the 'meta' toolkit for harness introspection tools like policy_info and local_sql.",

@@ -20,7 +20,8 @@ function renderNode(
   isLast: boolean,
 ): string[] {
   const connector = node.depth === 0 ? "└─ " : isLast ? "└─ " : "├─ ";
-  const line = `${prefix}${connector}${node.id} ${statusIcons[node.status]} ${shorten(node.latestLine || node.task)}`;
+  const label = node.persona ? `${node.persona} (${node.id})` : node.id;
+  const line = `${prefix}${connector}${label} ${statusIcons[node.status]} ${shorten(node.latestLine || node.task)}`;
   const childPrefix = `${prefix}${node.depth === 0 ? "   " : isLast ? "   " : "│  "}`;
   const children = node.children.map(nodeFor).filter((child): child is SubagentNode => Boolean(child));
   return [

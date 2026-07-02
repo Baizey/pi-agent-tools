@@ -18,6 +18,7 @@ export type SubagentNode = {
   depth: number;
   mode: SubagentRunMode;
   task: string;
+  persona: string;
   toolkits: SubagentToolkit[];
   tools: string[];
   status: SubagentNodeStatus;

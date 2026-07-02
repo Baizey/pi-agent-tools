@@ -16,9 +16,14 @@ function withSubagentModel(value: string | undefined, fn: () => void): void {
   }
 }
 
+test("subagent request requires a persona", () => {
+  const request = parseSubagentRequest({task: "do it"}, process.cwd());
+  assert.deepEqual(request, {error: "Missing required parameter: persona."});
+});
+
 test("subagent request uses PI_AGENT_SUBAGENT_MODEL when model parameter is absent", () => {
   withSubagentModel("text_low", () => {
-    const request = parseSubagentRequest({task: "do it"}, process.cwd());
+    const request = parseSubagentRequest({task: "do it", persona: "tester"}, process.cwd());
     assert.ok(!("error" in request));
     assert.equal(request.model, "text_low");
   });
@@ -26,7 +31,7 @@ test("subagent request uses PI_AGENT_SUBAGENT_MODEL when model parameter is abse
 
 test("subagent request model parameter overrides PI_AGENT_SUBAGENT_MODEL", () => {
   withSubagentModel("text_low", () => {
-    const request = parseSubagentRequest({task: "do it", model: "provider/model"}, process.cwd());
+    const request = parseSubagentRequest({task: "do it", persona: "tester", model: "provider/model"}, process.cwd());
     assert.ok(!("error" in request));
     assert.equal(request.model, "provider/model");
   });
@@ -34,7 +39,7 @@ test("subagent request model parameter overrides PI_AGENT_SUBAGENT_MODEL", () =>
 
 test("subagent request defaults all run modes to fifteen minute timeouts", () => {
   for (const mode of Object.values(subagentRunModes)) {
-    const request = parseSubagentRequest({task: "do it", mode}, process.cwd());
+    const request = parseSubagentRequest({task: "do it", persona: "tester", mode}, process.cwd());
     assert.ok(!("error" in request));
     assert.equal(request.timeoutSeconds, 15 * 60);
   }

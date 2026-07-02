@@ -213,7 +213,7 @@ function subagentParameters(): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["task"],
+    required: ["task", "persona"],
     properties: {
       mode: {
         type: "string",
@@ -224,6 +224,10 @@ function subagentParameters(): Record<string, unknown> {
       task: {
         type: "string",
         description: "Task to delegate to the subagent.",
+      },
+      persona: {
+        type: "string",
+        description: "Required concise persona/title for this subagent, e.g. reviewer, researcher, or migration planner.",
       },
       toolkits: {
         type: "array",

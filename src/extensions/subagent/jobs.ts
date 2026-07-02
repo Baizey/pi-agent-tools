@@ -137,6 +137,7 @@ export function formatJobStatus(job: AsyncSubagentJob): string {
   const latest = latestStatusText(job);
   return [
     `- ${job.id}: ${job.status}`,
+    `persona: ${shorten(job.request.persona, 60)}`,
     `task: ${shorten(job.request.task, 100)}`,
     `elapsed: ${elapsedSeconds}s`,
     latest ? `latest: ${shorten(latest, 140)}` : undefined,
@@ -150,6 +151,7 @@ export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,
     task: job.request.task,
+    persona: job.request.persona,
     mode: job.request.mode,
     cwd: job.request.cwd,
     timeoutSeconds: job.request.timeoutSeconds,
@@ -189,6 +191,7 @@ function reserveJobIdentity(
       depth: parentId ? context.depth + 1 : 0,
       mode: request.mode,
       task: request.task,
+      persona: request.persona,
       toolkits: request.toolkits,
       tools: [],
     });

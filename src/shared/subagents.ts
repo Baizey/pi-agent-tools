@@ -1,19 +1,21 @@
-export const subagentRunModes = {
-    sync: "sync",
-    async: "async",
-    conversation: "conversation",
-} as const;
+export enum SubagentRunMode {
+    sync = "sync",
+    async = "async",
+    conversation = "conversation",
+}
 
-export type SubagentRunMode = typeof subagentRunModes[keyof typeof subagentRunModes];
+export const subagentRunModes = SubagentRunMode;
 
-export const subagentToolkitNames = {
-    meta: "meta",
-    ioRead: "io_read",
-    ioWrite: "io_write",
-    executeBash: "execute_bash",
-    executeCode: "execute_code",
-    webRead: "web_read",
-    spawnSubagent: "spawn_subagent",
-} as const;
+export enum SubagentToolkitName {
+    meta = "meta",
+    ioRead = "io_read",
+    ioWrite = "io_write",
+    executeBash = "execute_bash",
+    executeCode = "execute_code",
+    webRead = "web_read",
+    spawnSubagent = "spawn_subagent",
+}
 
-export type SubagentToolkit = typeof subagentToolkitNames[keyof typeof subagentToolkitNames];
+export const subagentToolkitNames = SubagentToolkitName;
+
+export type SubagentToolkit = SubagentToolkitName;
