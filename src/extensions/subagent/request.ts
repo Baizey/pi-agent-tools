@@ -1,19 +1,19 @@
 import {agentEnv} from "../../shared/env";
 import {stringValue} from "../../shared/values";
 import {
-  applySubagentProfileCeiling,
+  applySubagentToolkitCeiling,
   defaultTimeoutSecondsForMode,
-  normalizeSubagentProfiles,
-  parseSubagentProfileCeiling,
+  normalizeSubagentToolkits,
+  parseSubagentToolkitCeiling,
   SubagentRunMode,
   subagentRunModes,
-} from "./profiles";
+} from "./toolkits";
 import {SubagentRequest} from "./runner";
 
 export type RawSubagentParams = Record<string, unknown> & {
   mode?: unknown;
   task?: unknown;
-  profiles?: unknown;
+  toolkits?: unknown;
   cwd?: unknown;
   timeoutSeconds?: unknown;
   model?: unknown;
@@ -32,13 +32,13 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
   const task = stringValue(params.task);
   if (!task) return {error: "Missing required parameter: task."};
 
-  const requestedProfiles = normalizeSubagentProfiles(params.profiles);
-  const ceilingProfiles = parseSubagentProfileCeiling(process.env[agentEnv.subagentProfileCeiling]);
+  const requestedToolkits = normalizeSubagentToolkits(params.toolkits);
+  const ceilingToolkits = parseSubagentToolkitCeiling(process.env[agentEnv.subagentToolkitCeiling]);
 
   return {
     mode,
     task,
-    profiles: applySubagentProfileCeiling(requestedProfiles, ceilingProfiles),
+    toolkits: applySubagentToolkitCeiling(requestedToolkits, ceilingToolkits),
     cwd: stringValue(params.cwd) ?? defaultCwd,
     timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),
     model: (stringValue(params.model) ?? process.env[agentEnv.subagentModel]?.trim()) || undefined,

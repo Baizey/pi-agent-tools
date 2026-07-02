@@ -1,40 +1,40 @@
 import {toolNames} from "../../shared/toolNames";
-import {subagentProfileNames, subagentRunModes, type SubagentProfile, type SubagentRunMode} from "../../shared/subagents";
+import {subagentToolkitNames, subagentRunModes, type SubagentToolkit, type SubagentRunMode} from "../../shared/subagents";
 
-export {subagentProfileNames, subagentRunModes, type SubagentProfile, type SubagentRunMode};
+export {subagentToolkitNames, subagentRunModes, type SubagentToolkit, type SubagentRunMode};
 
-export type ResolvedSubagentProfiles = {
-    profiles: SubagentProfile[];
+export type ResolvedSubagentToolkits = {
+    toolkits: SubagentToolkit[];
     tools: string[];
     instructions: string[];
 };
 
-export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instructions: string[] }> = {
-    [subagentProfileNames.meta]: {
+export const subagentToolkits: Record<SubagentToolkit, { tools: string[]; instructions: string[] }> = {
+    [subagentToolkitNames.meta]: {
         tools: [toolNames.policyInfo, toolNames.localSql],
         instructions: ["You have access to harness metadata and introspection tools"],
     },
-    [subagentProfileNames.ioRead]: {
+    [subagentToolkitNames.ioRead]: {
         tools: [toolNames.read, toolNames.stat],
         instructions: ["You have access to read-only IO tools"],
     },
-    [subagentProfileNames.ioWrite]: {
+    [subagentToolkitNames.ioWrite]: {
         tools: [toolNames.write, toolNames.edit, toolNames.delete, toolNames.copy, toolNames.move, toolNames.mkdir],
         instructions: ["You have access to write IO tools"],
     },
-    [subagentProfileNames.executeBash]: {
+    [subagentToolkitNames.executeBash]: {
         tools: [toolNames.bash],
         instructions: ["You have access to the bash execution tool, policy constraints may apply"],
     },
-    [subagentProfileNames.executeCode]: {
+    [subagentToolkitNames.executeCode]: {
         tools: [toolNames.executeCode, toolNames.executeCodeInfo],
         instructions: ["You have access to structured code execution tools"],
     },
-    [subagentProfileNames.webRead]: {
+    [subagentToolkitNames.webRead]: {
         tools: [toolNames.webLookup],
         instructions: ["You have access to web lookup and searching tools"],
     },
-    [subagentProfileNames.spawnSubagent]: {
+    [subagentToolkitNames.spawnSubagent]: {
         tools: [
             toolNames.subagentSpawn,
             toolNames.subagentStatus,
@@ -46,56 +46,56 @@ export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instru
     },
 };
 
-export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
+export function normalizeSubagentToolkits(input: unknown): SubagentToolkit[] {
     if (input === undefined || input === null) return [];
     const values = Array.isArray(input) ? input : [input];
-    const profiles: SubagentProfile[] = [];
+    const toolkits: SubagentToolkit[] = [];
 
     for (const value of values) {
         if (typeof value !== "string") continue;
-        if (isSubagentProfile(value) && !profiles.includes(value)) profiles.push(value);
+        if (isSubagentToolkit(value) && !toolkits.includes(value)) toolkits.push(value);
     }
 
-    return profiles;
+    return toolkits;
 }
 
-export function isSubagentProfile(value: string): value is SubagentProfile {
-    return Object.prototype.hasOwnProperty.call(subagentProfiles, value);
+export function isSubagentToolkit(value: string): value is SubagentToolkit {
+    return Object.prototype.hasOwnProperty.call(subagentToolkits, value);
 }
 
-export function applySubagentProfileCeiling(
-    requestedProfiles: SubagentProfile[],
-    ceilingProfiles: SubagentProfile[] | null,
-): SubagentProfile[] {
-    if (!ceilingProfiles) return requestedProfiles;
-    const ceiling = new Set(ceilingProfiles);
-    return requestedProfiles.filter((profile) => ceiling.has(profile));
+export function applySubagentToolkitCeiling(
+    requestedToolkits: SubagentToolkit[],
+    ceilingToolkits: SubagentToolkit[] | null,
+): SubagentToolkit[] {
+    if (!ceilingToolkits) return requestedToolkits;
+    const ceiling = new Set(ceilingToolkits);
+    return requestedToolkits.filter((toolkit) => ceiling.has(toolkit));
 }
 
-export function serializeSubagentProfileCeiling(profiles: SubagentProfile[]): string {
-    return profiles.join(",");
+export function serializeSubagentToolkitCeiling(toolkits: SubagentToolkit[]): string {
+    return toolkits.join(",");
 }
 
-export function parseSubagentProfileCeiling(value: string | undefined): SubagentProfile[] | null {
+export function parseSubagentToolkitCeiling(value: string | undefined): SubagentToolkit[] | null {
     if (value === undefined) return null;
     return value
         .split(",")
-        .map((profile) => profile.trim())
-        .filter(isSubagentProfile);
+        .map((toolkit) => toolkit.trim())
+        .filter(isSubagentToolkit);
 }
 
-export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSubagentProfiles {
+export function resolveSubagentToolkits(toolkits: SubagentToolkit[]): ResolvedSubagentToolkits {
     const tools = new Set<string>();
     const instructions: string[] = [];
 
-    for (const profile of profiles) {
-        const definition = subagentProfiles[profile];
+    for (const toolkit of toolkits) {
+        const definition = subagentToolkits[toolkit];
         for (const tool of definition.tools) tools.add(tool);
         instructions.push(...definition.instructions);
     }
 
     return {
-        profiles,
+        toolkits,
         tools: [...tools],
         instructions: instructions.length > 0 ? instructions : ["You have access to no tools."],
     };

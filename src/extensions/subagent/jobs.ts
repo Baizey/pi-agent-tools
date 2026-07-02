@@ -1,5 +1,5 @@
 import {readSubagentTreeContext} from "./tree-ui";
-import {subagentRunModes} from "./profiles";
+import {subagentRunModes} from "./toolkits";
 import {database_filename, SqliteDatabase, SubagentDao} from "../../storage";
 import {runSubagent, SubagentRequest, SubagentResult, SubagentUpdate} from "./runner";
 
@@ -153,7 +153,7 @@ export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
     mode: job.request.mode,
     cwd: job.request.cwd,
     timeoutSeconds: job.request.timeoutSeconds,
-    profiles: job.request.profiles,
+    toolkits: job.request.toolkits,
     error: job.error,
     latestUpdateText: job.latestUpdateText,
     latestUpdateDetails: job.latestUpdateDetails,
@@ -189,7 +189,7 @@ function reserveJobIdentity(
       depth: parentId ? context.depth + 1 : 0,
       mode: request.mode,
       task: request.task,
-      profiles: request.profiles,
+      toolkits: request.toolkits,
       tools: [],
     });
     return {id, parentId, rootId, depth: parentId ? context.depth + 1 : 0};

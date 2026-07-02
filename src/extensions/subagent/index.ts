@@ -16,7 +16,7 @@ import {
   waitForJobs,
 } from "./jobs";
 import {agentModelProfiles, resolveAgentModelProfile} from "./model-profiles";
-import {defaultSubagentTimeoutSeconds, subagentProfiles, subagentRunModes} from "./profiles";
+import {defaultSubagentTimeoutSeconds, subagentRunModes, subagentToolkits} from "./toolkits";
 import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
 import {registerSubagentCommands, updateSubagentWidget} from "./commands";
@@ -225,13 +225,13 @@ function subagentParameters(): Record<string, unknown> {
         type: "string",
         description: "Task to delegate to the subagent.",
       },
-      profiles: {
+      toolkits: {
         type: "array",
         items: {
           type: "string",
-          enum: Object.keys(subagentProfiles),
+          enum: Object.keys(subagentToolkits),
         },
-        description: "Capability profiles. Defaults to no profiles, which grants no tools. Profiles are additive; use 'meta' for harness introspection.",
+        description: "Toolkits grant task-specific tool groups. Defaults to no toolkits, which grants no tools. Toolkits are additive; use 'meta' for harness introspection.",
       },
       cwd: {
         type: "string",
@@ -290,6 +290,6 @@ function awaitJobParameters(): Record<string, unknown> {
   };
 }
 
-export * from "./profiles";
+export * from "./toolkits";
 export {agentModelProfiles, isAgentModelProfile, resolveAgentModel, resolveAgentModelProfile} from "./model-profiles";
 export {runSubagent, runSyncSubagent} from "./runner";

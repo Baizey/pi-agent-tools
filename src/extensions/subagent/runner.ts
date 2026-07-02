@@ -11,18 +11,18 @@ import {
   subagentTreeEnv,
 } from "./tree-ui";
 import {
-  ResolvedSubagentProfiles,
-  SubagentProfile,
+  ResolvedSubagentToolkits,
+  SubagentToolkit,
   SubagentRunMode,
-  resolveSubagentProfiles,
-  serializeSubagentProfileCeiling,
-} from "./profiles";
+  resolveSubagentToolkits,
+  serializeSubagentToolkitCeiling,
+} from "./toolkits";
 import {database_filename, SqliteDatabase, SubagentDao, type SubagentRunRow} from "../../storage";
 
 export type SubagentRequest = {
   mode: SubagentRunMode;
   task: string;
-  profiles: SubagentProfile[];
+  toolkits: SubagentToolkit[];
   cwd: string;
   timeoutSeconds: number;
   model?: string;
@@ -44,7 +44,7 @@ export type SubagentResult = {
   timedOut: boolean;
   stderr: string;
   messages: unknown[];
-  profiles: ResolvedSubagentProfiles;
+  toolkits: ResolvedSubagentToolkits;
   tree?: string[];
 };
 
@@ -74,7 +74,7 @@ async function runSubagentProcess(
   signal?: AbortSignal,
   onUpdate?: SubagentUpdate,
 ): Promise<SubagentResult> {
-  const resolvedProfiles = resolveSubagentProfiles(request.profiles);
+  const resolvedToolkits = resolveSubagentToolkits(request.toolkits);
   const inheritedTree = readSubagentTreeContext();
   const db = SqliteDatabase.readwrite(database_filename);
   const subagents = new SubagentDao(db).initializeSchema();
@@ -87,8 +87,8 @@ async function runSubagentProcess(
     depth: nodeIdentity.depth,
     mode: request.mode,
     task: request.task,
-    profiles: request.profiles,
-    tools: resolvedProfiles.tools,
+    toolkits: request.toolkits,
+    tools: resolvedToolkits.tools,
   });
   const renderTree = () => renderSubagentRunTree(subagents.listTree(node.rootId), node.id);
   const emitTreeUpdate = () => onUpdate?.({
@@ -99,12 +99,12 @@ async function runSubagentProcess(
   subagents.updateRun(node.id, {status: subagentNodeStatuses.running});
   emitTreeUpdate();
 
-  const prompt = buildSubagentPrompt(request, resolvedProfiles);
+  const prompt = buildSubagentPrompt(request, resolvedToolkits);
   const temp = await writeTempPrompt(prompt);
-  const args = buildPiArgs(request, resolvedProfiles, temp.filePath);
+  const args = buildPiArgs(request, resolvedToolkits, temp.filePath);
 
   try {
-    const result = await runPiProcess(args, request, resolvedProfiles, node, subagents, emitTreeUpdate, signal);
+    const result = await runPiProcess(args, request, resolvedToolkits, node, subagents, emitTreeUpdate, signal);
     subagents.finishRun(
       node.id,
       result.timedOut ? subagentNodeStatuses.timedOut : result.exitCode === 0 ? subagentNodeStatuses.done : subagentNodeStatuses.failed,
@@ -152,24 +152,24 @@ function ordinalFromId(id: string): number {
   return Number.isInteger(ordinal) && ordinal > 0 ? ordinal : 1;
 }
 
-function buildPiArgs(request: SubagentRequest, profiles: ResolvedSubagentProfiles, promptPath: string): string[] {
+function buildPiArgs(request: SubagentRequest, toolkits: ResolvedSubagentToolkits, promptPath: string): string[] {
   const args = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptPath];
   if (request.model) args.push("--model", request.model);
-  if (profiles.tools.length > 0) args.push("--tools", profiles.tools.join(","));
+  if (toolkits.tools.length > 0) args.push("--tools", toolkits.tools.join(","));
   else args.push("--tools", "");
   args.push(`Task: ${request.task}`);
   return args;
 }
 
-function buildSubagentPrompt(request: SubagentRequest, profiles: ResolvedSubagentProfiles): string {
+function buildSubagentPrompt(request: SubagentRequest, toolkits: ResolvedSubagentToolkits): string {
   return [
     "You are a scoped subagent running for a parent coding agent.",
     "Return a concise answer to the delegated task. Do not mention implementation details of being spawned unless relevant.",
     "You cannot request additional interactive permissions. If a policy blocks access, report what was blocked and continue with available information.",
     "Run mode: " + request.mode,
-    "Active profiles: " + (profiles.profiles.length > 0 ? profiles.profiles.join(", ") : "(none)"),
-    "Profile instructions:",
-    ...profiles.instructions.map((instruction) => `- ${instruction}`),
+    "Active toolkits: " + (toolkits.toolkits.length > 0 ? toolkits.toolkits.join(", ") : "(none)"),
+    "Toolkit instructions:",
+    ...toolkits.instructions.map((instruction) => `- ${instruction}`),
     request.contextPaths && request.contextPaths.length > 0
       ? `Context paths suggested by parent: ${request.contextPaths.join(", ")}`
       : "",
@@ -187,7 +187,7 @@ async function writeTempPrompt(prompt: string): Promise<{dir: string; filePath: 
 async function runPiProcess(
   args: string[],
   request: SubagentRequest,
-  profiles: ResolvedSubagentProfiles,
+  toolkits: ResolvedSubagentToolkits,
   node: Pick<SubagentRunRow, "id" | "rootId" | "parentId" | "depth">,
   subagents: SubagentDao,
   emitTreeUpdate: () => void,
@@ -204,7 +204,7 @@ async function runPiProcess(
         ...denyByDefaultEnv(),
         ...policyDefaultsEnvForSubagents(),
         ...subagentTreeEnv({rootId: node.rootId, parentId: node.parentId ?? undefined, nodeId: node.id, depth: node.depth}),
-        [agentEnv.subagentProfileCeiling]: serializeSubagentProfileCeiling(profiles.profiles),
+        [agentEnv.subagentToolkitCeiling]: serializeSubagentToolkitCeiling(toolkits.toolkits),
       },
     });
 
@@ -216,12 +216,12 @@ async function runPiProcess(
     const seenToolCalls = new Set<string>();
     let settled = false;
 
-    const finish = (result: Omit<SubagentResult, "mode" | "profiles">): void => {
+    const finish = (result: Omit<SubagentResult, "mode" | "toolkits">): void => {
       settled = true;
       clearTimeout(timeout);
       clearInterval(pollTree);
       signal?.removeEventListener("abort", abort);
-      resolve({...result, mode: request.mode, profiles});
+      resolve({...result, mode: request.mode, toolkits});
     };
 
     const pollTree = setInterval(emitTreeUpdate, 250);

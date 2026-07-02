@@ -6,7 +6,7 @@ export const subagentRunModes = {
 
 export type SubagentRunMode = typeof subagentRunModes[keyof typeof subagentRunModes];
 
-export const subagentProfileNames = {
+export const subagentToolkitNames = {
     meta: "meta",
     ioRead: "io_read",
     ioWrite: "io_write",
@@ -16,4 +16,4 @@ export const subagentProfileNames = {
     spawnSubagent: "spawn_subagent",
 } as const;
 
-export type SubagentProfile = typeof subagentProfileNames[keyof typeof subagentProfileNames];
+export type SubagentToolkit = typeof subagentToolkitNames[keyof typeof subagentToolkitNames];

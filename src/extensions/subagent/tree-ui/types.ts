@@ -1,4 +1,4 @@
-import {SubagentProfile, SubagentRunMode} from "../profiles";
+import {SubagentRunMode, SubagentToolkit} from "../toolkits";
 
 export const subagentNodeStatuses = {
   starting: "starting",
@@ -18,7 +18,7 @@ export type SubagentNode = {
   depth: number;
   mode: SubagentRunMode;
   task: string;
-  profiles: SubagentProfile[];
+  toolkits: SubagentToolkit[];
   tools: string[];
   status: SubagentNodeStatus;
   latestLine: string;

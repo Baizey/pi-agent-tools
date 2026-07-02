@@ -1,6 +1,6 @@
 import {Orm, column, table, type Row} from "./orm";
 import {SqliteDatabase} from "./sqlite";
-import type {SubagentProfile, SubagentRunMode} from "../shared/subagents";
+import type {SubagentToolkit, SubagentRunMode} from "../shared/subagents";
 
 export const subagentRunStatuses = {
     starting: "starting",
@@ -21,7 +21,7 @@ export const subagentRuns = table("subagent_runs", {
     depth: column.integer().notNull(),
     mode: column.text().notNull(),
     task: column.text().notNull(),
-    profiles: column.json<SubagentProfile[]>().notNull(),
+    profiles: column.json<SubagentToolkit[]>().notNull(),
     tools: column.json<string[]>().notNull(),
     status: column.text().notNull(),
     latestLine: column.text().notNull(),
@@ -46,7 +46,7 @@ export type StartSubagentRunInput = {
     depth: number;
     mode: SubagentRunMode;
     task: string;
-    profiles: SubagentProfile[];
+    toolkits: SubagentToolkit[];
     tools: string[];
 };
 
@@ -98,7 +98,7 @@ export class SubagentDao {
             depth: input.depth,
             mode: input.mode,
             task: input.task,
-            profiles: input.profiles,
+            profiles: input.toolkits,
             tools: input.tools,
             status: subagentRunStatuses.starting,
             latestLine: input.task,

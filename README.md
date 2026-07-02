@@ -232,7 +232,7 @@ Modes:
 - `async` — start a background job and inspect/await/cancel it later
 - `conversation` — start a reusable conversation job; await/status until idle, send follow-up messages, cancel when done
 
-Profiles are additive capability ceilings. Omitting profiles, or passing an empty profile list, grants no tools.
+Toolkits are additive capability ceilings. Omitting toolkits, or passing an empty toolkit list, grants no tools.
 
 - `meta` — harness introspection tools (`policy_info`, `local_sql`)
 - `io_read`
@@ -242,7 +242,7 @@ Profiles are additive capability ceilings. Omitting profiles, or passing an empt
 - `web_read`
 - `spawn_subagent`
 
-Nested subagents cannot request profiles outside the parent process's effective ceiling. Subagent runs also force deny-by-default policy env vars so nested processes cannot prompt for more permissions interactively; if blocked, they should report what was blocked and continue with available information.
+Nested subagents cannot request toolkits outside the parent process's effective ceiling. Subagent runs also force deny-by-default policy env vars so nested processes cannot prompt for more permissions interactively; if blocked, they should report what was blocked and continue with available information.
 
 Optional subagent settings:
 
@@ -256,7 +256,7 @@ Relevant environment variables:
 
 | Env var | Purpose |
 | --- | --- |
-| `PI_AGENT_SUBAGENT_PROFILE_CEILING` | Comma-separated maximum profiles for nested subagents. |
+| `PI_AGENT_SUBAGENT_TOOLKIT_CEILING` | Comma-separated maximum toolkits for nested subagents. |
 | `PI_AGENT_SUBAGENT_MODEL` | Optional default model profile/pattern/id for spawned subagents and code-effect analysis. |
 
 ## Development
