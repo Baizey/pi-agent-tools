@@ -167,7 +167,7 @@ function buildSubagentPrompt(request: SubagentRequest, profiles: ResolvedSubagen
     "Return a concise answer to the delegated task. Do not mention implementation details of being spawned unless relevant.",
     "You cannot request additional interactive permissions. If a policy blocks access, report what was blocked and continue with available information.",
     "Run mode: " + request.mode,
-    "Active profiles: " + profiles.profiles.join(", "),
+    "Active profiles: " + (profiles.profiles.length > 0 ? profiles.profiles.join(", ") : "(none)"),
     "Profile instructions:",
     ...profiles.instructions.map((instruction) => `- ${instruction}`),
     request.contextPaths && request.contextPaths.length > 0

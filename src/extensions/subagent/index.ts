@@ -231,7 +231,7 @@ function subagentParameters(): Record<string, unknown> {
           type: "string",
           enum: Object.keys(subagentProfiles),
         },
-        description: "Capability profiles. Defaults to ['none']. Profiles are additive.",
+        description: "Capability profiles. Defaults to no profiles, which grants no tools. Profiles are additive; use 'meta' for harness introspection.",
       },
       cwd: {
         type: "string",

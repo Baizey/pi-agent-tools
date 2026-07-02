@@ -232,9 +232,9 @@ Modes:
 - `async` — start a background job and inspect/await/cancel it later
 - `conversation` — start a reusable conversation job; await/status until idle, send follow-up messages, cancel when done
 
-Profiles are additive capability ceilings:
+Profiles are additive capability ceilings. Omitting profiles, or passing an empty profile list, grants no tools.
 
-- `none`
+- `meta` — harness introspection tools (`policy_info`, `local_sql`)
 - `io_read`
 - `io_write`
 - `execute_bash`

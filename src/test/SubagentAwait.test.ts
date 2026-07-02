@@ -15,7 +15,7 @@ function fakeJob(overrides: Partial<AsyncSubagentJob> = {}): AsyncSubagentJob {
     request: {
       mode: subagentRunModes.async,
       task: "scan repository for subagent status handling",
-      profiles: ["none"],
+      profiles: [],
       cwd: process.cwd(),
       timeoutSeconds: 900,
     },

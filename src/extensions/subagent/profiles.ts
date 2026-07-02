@@ -10,12 +10,12 @@ export type ResolvedSubagentProfiles = {
 };
 
 export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instructions: string[] }> = {
-    [subagentProfileNames.none]: {
-        tools: [],
-        instructions: ["You have access to no tools."],
+    [subagentProfileNames.meta]: {
+        tools: [toolNames.policyInfo, toolNames.localSql],
+        instructions: ["You have access to harness metadata and introspection tools"],
     },
     [subagentProfileNames.ioRead]: {
-        tools: [toolNames.read, toolNames.stat, toolNames.policyInfo],
+        tools: [toolNames.read, toolNames.stat],
         instructions: ["You have access to read-only IO tools"],
     },
     [subagentProfileNames.ioWrite]: {
@@ -47,7 +47,7 @@ export const subagentProfiles: Record<SubagentProfile, { tools: string[]; instru
 };
 
 export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
-    if (input === undefined || input === null) return [subagentProfileNames.none];
+    if (input === undefined || input === null) return [];
     const values = Array.isArray(input) ? input : [input];
     const profiles: SubagentProfile[] = [];
 
@@ -56,7 +56,7 @@ export function normalizeSubagentProfiles(input: unknown): SubagentProfile[] {
         if (isSubagentProfile(value) && !profiles.includes(value)) profiles.push(value);
     }
 
-    return profiles.length > 0 ? profiles : [subagentProfileNames.none];
+    return profiles;
 }
 
 export function isSubagentProfile(value: string): value is SubagentProfile {
@@ -69,8 +69,7 @@ export function applySubagentProfileCeiling(
 ): SubagentProfile[] {
     if (!ceilingProfiles) return requestedProfiles;
     const ceiling = new Set(ceilingProfiles);
-    const allowed = requestedProfiles.filter((profile) => ceiling.has(profile));
-    return allowed.length > 0 ? allowed : [subagentProfileNames.none];
+    return requestedProfiles.filter((profile) => ceiling.has(profile));
 }
 
 export function serializeSubagentProfileCeiling(profiles: SubagentProfile[]): string {
@@ -78,12 +77,11 @@ export function serializeSubagentProfileCeiling(profiles: SubagentProfile[]): st
 }
 
 export function parseSubagentProfileCeiling(value: string | undefined): SubagentProfile[] | null {
-    if (!value) return null;
-    const profiles = value
+    if (value === undefined) return null;
+    return value
         .split(",")
         .map((profile) => profile.trim())
         .filter(isSubagentProfile);
-    return profiles.length > 0 ? profiles : [subagentProfileNames.none];
 }
 
 export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSubagentProfiles {
@@ -96,7 +94,11 @@ export function resolveSubagentProfiles(profiles: SubagentProfile[]): ResolvedSu
         instructions.push(...definition.instructions);
     }
 
-    return {profiles, tools: [...tools], instructions};
+    return {
+        profiles,
+        tools: [...tools],
+        instructions: instructions.length > 0 ? instructions : ["You have access to no tools."],
+    };
 }
 
 export const defaultSubagentTimeoutSeconds = 15 * 60;

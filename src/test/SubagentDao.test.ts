@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {test, tempDir} from "./TestHarness";
 import {SqliteDatabase, SubagentDao, subagentRunStatuses} from "../storage";
-import {subagentProfileNames, subagentRunModes} from "../shared/subagents";
+import {subagentRunModes} from "../shared/subagents";
 import {renderSubagentRunTree} from "../extensions/subagent/tree-ui";
 
 function withDao(fn: (dao: SubagentDao) => void) {
@@ -26,7 +26,7 @@ test("subagent dao stores and renders a tree using explicit parent relationships
     depth: 0,
     mode: subagentRunModes.async,
     task: "root task",
-    profiles: [subagentProfileNames.none],
+    profiles: [],
     tools: [],
   });
   dao.startRun({
@@ -37,7 +37,7 @@ test("subagent dao stores and renders a tree using explicit parent relationships
     depth: 1,
     mode: subagentRunModes.sync,
     task: "child task",
-    profiles: [subagentProfileNames.none],
+    profiles: [],
     tools: [],
   });
   dao.updateRun("root-session-1", {status: subagentRunStatuses.running, latestLine: "working"});
@@ -60,7 +60,7 @@ test("subagent dao allocates child ordinals per parent", () => withDao(dao => {
     depth: 0,
     mode: subagentRunModes.async,
     task: "first",
-    profiles: [subagentProfileNames.none],
+    profiles: [],
     tools: [],
   });
   assert.equal(dao.nextOrdinal(null, "root"), 2);
