@@ -7,7 +7,7 @@ export const subagentRunModes = {
 export type SubagentRunMode = typeof subagentRunModes[keyof typeof subagentRunModes];
 
 export const subagentProfileNames = {
-    none: "none",
+    meta: "meta",
     ioRead: "io_read",
     ioWrite: "io_write",
     executeBash: "execute_bash",

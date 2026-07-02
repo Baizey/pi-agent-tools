@@ -9,8 +9,16 @@ import {ShellPolicyLogicStore} from "../policy/shell/ShellPolicyLogicStore";
 import {WebPolicyLogic} from "../policy/web/WebPolicyLogic";
 import {WebPolicyLogicStore} from "../policy/web/WebPolicyLogicStore";
 import {standardizePath} from "../shared/paths";
-import {database_filename, SqliteDatabase} from "../storage";
-import {SessionDao, SubagentDao} from "../storage";
+import {
+  CodeExecPolicyDao,
+  database_filename,
+  PathPolicyDao,
+  SessionDao,
+  ShellPolicyDao,
+  SqliteDatabase,
+  SubagentDao,
+  WebPolicyDao,
+} from "../storage";
 
 export type AgentRuntime = {
   pathPolicy: PathPolicyLogic;
@@ -34,6 +42,10 @@ export function createServices(): AgentServices {
   const agentDb = SqliteDatabase.readwrite(database_filename);
   const sessionDao = new SessionDao(agentDb).initializeSchema();
   const subagentDao = new SubagentDao(agentDb).initializeSchema();
+  const pathPolicyDao = new PathPolicyDao(agentDb).initializeSchema();
+  const shellPolicyDao = new ShellPolicyDao(agentDb).initializeSchema();
+  const codeExecPolicyDao = new CodeExecPolicyDao(agentDb).initializeSchema();
+  const webPolicyDao = new WebPolicyDao(agentDb).initializeSchema();
 
   return {
     sessionDao,
@@ -44,10 +56,10 @@ export function createServices(): AgentServices {
       if (existing) return existing;
 
       const userPiDir = path.join(os.homedir(), ".pi", "agent");
-      const pathPolicyStore = new PathPolicyLogicStore(path.join(userPiDir, "path-policy.json"));
-      const shellPolicyStore = new ShellPolicyLogicStore(path.join(userPiDir, "shell-policy.json"));
-      const codeExecPolicyStore = new CodeExecPolicyLogicStore(path.join(userPiDir, "code-exec-policy.json"));
-      const webPolicyStore = new WebPolicyLogicStore(path.join(userPiDir, "web-policy.json"));
+      const pathPolicyStore = new PathPolicyLogicStore(pathPolicyDao, path.join(userPiDir, "path-policy.json"));
+      const shellPolicyStore = new ShellPolicyLogicStore(shellPolicyDao, path.join(userPiDir, "shell-policy.json"));
+      const codeExecPolicyStore = new CodeExecPolicyLogicStore(codeExecPolicyDao, path.join(userPiDir, "code-exec-policy.json"));
+      const webPolicyStore = new WebPolicyLogicStore(webPolicyDao, path.join(userPiDir, "web-policy.json"));
       const pathPolicy = new PathPolicyLogic({standardizePath: (input) => standardizePath(key, input)});
       const shellPolicy = new ShellPolicyLogic();
       const codeExecPolicy = new CodeExecPolicyLogic();

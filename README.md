@@ -125,11 +125,10 @@ The package also exposes `themes/agent-tools-flat-dark.json` via the Pi package 
 Policies are loaded per Pi runtime and persisted under:
 
 ```text
-~/.pi/agent/path-policy.json
-~/.pi/agent/shell-policy.json
-~/.pi/agent/code-exec-policy.json
-~/.pi/agent/web-policy.json
+~/.pi/agent/agent.sqlite
 ```
+
+Legacy `path-policy.json`, `shell-policy.json`, `code-exec-policy.json`, and `web-policy.json` files are imported into SQLite and deleted on startup.
 
 Interactive approvals support lifetimes such as one-shot, session, and forever. Forever policies are written to disk. One-shot policies are removed after the current operation/approval loop.
 

@@ -1,21 +1,29 @@
 import fs from "node:fs";
-import path from "node:path";
-import { ShellPolicySnapshot } from "../types";
+import {ShellPolicySnapshot} from "../types";
 import {parseJsonObjectFile, sanitizeShellPolicySnapshot} from "../validation";
-import { ShellPolicyLogic } from "./ShellPolicyLogic";
+import {ShellPolicyLogic} from "./ShellPolicyLogic";
+import {ShellPolicyDao} from "../../storage";
 
 export class ShellPolicyLogicStore {
-  constructor(private readonly file: string) {}
+  constructor(
+    private readonly dao: ShellPolicyDao,
+    private readonly legacyFile?: string,
+  ) {}
 
   loadInto(policy: ShellPolicyLogic): void {
-    if (!fs.existsSync(this.file)) return;
-    const snapshot = sanitizeShellPolicySnapshot(parseJsonObjectFile<ShellPolicySnapshot>(() => fs.readFileSync(this.file, "utf8")));
-    policy.addPolicies(snapshot.policies);
+    policy.addPolicies(this.dao.loadPolicies());
+    this.importLegacyJson(policy);
   }
 
   save(policy: ShellPolicyLogic): void {
-    fs.mkdirSync(path.dirname(this.file), { recursive: true });
-    const snapshot: ShellPolicySnapshot = { policies: policy.persistedPolicies() };
-    fs.writeFileSync(this.file, `${JSON.stringify(snapshot, null, 2)}\n`, {encoding: "utf8", mode: 0o600});
+    this.dao.replacePolicies(policy.persistedPolicies());
+  }
+
+  private importLegacyJson(policy: ShellPolicyLogic): void {
+    if (!this.legacyFile || !fs.existsSync(this.legacyFile)) return;
+    const snapshot = sanitizeShellPolicySnapshot(parseJsonObjectFile<ShellPolicySnapshot>(() => fs.readFileSync(this.legacyFile as string, "utf8")));
+    policy.addPolicies(snapshot.policies);
+    this.save(policy);
+    fs.rmSync(this.legacyFile, {force: true});
   }
 }
