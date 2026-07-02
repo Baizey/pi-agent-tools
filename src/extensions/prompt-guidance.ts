@@ -90,6 +90,8 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
             "Subagents:",
             "- Use subagent_spawn for independent research, review, or parallelizable investigation.",
             "- Choose least-privilege profiles; subagents cannot request extra interactive permissions.",
+            "- Omit profiles or pass an empty list for no tools; there is no 'none' profile.",
+            "- Use the 'meta' profile for harness introspection tools like policy_info and local_sql.",
             "- Use async mode for parallel work, conversation mode for an iterative delegated thread, and sync mode for one-shot delegation.",
             "- Use subagent_status/subagent_await to collect async results, subagent_message to continue idle conversations, and subagent_cancel when done or obsolete.",
             "- subagent_await waits 30 seconds by default; if jobs are still running, use the returned status lines to decide whether to await again or continue.",
