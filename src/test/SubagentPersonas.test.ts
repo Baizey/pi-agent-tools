@@ -104,6 +104,26 @@ test("subagent persona dao reserves builtin names from user personas", () => wit
   }), /reserved|builtin/);
 }));
 
+test("subagent persona builtin seeding is idempotent and preserves enabled state", () => withDao(dao => {
+  dao.seedBuiltinPersonas();
+  const reviewer = dao.getPersona("reviewer");
+  assert.ok(reviewer);
+
+  const marker = new Date(123456789);
+  dao.upsertPersona({
+    ...reviewer,
+    source: SubagentPersonaSource.builtin,
+    enabled: false,
+    updatedAt: marker,
+  });
+
+  dao.seedBuiltinPersonas();
+  const reseeded = dao.getPersona("reviewer");
+  assert.ok(reseeded);
+  assert.equal(reseeded.enabled, false);
+  assert.equal(reseeded.updatedAt.getTime(), marker.getTime());
+}));
+
 test("personas command parser supports list and show only", () => {
   assert.deepEqual(parsePersonasCommandArgs(""), {action: "list"});
   assert.deepEqual(parsePersonasCommandArgs("list"), {action: "list"});

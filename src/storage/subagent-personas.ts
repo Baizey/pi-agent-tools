@@ -104,7 +104,7 @@ export const builtinSubagentPersonas = [
         role: "rubber-duck reasoning partner",
         description: "Helps reason through problems conversationally without tools.",
         mode: SubagentRunMode.conversation,
-        model: "reasoning_high",
+        model: "reasoning_low",
         toolkits: [],
         systemPrompt: [
             "You are a rubber-duck reasoning partner.",
@@ -174,12 +174,25 @@ export class SubagentPersonaDao {
 
     seedBuiltinPersonas(personas: readonly SubagentPersonaDefinition[] = builtinSubagentPersonas): SubagentPersonaRow[] {
         this.initializeSchema();
-        const run = this.db.transaction((items: readonly SubagentPersonaDefinition[]) => items.map(persona => this.upsertBuiltinPersona(persona)));
+        const run = this.db.transaction((items: readonly SubagentPersonaDefinition[]) => items.map(persona => this.seedBuiltinPersona(persona)));
         return run(personas);
     }
 
     upsertBuiltinPersona(persona: SubagentPersonaDefinition): SubagentPersonaRow {
         return this.upsertPersona({...persona, source: SubagentPersonaSource.builtin});
+    }
+
+    private seedBuiltinPersona(persona: SubagentPersonaDefinition): SubagentPersonaRow {
+        const row = this.normalizeInput({...persona, source: SubagentPersonaSource.builtin});
+        const existing = this.getPersona(row.name);
+        if (existing && existing.source !== SubagentPersonaSource.builtin) {
+            throw new Error(`Cannot seed builtin over non-builtin subagent persona: ${row.name}`);
+        }
+
+        const desired = {...row, enabled: existing?.enabled ?? row.enabled};
+        if (existing && sameSubagentPersonaConfig(existing, desired)) return existing;
+
+        return this.upsertPersona({...desired, createdAt: existing?.createdAt});
     }
 
     upsertPersona(input: UpsertSubagentPersonaInput): SubagentPersonaRow {
@@ -323,6 +336,22 @@ function normalizeToolkits(value: unknown): SubagentToolkit[] {
         if (!toolkits.includes(toolkit as SubagentToolkit)) toolkits.push(toolkit as SubagentToolkit);
     }
     return toolkits;
+}
+
+function sameSubagentPersonaConfig(existing: SubagentPersonaRow, desired: SubagentPersonaDefinition): boolean {
+    return existing.name === desired.name
+        && existing.role === desired.role
+        && existing.description === desired.description
+        && existing.mode === desired.mode
+        && existing.model === desired.model
+        && sameStringArray(existing.toolkits, desired.toolkits)
+        && existing.systemPrompt === desired.systemPrompt
+        && existing.source === desired.source
+        && existing.enabled === desired.enabled;
+}
+
+function sameStringArray(left: readonly string[], right: readonly string[]): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
 function sqliteStringList(values: readonly string[]): string {
