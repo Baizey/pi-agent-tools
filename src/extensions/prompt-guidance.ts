@@ -81,6 +81,8 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
 
     if ([
         toolNames.subagentSpawn,
+        toolNames.subagentSpawnPersona,
+        toolNames.availablePersonas,
         toolNames.subagentStatus,
         toolNames.subagentAwait,
         toolNames.subagentMessage,
@@ -88,8 +90,10 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
     ].some(hasTool)) {
         sections.push([
             "Subagents:",
-            "- Use subagent_spawn for independent research, review, or parallelizable investigation.",
-            "- Always provide a concise required persona for each subagent; it is shown in orchestration/status views.",
+            "- Use available_personas to discover enabled persona presets available in the current toolkit context.",
+            "- Use subagent_spawn_persona when a listed persona fits; provide only persona, task, and optionally timeoutSeconds.",
+            "- Use subagent_spawn for independent research, review, or parallelizable investigation when no persona fits.",
+            "- Always provide a concise required role for each subagent; it is shown in orchestration/status views.",
             "- Choose least-privilege toolkits; subagents cannot request extra interactive permissions.",
             "- Omit toolkits or pass an empty list for no tools; there is no 'none' toolkit.",
             "- Use the 'meta' toolkit for harness introspection tools like policy_info and local_sql.",

@@ -37,12 +37,14 @@ export const subagentToolkits: Record<SubagentToolkit, { tools: string[]; instru
     [subagentToolkitNames.spawnSubagent]: {
         tools: [
             toolNames.subagentSpawn,
+            toolNames.subagentSpawnPersona,
+            toolNames.availablePersonas,
             toolNames.subagentStatus,
             toolNames.subagentAwait,
             toolNames.subagentMessage,
             toolNames.subagentCancel,
         ],
-        instructions: ["You have access to subagent delegation tools"],
+        instructions: ["You have access to subagent delegation and persona discovery/spawn tools"],
     },
 };
 

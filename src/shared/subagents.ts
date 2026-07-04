@@ -19,3 +19,11 @@ export enum SubagentToolkitName {
 export const subagentToolkitNames = SubagentToolkitName;
 
 export type SubagentToolkit = SubagentToolkitName;
+
+export enum SubagentPersonaSource {
+    builtin = "builtin",
+    user = "user",
+    agent = "agent",
+}
+
+export const subagentPersonaSources = SubagentPersonaSource;

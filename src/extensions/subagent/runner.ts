@@ -39,7 +39,8 @@ enum PiJsonEventType {
 export type SubagentRequest = {
   mode: SubagentRunMode;
   task: string;
-  persona: string;
+  role: string;
+  persona?: string;
   toolkits: SubagentToolkit[];
   cwd: string;
   timeoutSeconds: number;
@@ -100,6 +101,7 @@ async function runSubagentProcess(
     depth: nodeIdentity.depth,
     mode: request.mode,
     task: request.task,
+    role: request.role,
     persona: request.persona,
     toolkits: request.toolkits,
     tools: resolvedToolkits.tools,
@@ -181,7 +183,7 @@ function buildSubagentPrompt(request: SubagentRequest, toolkits: ResolvedSubagen
     "Return a concise answer to the delegated task. Do not mention implementation details of being spawned unless relevant.",
     "You cannot request additional interactive permissions. If a policy blocks access, report what was blocked and continue with available information.",
     "Run mode: " + request.mode,
-    "Persona: " + request.persona,
+    "Role: " + request.role,
     "Active toolkits: " + (toolkits.toolkits.length > 0 ? toolkits.toolkits.join(", ") : "(none)"),
     "Toolkit instructions:",
     ...toolkits.instructions.map((instruction) => `- ${instruction}`),
@@ -401,7 +403,11 @@ function summarizeToolCall(name: string, args: Record<string, unknown>): string 
     case toolNames.policyInfo:
       return withParts(name, stringArg(args, "kind") ?? "overview", stringArg(args, "path") ?? stringArg(args, "command") ?? stringArg(args, "url") ?? stringArg(args, "language"));
     case toolNames.subagentSpawn:
+      return withParts(name, stringArg(args, "role"), stringArg(args, "task"));
+    case toolNames.subagentSpawnPersona:
       return withParts(name, stringArg(args, "persona"), stringArg(args, "task"));
+    case toolNames.availablePersonas:
+      return withParts(name);
     case toolNames.subagentStatus:
     case toolNames.subagentCancel:
       return withParts(name, stringArg(args, "jobId"));

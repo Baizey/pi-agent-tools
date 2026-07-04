@@ -20,7 +20,7 @@ export function renderSubagentRunTree(rows: SubagentRunRow[], rootId: string, fi
       depth: row.depth,
       mode: row.mode,
       task: row.task,
-      persona: row.persona,
+      role: row.role,
       toolkits: row.profiles,
       tools: row.tools,
       status: row.status,

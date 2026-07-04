@@ -13,7 +13,7 @@ import {SubagentRequest} from "./runner";
 export type RawSubagentParams = Record<string, unknown> & {
   mode?: unknown;
   task?: unknown;
-  persona?: unknown;
+  role?: unknown;
   toolkits?: unknown;
   cwd?: unknown;
   timeoutSeconds?: unknown;
@@ -32,8 +32,8 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
   const mode = normalizeMode(params.mode);
   const task = stringValue(params.task);
   if (!task) return {error: "Missing required parameter: task."};
-  const persona = stringValue(params.persona);
-  if (!persona) return {error: "Missing required parameter: persona."};
+  const role = stringValue(params.role);
+  if (!role) return {error: "Missing required parameter: role."};
 
   const requestedToolkits = normalizeSubagentToolkits(params.toolkits);
   const ceilingToolkits = parseSubagentToolkitCeiling(process.env[agentEnv.subagentToolkitCeiling]);
@@ -41,7 +41,7 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
   return {
     mode,
     task,
-    persona,
+    role,
     toolkits: applySubagentToolkitCeiling(requestedToolkits, ceilingToolkits),
     cwd: stringValue(params.cwd) ?? defaultCwd,
     timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),

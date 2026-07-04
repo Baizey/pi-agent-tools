@@ -111,6 +111,8 @@ Because Pi currently has no public tool unregister API, hiding an already regist
 | Tool | Purpose |
 | --- | --- |
 | `subagent_spawn` | Start a scoped subagent in `sync`, `async`, or `conversation` mode. |
+| `available_personas` | List enabled persona presets available in the current toolkit context. |
+| `subagent_spawn_persona` | Spawn a subagent from a registered persona preset. |
 | `subagent_status` | Inspect an async/conversation job. |
 | `subagent_await` | Wait for one or more async jobs. |
 | `subagent_message` | Send a follow-up task to an idle conversation subagent. |
@@ -224,13 +226,17 @@ Web policy uses normalized domains and URL paths, ignoring scheme and query stri
 
 ## Subagents
 
-Subagents run separate scoped Pi processes with constrained capabilities. Each subagent requires a `persona`, a concise title/role shown in orchestration views and injected into its prompt.
+Subagents run separate scoped Pi processes with constrained capabilities. Each subagent requires a `role`, a concise title shown in orchestration views and injected into its prompt.
 
 Modes:
 
 - `sync` — run the task and wait for the result
 - `async` — start a background job and inspect/await/cancel it later
 - `conversation` — start a reusable conversation job; await/status until idle, send follow-up messages, cancel when done
+
+Persona presets are global SQLite rows that wrap `subagent_spawn` with predefined `role`, `description`, `mode`, `model`, `toolkits`, and `systemPrompt`. Use `available_personas` to discover enabled personas that the current agent can spawn, then call `subagent_spawn_persona` with only `persona`, `task`, and optional `timeoutSeconds`. Persona availability is all-or-nothing: if a persona requires a toolkit outside the current subagent ceiling, it is omitted and cannot be spawned from that context.
+
+Use `/personas` to list registered personas and `/personas show <name>` to see full details including the system prompt. Builtin personas are seeded into the global registry and use reserved names.
 
 Toolkits are additive capability ceilings. Omitting toolkits, or passing an empty toolkit list, grants no tools.
 
@@ -244,11 +250,11 @@ Toolkits are additive capability ceilings. Omitting toolkits, or passing an empt
 
 Nested subagents cannot request toolkits outside the parent process's effective ceiling. Subagent runs also force deny-by-default policy env vars so nested processes cannot prompt for more permissions interactively; if blocked, they should report what was blocked and continue with available information.
 
-Use `/subagents [on|off] [running|done|all]` for the orchestration tree. Tree rows show persona, status, and latest activity; child tool calls include useful context such as file paths or shell commands.
+Use `/subagents [on|off] [running|done|all]` for the orchestration tree. Tree rows show role, status, and latest activity; child tool calls include useful context such as file paths or shell commands.
 
-Subagent settings:
+Raw `subagent_spawn` settings:
 
-- `persona`: required concise title/role for the spawned agent
+- `role`: required concise title/role for the spawned agent
 - `model`: one of the package model profiles, such as `text_low`, `text_high`, `reasoning_low`, or `reasoning_high`
 - `cwd`: working directory
 - `timeoutSeconds`: timeout for a subagent run; defaults to 900 seconds (15 minutes). `subagent_await` defaults to waiting 30 seconds and reports current job statuses on timeout.

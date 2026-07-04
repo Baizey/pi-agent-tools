@@ -64,9 +64,11 @@ test("io_read toolkit grants read-only filesystem tooling", () => {
   assert.deepEqual(resolveSubagentToolkits([toolkit.ioRead]).tools, ["read", "stat"]);
 });
 
-test("spawn_subagent toolkit grants only delegation tooling", () => {
+test("spawn_subagent toolkit grants delegation and persona tooling", () => {
   assert.deepEqual(resolveSubagentToolkits([toolkit.spawnSubagent]).tools, [
     "subagent_spawn",
+    "subagent_spawn_persona",
+    "available_personas",
     "subagent_status",
     "subagent_await",
     "subagent_message",

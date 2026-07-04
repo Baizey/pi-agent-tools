@@ -21,7 +21,8 @@ export const subagentRuns = table("subagent_runs", {
     depth: column.integer().notNull(),
     mode: column.text().notNull(),
     task: column.text().notNull(),
-    persona: column.text().notNull().default("''"),
+    role: column.text().notNull().default("''"),
+    persona: column.text().nullable(),
     profiles: column.json<SubagentToolkit[]>().notNull(),
     tools: column.json<string[]>().notNull(),
     status: column.text().notNull(),
@@ -47,7 +48,8 @@ export type StartSubagentRunInput = {
     depth: number;
     mode: SubagentRunMode;
     task: string;
-    persona: string;
+    role: string;
+    persona?: string | null;
     toolkits: SubagentToolkit[];
     tools: string[];
 };
@@ -72,7 +74,8 @@ export class SubagentDao {
     initializeSchema() {
         if (this.schemaInitialized) return this;
         this.orm.createTable(subagentRuns);
-        this.ensureColumn("persona", `alter table "subagent_runs" add column "persona" text not null default ''`);
+        this.ensureColumn("role", `alter table "subagent_runs" add column "role" text not null default ''`);
+        this.ensureColumn("persona", `alter table "subagent_runs" add column "persona" text`);
         this.db.exec(`
             create index if not exists "idx_subagent_runs_root_parent" on "subagent_runs" ("rootId", "parentId", "ordinal");
             create index if not exists "idx_subagent_runs_updatedAt" on "subagent_runs" ("updatedAt");
@@ -98,7 +101,7 @@ export class SubagentDao {
 
     startRun(input: StartSubagentRunInput): SubagentRunRow {
         const now = new Date();
-        const row = {
+        const row: Omit<SubagentRunRow, "persona"> & {persona?: string | null} = {
             id: input.id,
             rootId: input.rootId,
             parentId: input.parentId ?? null,
@@ -106,7 +109,8 @@ export class SubagentDao {
             depth: input.depth,
             mode: input.mode,
             task: input.task,
-            persona: input.persona,
+            role: input.role,
+            ...(typeof input.persona === "string" ? {persona: input.persona} : {}),
             profiles: input.toolkits,
             tools: input.tools,
             status: subagentRunStatuses.starting,
@@ -117,9 +121,9 @@ export class SubagentDao {
             exitCode: null,
             timedOut: null,
             error: null,
-        } satisfies SubagentRunRow;
+        };
         this.orm.upsert(subagentRuns, row, ["id"]);
-        return row;
+        return this.getRun(input.id) ?? {...row, persona: row.persona ?? null};
     }
 
     updateRun(id: string, update: UpdateSubagentRunInput): SubagentRunRow | undefined {

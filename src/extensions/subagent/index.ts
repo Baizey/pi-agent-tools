@@ -1,4 +1,5 @@
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
+import {database_filename, normalizeSubagentPersonaName, SqliteDatabase, SubagentPersonaDao} from "../../storage";
 import {toolNames} from "../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
@@ -20,11 +21,20 @@ import {defaultSubagentTimeoutSeconds, subagentRunModes, subagentToolkits} from 
 import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
 import {registerSubagentCommands, updateSubagentWidget} from "./commands";
-import {runSubagent, type SubagentUpdate} from "./runner";
+import {
+  buildSubagentRequestFromPersona,
+  currentSubagentToolkitCeiling,
+  missingSubagentPersonaToolkits,
+  RawSubagentPersonaSpawnParams,
+  registerAvailablePersonasTool,
+} from "./personas";
+import {runSubagent, type SubagentRequest, type SubagentUpdate} from "./runner";
 
 export function registerSubagentTool(pi: PiExtensionApi): void {
   registerSubagentCommands(pi);
+  registerAvailablePersonasTool(pi);
   registerSubagent(pi);
+  registerSubagentPersona(pi);
   registerSubagentStatus(pi);
   registerSubagentAwait(pi);
   registerSubagentMessage(pi);
@@ -40,26 +50,7 @@ function registerSubagent(pi: PiExtensionApi): void {
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const request = parseSubagentRequest(params as RawSubagentParams, ctx?.cwd ?? process.cwd());
       if ("error" in request) return errorResult(request.error);
-      request.model = await resolveAgentModelProfile(ctx, request.model);
-      request.rootSessionId = ctx?.sessionManager?.getSessionId();
-      const treeUpdate = subagentUiUpdater(onUpdate, ctx);
-
-      if (request.mode === subagentRunModes.async || request.mode === subagentRunModes.conversation) {
-        const job = startAsyncSubagentJob(request, treeUpdate);
-        return successResult(
-          request.mode === subagentRunModes.conversation
-            ? `Started conversation subagent ${job.id}. Use ${toolNames.subagentMessage} to continue or ${toolNames.subagentCancel} when done.`
-            : `Started async subagent job ${job.id}. Use ${toolNames.subagentStatus} to check progress.`,
-          jobDetails(job),
-        );
-      }
-
-      const result = await runSubagent(
-        request,
-        signal,
-        treeUpdate,
-      );
-      return subagentResultResponse(request, result);
+      return executeSubagentRequest(request, signal, onUpdate, ctx);
     },
     renderCall(args, theme, context) {
       return renderToolCallInput(toolNames.subagentSpawn, args, theme as never, context);
@@ -68,6 +59,89 @@ function registerSubagent(pi: PiExtensionApi): void {
       return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
+}
+
+function registerSubagentPersona(pi: PiExtensionApi): void {
+  pi.registerTool?.({
+    name: toolNames.subagentSpawnPersona,
+    label: "Subagent Persona",
+    description: "Spawn a subagent from a registered persona preset. Provide only the persona name, task, and optional timeout.",
+    parameters: subagentPersonaParameters(),
+    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+      const input = params as RawSubagentPersonaSpawnParams;
+      const personaName = normalizeSubagentPersonaName(input.persona);
+      if (!personaName) return errorResult("Missing or invalid required parameter: persona.");
+
+      let db: SqliteDatabase;
+      try {
+        db = SqliteDatabase.readwrite(database_filename);
+      } catch (error) {
+        return errorResult(`Could not open subagent persona registry: ${errorMessage(error)}`);
+      }
+
+      try {
+        const dao = new SubagentPersonaDao(db).initializeSchema();
+        dao.seedBuiltinPersonas();
+        const persona = dao.getEnabledPersona(personaName);
+        if (!persona) return errorResult(`Unknown or disabled subagent persona: ${personaName}`);
+
+        const missingToolkits = missingSubagentPersonaToolkits(persona.toolkits, currentSubagentToolkitCeiling());
+        if (missingToolkits.length > 0) {
+          return errorResult(`Subagent persona ${persona.name} requires unavailable toolkit(s): ${missingToolkits.join(", ")}.`);
+        }
+
+        const request = buildSubagentRequestFromPersona(input, persona, ctx?.cwd ?? process.cwd());
+        if ("error" in request) return errorResult(request.error);
+        return executeSubagentRequest(request, signal, onUpdate, ctx, {requireResolvedModel: true});
+      } finally {
+        db.close();
+      }
+    },
+    renderCall(args, theme, context) {
+      return renderToolCallInput(toolNames.subagentSpawnPersona, args, theme as never, context);
+    },
+    renderResult(result, _options, theme, context) {
+      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
+    },
+  });
+}
+
+async function executeSubagentRequest(
+  request: SubagentRequest,
+  signal: AbortSignal | undefined,
+  onUpdate: unknown,
+  ctx: ExtensionContext | undefined,
+  options: {requireResolvedModel?: boolean} = {},
+) {
+  const configuredModel = request.model;
+  request.model = await resolveAgentModelProfile(ctx, request.model);
+  if (options.requireResolvedModel && !request.model) {
+    return errorResult(`Could not resolve required model for subagent persona ${request.persona ?? request.role}: ${configuredModel ?? "(missing)"}.`);
+  }
+
+  request.rootSessionId = ctx?.sessionManager?.getSessionId();
+  const treeUpdate = subagentUiUpdater(onUpdate, ctx);
+
+  if (request.mode === subagentRunModes.async || request.mode === subagentRunModes.conversation) {
+    const job = startAsyncSubagentJob(request, treeUpdate);
+    return successResult(
+      request.mode === subagentRunModes.conversation
+        ? `Started conversation subagent ${job.id}. Use ${toolNames.subagentMessage} to continue or ${toolNames.subagentCancel} when done.`
+        : `Started async subagent job ${job.id}. Use ${toolNames.subagentStatus} to check progress.`,
+      jobDetails(job),
+    );
+  }
+
+  if (request.mode === subagentRunModes.sync) {
+    const result = await runSubagent(
+      request,
+      signal,
+      treeUpdate,
+    );
+    return subagentResultResponse(request, result);
+  }
+
+  return errorResult(`Invalid subagent run mode: ${String(request.mode)}.`);
 }
 
 function registerSubagentStatus(pi: PiExtensionApi): void {
@@ -213,7 +287,7 @@ function subagentParameters(): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
-    required: ["task", "persona"],
+    required: ["task", "role"],
     properties: {
       mode: {
         type: "string",
@@ -225,9 +299,9 @@ function subagentParameters(): Record<string, unknown> {
         type: "string",
         description: "Task to delegate to the subagent.",
       },
-      persona: {
+      role: {
         type: "string",
-        description: "Required concise persona/title for this subagent, e.g. reviewer, researcher, or migration planner.",
+        description: "Required concise role/title for this subagent, e.g. reviewer, researcher, or migration planner.",
       },
       toolkits: {
         type: "array",
@@ -247,8 +321,7 @@ function subagentParameters(): Record<string, unknown> {
       },
       model: {
         type: "string",
-        enum: Object.values(agentModelProfiles),
-        description: "Optional model profile for the subagent.",
+        description: `Optional model profile (${Object.values(agentModelProfiles).join(", ")}) or concrete provider/model id for the subagent.`,
       },
       systemPrompt: {
         type: "string",
@@ -258,6 +331,28 @@ function subagentParameters(): Record<string, unknown> {
         type: "array",
         items: {type: "string"},
         description: "Optional context paths suggested to the subagent.",
+      },
+    },
+  };
+}
+
+function subagentPersonaParameters(): Record<string, unknown> {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["persona", "task"],
+    properties: {
+      persona: {
+        type: "string",
+        description: "Registered persona name to spawn, e.g. reviewer, researcher, planner, or rubber-duck.",
+      },
+      task: {
+        type: "string",
+        description: "Task to delegate to the persona-spawned subagent.",
+      },
+      timeoutSeconds: {
+        type: "number",
+        description: "Optional timeout for this run. Defaults according to the persona mode.",
       },
     },
   };
@@ -294,6 +389,11 @@ function awaitJobParameters(): Record<string, unknown> {
   };
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export * from "./toolkits";
+export * from "./personas";
 export {agentModelProfiles, isAgentModelProfile, resolveAgentModel, resolveAgentModelProfile} from "./model-profiles";
 export {runSubagent, runSyncSubagent} from "./runner";

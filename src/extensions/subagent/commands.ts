@@ -1,5 +1,5 @@
 import {PiExtensionApi, ExtensionContext} from "../../pi/types";
-import {database_filename, SqliteDatabase, SubagentDao} from "../../storage";
+import {database_filename, isValidSubagentPersonaName, SqliteDatabase, SubagentDao, SubagentPersonaDao, type SubagentPersonaRow} from "../../storage";
 import {AgentModelProfile, agentModelProfiles, isAgentModelProfile, renderModelProfileConfig} from "./model-profiles";
 import {autoModelProfileConfig, ModelProfileConfigStore, normalizeConfigValue} from "./model-profile-config";
 import {renderSubagentRunTree, SubagentTreeFilter} from "./tree-ui";
@@ -19,6 +19,7 @@ const widgetState: SubagentWidgetState = {
 
 export function registerSubagentCommands(pi: PiExtensionApi): void {
   registerModelProfileCommand(pi);
+  registerPersonasCommand(pi);
 
   pi.on?.("session_start", (event, ctx) => {
     if (event.reason === "reload") return;
@@ -58,6 +59,137 @@ export function registerSubagentCommands(pi: PiExtensionApi): void {
       );
     },
   });
+}
+
+function registerPersonasCommand(pi: PiExtensionApi): void {
+  pi.registerCommand?.("personas", {
+    description: "List subagent personas or show details. Usage: /personas [list] | show <name>",
+    getArgumentCompletions(prefix) {
+      return personaCommandCompletionOptions(prefix).map(option => ({value: option, label: option}));
+    },
+    handler(args, ctx) {
+      const parsed = parsePersonasCommandArgs(args);
+      if (parsed.action === "error") {
+        ctx.ui?.notify?.(parsed.error, "error");
+        return;
+      }
+
+      try {
+        const lines = withSubagentPersonaRegistry(dao => {
+          if (parsed.action === "show") {
+            const persona = dao.getPersona(parsed.name);
+            return persona
+              ? renderSubagentPersonaDetails(persona)
+              : [`Unknown subagent persona: ${parsed.name}`];
+          }
+          return renderSubagentPersonaList(dao.listPersonas());
+        });
+        ctx.ui?.notify?.(lines.join("\n"), parsed.action === "show" && lines[0]?.startsWith("Unknown") ? "error" : "info");
+      } catch (error) {
+        ctx.ui?.notify?.(`Failed to read subagent personas: ${errorMessage(error)}`, "error");
+      }
+    },
+  });
+}
+
+export type PersonasCommand =
+  | {action: "list"}
+  | {action: "show"; name: string}
+  | {action: "error"; error: string};
+
+export function parsePersonasCommandArgs(args: string): PersonasCommand {
+  const parts = args.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return {action: "list"};
+  if (parts.length === 1 && parts[0] === "list") return {action: "list"};
+
+  if (parts[0] === "show") {
+    if (parts.length !== 2) return {action: "error", error: "Usage: /personas show <name>"};
+    if (!isValidSubagentPersonaName(parts[1])) return {action: "error", error: `Invalid subagent persona name: ${parts[1]}`};
+    return {action: "show", name: parts[1]};
+  }
+
+  return {action: "error", error: "Usage: /personas [list] | show <name>"};
+}
+
+export function renderSubagentPersonaList(personas: readonly SubagentPersonaRow[]): string[] {
+  if (personas.length === 0) return ["Subagent personas", "No personas found."];
+  return [
+    `Subagent personas (${personas.length})`,
+    ...personas.flatMap(persona => [
+      `- ${persona.name}${persona.enabled ? "" : " [disabled]"} — ${persona.role}`,
+      `  ${persona.description}`,
+      `  ${persona.mode} · ${persona.model} · toolkits: ${formatPersonaToolkits(persona.toolkits)} · source: ${persona.source}`,
+    ]),
+    "",
+    "Use /personas show <name> for full details and system prompt.",
+  ];
+}
+
+export function renderSubagentPersonaDetails(persona: SubagentPersonaRow): string[] {
+  return [
+    `Subagent persona: ${persona.name}`,
+    `Role: ${persona.role}`,
+    `Description: ${persona.description}`,
+    `Mode: ${persona.mode}`,
+    `Model: ${persona.model}`,
+    `Toolkits: ${formatPersonaToolkits(persona.toolkits)}`,
+    `Source: ${persona.source}`,
+    `Enabled: ${persona.enabled ? "yes" : "no"}`,
+    `Created: ${formatPersonaDate(persona.createdAt)}`,
+    `Updated: ${formatPersonaDate(persona.updatedAt)}`,
+    "System prompt:",
+    persona.systemPrompt,
+  ];
+}
+
+function withSubagentPersonaRegistry<T>(fn: (dao: SubagentPersonaDao) => T): T {
+  const db = SqliteDatabase.readwrite(database_filename);
+  try {
+    const dao = new SubagentPersonaDao(db).initializeSchema();
+    dao.seedBuiltinPersonas();
+    return fn(dao);
+  } finally {
+    db.close();
+  }
+}
+
+function personaCommandCompletionOptions(prefix: string): string[] {
+  const hasTrailingWhitespace = /\s$/.test(prefix);
+  const parts = prefix.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return ["list", "show"];
+
+  if (parts[0] === "show") {
+    if (parts.length === 1 && hasTrailingWhitespace) return personaNameCompletionOptions("");
+    if (parts.length === 2 && !hasTrailingWhitespace) return personaNameCompletionOptions(parts[1]);
+    return [];
+  }
+
+  if (parts.length === 1 && !hasTrailingWhitespace) {
+    return ["list", "show"].filter(option => option.startsWith(parts[0]));
+  }
+
+  return [];
+}
+
+function personaNameCompletionOptions(prefix: string): string[] {
+  try {
+    return withSubagentPersonaRegistry(dao => dao.listPersonas().map(persona => persona.name))
+      .filter(name => name.startsWith(prefix));
+  } catch {
+    return [];
+  }
+}
+
+function formatPersonaToolkits(toolkits: readonly string[]): string {
+  return toolkits.length > 0 ? toolkits.join(", ") : "(none)";
+}
+
+function formatPersonaDate(value: Date): string {
+  return Number.isNaN(value.getTime()) ? "(unknown)" : value.toISOString();
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function registerModelProfileCommand(pi: PiExtensionApi): void {

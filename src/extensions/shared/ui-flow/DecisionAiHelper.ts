@@ -40,7 +40,7 @@ export class UIAiHelpWrap {
             const model = await resolveAgentModelProfile(ctx, agentModelProfiles.textLow)
             const result = await runSyncSubagent({
                 task: this.prompt(),
-                persona: "decision helper",
+                role: "decision helper",
                 toolkits: [subagentToolkitNames.ioRead, subagentToolkitNames.webRead],
                 cwd: ctx.cwd,
                 timeoutSeconds: this.info.timeoutSeconds ?? 30,

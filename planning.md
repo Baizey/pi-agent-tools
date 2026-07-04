@@ -35,7 +35,7 @@ This still does not guarantee IO or web access containment inside arbitrary exec
 Done / partial:
 - Subagent tree/status data is persisted and surfaced through status/await flows.
 - `/subagents` provides running/done/all orchestration views through the subagent tree widget.
-- Tree rows show each subagent persona and richer latest tool context such as files and commands.
+- Tree rows show each subagent role and richer latest tool context such as files and commands.
 
 Still open:
 - Permission asking from subagents via pinging an orchestration view.
@@ -48,7 +48,10 @@ Done:
 - Status/await/message/cancel tooling exists.
 - Toolkits replaced subagent capability profiles.
 - `meta` toolkit covers harness introspection.
-- `persona` is required for each spawned subagent, persisted, injected into the prompt, and shown in the tree.
+- `role` is required for each raw spawned subagent, persisted, injected into the prompt, and shown in the tree.
+- Global SQLite persona registry exists for named subagent presets.
+- `available_personas` and `subagent_spawn_persona` provide persona discovery/spawn over the existing subagent flow.
+- `/personas` lists personas and shows full persona details.
 
 Still open:
-- Agentic role/persona registry.
+- User/agent commands or tools for creating and editing dynamic personas.

@@ -17,6 +17,7 @@ export function subagentResultResponse(
       ...extraDetails,
       mode: result.mode,
       task: request.task,
+      role: request.role,
       persona: request.persona,
       cwd: request.cwd,
       timeoutSeconds: request.timeoutSeconds,

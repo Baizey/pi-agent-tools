@@ -15,7 +15,7 @@ function fakeJob(overrides: Partial<AsyncSubagentJob> = {}): AsyncSubagentJob {
     request: {
       mode: subagentRunModes.async,
       task: "scan repository for subagent status handling",
-      persona: "status scanner",
+      role: "status scanner",
       toolkits: [],
       cwd: process.cwd(),
       timeoutSeconds: 900,
@@ -58,7 +58,7 @@ test("timed out subagent await responses include current job statuses", () => {
       request: {
         mode: subagentRunModes.async,
         task: "finished review",
-        persona: "reviewer",
+        role: "reviewer",
         toolkits: [subagentToolkitNames.ioRead],
         cwd: process.cwd(),
         timeoutSeconds: 900,
