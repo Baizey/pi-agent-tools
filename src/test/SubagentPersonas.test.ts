@@ -49,9 +49,9 @@ test("subagent persona dao seeds builtin personas with explicit mode and model",
   assert.equal(seeded.length, 4);
   const reviewer = dao.getEnabledPersona("reviewer");
   assert.equal(reviewer?.role, "code reviewer");
-  assert.equal(reviewer?.mode, subagentRunModes.async);
-  assert.equal(reviewer?.model, "reasoning_low");
-  assert.deepEqual(reviewer?.toolkits, [subagentToolkitNames.ioRead]);
+  assert.equal(reviewer?.mode, subagentRunModes.conversation);
+  assert.equal(reviewer?.model, "reasoning_high");
+  assert.deepEqual(reviewer?.toolkits, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
   assert.equal(reviewer?.source, SubagentPersonaSource.builtin);
   assert.equal(reviewer?.enabled, true);
 
@@ -137,7 +137,7 @@ test("personas command renders concise list and full show details", () => withDa
 
   const listText = renderSubagentPersonaList(dao.listPersonas()).join("\n");
   assert.match(listText, /reviewer/);
-  assert.match(listText, /reasoning_low/);
+  assert.match(listText, /reasoning_high/);
   assert.equal(listText.includes("You are a focused code reviewer."), false);
 
   const reviewer = dao.getPersona("reviewer");

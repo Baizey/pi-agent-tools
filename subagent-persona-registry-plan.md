@@ -140,16 +140,16 @@ Global table in agent SQLite DB. Builtins are seeded/upserted into the same tabl
 
 ## Builtins
 
-Keep initial builtins small and safe. No default write/bash/code toolkits.
+Keep initial builtins intentional and explicit. Do not grant write or code-execution toolkits by default. Higher-effort personas may use `reasoning_high`, `conversation`, `meta`, and `execute_bash` when that is part of the intended workflow.
 
-Suggested starter personas:
+Chosen starter personas:
 
-- `reviewer`: code/repo review, likely `async`, `reasoning_low`, `io_read`
-- `researcher`: web research, likely `async`, `text_high`, `web_read`
-- `planner`: planning/design, likely `conversation` or `async`, `reasoning_low`, no tools or `io_read`
-- `rubber-duck`: reasoning dialogue, likely `conversation`, `reasoning_low`, no tools
+- `reviewer`: code/repo review, `conversation`, `reasoning_high`, `meta`, `io_read`, `execute_bash`
+- `researcher`: web research, `conversation`, `reasoning_high`, `meta`, `web_read`
+- `planner`: planning/design, `conversation`, `reasoning_high`, `meta`, `io_read`, `execute_bash`
+- `rubber-duck`: reasoning dialogue, `conversation`, `reasoning_low`, no tools
 
-Each builtin explicitly sets mode and model.
+Each builtin explicitly sets mode, model, and toolkits.
 
 ## Implementation slices
 

@@ -42,9 +42,9 @@ test("available_personas seeds builtins and returns summary fields only", () => 
 
   assert.ok(reviewer);
   assert.equal(reviewer.role, "code reviewer");
-  assert.equal(reviewer.mode, subagentRunModes.async);
-  assert.equal(reviewer.model, "reasoning_low");
-  assert.deepEqual(reviewer.toolkits, [subagentToolkitNames.ioRead]);
+  assert.equal(reviewer.mode, subagentRunModes.conversation);
+  assert.equal(reviewer.model, "reasoning_high");
+  assert.deepEqual(reviewer.toolkits, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
   assert.equal(reviewer.source, SubagentPersonaSource.builtin);
   assert.deepEqual(Object.keys(reviewer).sort(), [
     "description",
@@ -58,7 +58,7 @@ test("available_personas seeds builtins and returns summary fields only", () => 
 }));
 
 test("available_personas reads PI_AGENT_SUBAGENT_TOOLKIT_CEILING by default", () => withDb(db => {
-  withToolkitCeiling(subagentToolkitNames.webRead, () => {
+  withToolkitCeiling(`${subagentToolkitNames.meta},${subagentToolkitNames.webRead}`, () => {
     assert.deepEqual(listAvailableSubagentPersonas(db).map(persona => persona.name), ["researcher", "rubber-duck"]);
   });
 }));
@@ -87,7 +87,7 @@ test("available_personas filters by toolkit ceiling all-or-nothing", () => withD
     enabled: false,
   });
 
-  const personas = listAvailableSubagentPersonas(db, [subagentToolkitNames.ioRead]);
+  const personas = listAvailableSubagentPersonas(db, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
   const names = personas.map(persona => persona.name);
 
   assert.deepEqual(names, ["planner", "reviewer", "rubber-duck"]);
@@ -107,9 +107,9 @@ test("subagent persona spawn requests are built entirely from persona config plu
   assert.ok(!("error" in request));
   assert.equal(request.persona, "reviewer");
   assert.equal(request.role, "code reviewer");
-  assert.equal(request.mode, subagentRunModes.async);
-  assert.equal(request.model, "reasoning_low");
-  assert.deepEqual(request.toolkits, [subagentToolkitNames.ioRead]);
+  assert.equal(request.mode, subagentRunModes.conversation);
+  assert.equal(request.model, "reasoning_high");
+  assert.deepEqual(request.toolkits, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
   assert.equal(request.systemPrompt, persona.systemPrompt);
   assert.equal(request.timeoutSeconds, 42);
 }));
