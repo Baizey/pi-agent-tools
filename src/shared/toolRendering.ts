@@ -3,7 +3,7 @@ type ThemeLike = {
   bold?(text: string): string;
 };
 
-type TextComponent = {
+export type TextComponent = {
   render(width: number): string[];
   invalidate(): void;
 };
@@ -45,8 +45,11 @@ export enum ToolRenderKeybindingDescription {
 type KeyHintFn = (keybinding: string, description: string) => string;
 type KeyTextFn = (keybinding: string) => string;
 
-const ansiPattern = /\x1b\[[0-?]*[ -/]*[@-~]/g;
-const ansiTokenPattern = /(\x1b\[[0-?]*[ -/]*[@-~])/g;
+const sgrPattern = /\x1b\[[0-?]*[ -/]*m/g;
+const sgrTokenPattern = /(\x1b\[[0-?]*[ -/]*m)/g;
+const nonSgrEscapePattern = /\x1b(?:\][^\x1b\x07]*(?:\x07|\x1b\\)?|\[[0-?]*[ -/]*[@-~]|[PX^_][^\x1b]*(?:\x1b\\)?|[@-Z\\-_])|\x1b/g;
+const unsafeControlPattern = /[\x00-\x08\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]/g;
+const lineBreakPattern = /\r\n|\n|\r/g;
 const defaultFoldPreviewLines = 8;
 
 export function renderToolCallInput(
@@ -59,7 +62,7 @@ export function renderToolCallInput(
   const title = color(theme, "toolTitle", bold(theme, toolName));
   const argLines = formatArgLines(args, theme);
   const lines = [title, ...foldLines(argLines, context, options, theme, "  ")];
-  return linesComponent(lines);
+  return renderLines(lines);
 }
 
 export function renderToolResultOutput(
@@ -69,11 +72,11 @@ export function renderToolResultOutput(
   options: FoldOptions = {},
 ): TextComponent {
   const text = getTextOutput(result).trimEnd();
-  if (!text) return linesComponent([]);
+  if (!text) return renderLines([]);
 
-  const outputLines = text.split(/\r?\n/).map((line) => color(theme, "toolOutput", line));
+  const outputLines = splitLines(text).map((line) => color(theme, "toolOutput", line));
   const lines = foldLines(outputLines, context, options, theme);
-  return linesComponent(lines);
+  return renderLines(lines);
 }
 
 export function foldLines(
@@ -141,7 +144,7 @@ function piKeybindingHelpers(): {keyHint?: KeyHintFn; keyText?: KeyTextFn} | und
   }
 }
 
-function linesComponent(lines: string[]): TextComponent {
+export function renderLines(lines: string[]): TextComponent {
   return {
     render(width: number): string[] {
       return lines.map((line) => truncateToWidth(line, width));
@@ -184,28 +187,29 @@ function quote(value: string): string {
 
 function visibleWidth(value: string): number {
   let width = 0;
-  for (const char of value.replace(ansiPattern, "")) width += charWidth(char);
+  for (const char of value.replace(sgrPattern, "")) width += charWidth(char);
   return width;
 }
 
 export function truncateToWidth(value: string, width: number): string {
-  if (!Number.isFinite(width)) return value;
+  const normalized = normalizeLineForRender(value);
+  if (!Number.isFinite(width)) return normalized;
   if (width <= 0) return "";
-  if (visibleWidth(value) <= width) return value;
+  if (visibleWidth(normalized) <= width) return normalized;
   if (width <= 1) return "…";
 
   const target = width - 1;
   let result = "";
   let used = 0;
   let hasAnsi = false;
-  for (const token of value.split(ansiTokenPattern).filter(Boolean)) {
-    if (ansiPattern.test(token)) {
-      ansiPattern.lastIndex = 0;
+  for (const token of normalized.split(sgrTokenPattern).filter(Boolean)) {
+    if (sgrPattern.test(token)) {
+      sgrPattern.lastIndex = 0;
       hasAnsi = true;
       result += token;
       continue;
     }
-    ansiPattern.lastIndex = 0;
+    sgrPattern.lastIndex = 0;
     for (const char of token) {
       const next = used + charWidth(char);
       if (next > target) return `${result}…${hasAnsi ? "\x1b[0m" : ""}`;
@@ -214,6 +218,28 @@ export function truncateToWidth(value: string, width: number): string {
     }
   }
   return result;
+}
+
+function splitLines(value: string): string[] {
+  return value.split(lineBreakPattern);
+}
+
+function normalizeLineForRender(value: string): string {
+  return stripNonSgrEscapes(value
+    .replace(/\t/g, "  ")
+    .replace(lineBreakPattern, " "))
+    .replace(unsafeControlPattern, "");
+}
+
+function stripNonSgrEscapes(value: string): string {
+  return value.split(sgrTokenPattern).map((token) => {
+    if (sgrPattern.test(token)) {
+      sgrPattern.lastIndex = 0;
+      return token;
+    }
+    sgrPattern.lastIndex = 0;
+    return token.replace(nonSgrEscapePattern, "");
+  }).join("");
 }
 
 function charWidth(char: string): number {

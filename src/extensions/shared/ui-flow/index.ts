@@ -1,4 +1,5 @@
 import {ExtensionContext} from "../../../pi/types";
+import {truncateToWidth} from "../../../shared/toolRendering";
 import {UIAiHelpWrap} from "./DecisionAiHelper";
 
 type ValueOrLambda<T, K> = K | ((state: Partial<T>) => K);
@@ -193,7 +194,7 @@ class ShortcutSelectComponent implements Component {
     render(width: number): string[] {
         const titleLines = this.title.split(/\r?\n/).map((line) => this.color("accent", this.bold(line)));
         const optionLines = this.options.map((option, index) => this.renderOption(option, index));
-        return [...titleLines, "", ...optionLines].map((line) => truncate(line, width));
+        return [...titleLines, "", ...optionLines].map((line) => truncateToWidth(line, width));
     }
 
     handleInput(data: string): void {
@@ -258,9 +259,4 @@ class ShortcutSelectComponent implements Component {
     private bold(text: string): string {
         return this.theme.bold ? this.theme.bold(text) : text;
     }
-}
-
-function truncate(line: string, width: number): string {
-    if (!Number.isFinite(width) || width <= 0 || line.length <= width) return line;
-    return `${line.slice(0, Math.max(0, width - 1))}…`;
 }

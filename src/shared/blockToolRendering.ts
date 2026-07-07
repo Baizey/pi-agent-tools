@@ -1,4 +1,4 @@
-import {FoldDirection, foldLines, truncateToWidth} from "./toolRendering";
+import {FoldDirection, foldLines, renderLines} from "./toolRendering";
 
 type RenderContextLike = {
   expanded?: boolean;
@@ -18,18 +18,13 @@ export function renderBlockToolCall(
   options: BlockFoldOptions = {},
 ) {
   const expanded = context?.expanded !== false;
-  const blockLines = block.split(/\r?\n/);
+  const blockLines = block.split(/\r\n|\n|\r/);
   const lines = [
     header,
     ...fields.filter((field): field is string => Boolean(field)),
     ...renderBlockLines(blockLabel, blockLines, expanded ? {expanded: true} : context, options),
   ];
-  return {
-    render(width: number): string[] {
-      return lines.map(line => truncateToWidth(line, width));
-    },
-    invalidate(): void {},
-  };
+  return renderLines(lines);
 }
 
 function renderBlockLines(

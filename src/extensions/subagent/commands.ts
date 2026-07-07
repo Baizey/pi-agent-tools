@@ -2,6 +2,7 @@ import {PiExtensionApi, ExtensionContext} from "../../pi/types";
 import {database_filename, isValidSubagentPersonaName, SqliteDatabase, SubagentDao, SubagentPersonaDao, type SubagentPersonaRow} from "../../storage";
 import {AgentModelProfile, agentModelProfiles, isAgentModelProfile, renderModelProfileConfig} from "./model-profiles";
 import {autoModelProfileConfig, ModelProfileConfigStore, normalizeConfigValue} from "./model-profile-config";
+import {renderLines} from "../../shared/toolRendering";
 import {renderSubagentRunTree, SubagentTreeFilter} from "./tree-ui";
 
 const filterValues = Object.values(SubagentTreeFilter);
@@ -239,7 +240,7 @@ function refreshSubagentWidget(ctx: Pick<ExtensionContext, "ui"> | undefined): v
 
   const rootId = widgetState.rootId;
   if (!rootId) {
-    ctx.ui.setWidget("subagents", ["Subagents", "└─ No session id available"]);
+    setSubagentWidgetLines(ctx, ["Subagents", "└─ No session id available"]);
     return;
   }
 
@@ -247,10 +248,14 @@ function refreshSubagentWidget(ctx: Pick<ExtensionContext, "ui"> | undefined): v
   try {
     const dao = new SubagentDao(db).initializeSchema();
     const lines = renderSubagentRunTree(dao.listTree(rootId), rootId, widgetState.filter);
-    ctx.ui.setWidget("subagents", lines.length > 0 ? lines : ["Subagents", "└─ No subagents"]);
+    setSubagentWidgetLines(ctx, lines.length > 0 ? lines : ["Subagents", "└─ No subagents"]);
   } finally {
     db.close();
   }
+}
+
+function setSubagentWidgetLines(ctx: Pick<ExtensionContext, "ui">, lines: string[]): void {
+  ctx.ui?.setWidget?.("subagents", () => renderLines(lines));
 }
 
 function parseSubagentCommandArgs(args: string): {enabled: boolean; filter: SubagentTreeFilter; error?: string} {

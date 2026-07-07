@@ -3,6 +3,7 @@ import {test} from "./TestHarness";
 import {renderBlockToolCall} from "../shared/blockToolRendering";
 import {
   FoldDirection,
+  renderLines,
   renderToolCallInput,
   renderToolResultOutput,
   ToolRenderDefaultKeyText,
@@ -78,6 +79,15 @@ test("block tool call renderer shows full block when expanded", () => {
   ]);
 });
 
+test("block tool call renderer truncates long single-line blocks to render width", () => {
+  const component = renderBlockToolCall("execute_code", [], "code", "x".repeat(1000), {expanded: true});
+  const lines = component.render(80);
+
+  assert.equal(lines.length, 2);
+  for (const line of lines) assert.ok(stripAnsi(line).length <= 80, line);
+  assert.ok(lines[1].endsWith("…"));
+});
+
 test("tool result renderer folds head preview", () => {
   const component = renderToolResultOutput({content: [{type: "text", text: "one\ntwo\nthree"}]}, undefined, {expanded: false}, {direction: FoldDirection.HEAD, previewLines: 2});
 
@@ -88,6 +98,21 @@ test("tool result renderer folds head preview", () => {
   ]);
 });
 
+test("tool result renderer truncates long single-line output to render width", () => {
+  const component = renderToolResultOutput({content: [{type: "text", text: "x".repeat(1000)}]});
+  const lines = component.render(80);
+
+  assert.equal(lines.length, 1);
+  assert.ok(stripAnsi(lines[0]).length <= 80, lines[0]);
+  assert.ok(lines[0].endsWith("…"));
+});
+
+test("tool result renderer splits bare carriage returns before rendering", () => {
+  const component = renderToolResultOutput({content: [{type: "text", text: "one\rtwo\nthree"}]});
+
+  assert.deepEqual(component.render(120), ["one", "two", "three"]);
+});
+
 test("tool result renderer folds tail preview", () => {
   const component = renderToolResultOutput({content: [{type: "text", text: "one\ntwo\nthree"}]}, undefined, {expanded: false}, {direction: FoldDirection.TAIL, previewLines: 2});
 
@@ -96,6 +121,23 @@ test("tool result renderer folds tail preview", () => {
     "two",
     "three",
   ]);
+});
+
+test("renderLines normalizes control characters and truncates widget-style lines", () => {
+  const lines = renderLines(["a\t".repeat(200), "abc\rdef", "x".repeat(200)]).render(20);
+
+  assert.equal(lines.length, 3);
+  for (const line of lines) {
+    assert.ok(stripAnsi(line).length <= 20, line);
+    assert.doesNotMatch(line, /[\t\r\n\x00-\x08\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]/);
+  }
+});
+
+test("renderLines strips non-SGR terminal escape sequences", () => {
+  const cursorMove = "\x1b[1000Cx";
+  const hyperlink = "\x1b]8;;https://example.com\x07link\x1b]8;;\x07";
+
+  assert.deepEqual(renderLines([cursorMove, hyperlink]).render(20), ["x", "link"]);
 });
 
 test("tool rendering control toggles global tool expansion on expand key", () => {
