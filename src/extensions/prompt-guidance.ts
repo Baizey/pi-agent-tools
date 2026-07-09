@@ -1,17 +1,49 @@
+import path from "node:path";
 import {BuildSystemPromptOptions, PiExtensionApi} from "../pi/types";
 import {toolNames} from "../shared/toolNames";
 
+export const engineeringPrincipleHeader = "### Engineering principle: be human";
+export const agentHelpGuidanceHeader = "### pi-agent-tools help";
 export const agentToolsGuidanceHeader = "### pi-agent-tools usage guidance";
+export const agentGuidePath = path.resolve(__dirname, "../../docs/agent-guide.md").replace(/\\/g, "/");
 
-export function registerAgentToolsPromptGuidance(pi: PiExtensionApi): void {
+export const engineeringPrincipleGuidance = `${engineeringPrincipleHeader}
+
+When writing or refactoring software, structure the code to make the best use of a thinking mind working on a complex system.
+
+- Prefer the smallest amount of code and structure that makes behavior clear. Code and abstractions become maintenance debt almost immediately.
+- Introduce an abstraction when it establishes a stable behavioral contract, localizes context, and allows its internals to be safely treated as a black box.
+- Keep related behavior together and separate unrelated concerns. A change should not require reconstructing the entire system in your head.
+- Make guarantees explicit through names, types, interfaces, invariants, and focused tests rather than relying on memory or convention.
+- Avoid clever compression and abstraction for its own sake. If an abstraction adds concepts without removing reasoning burden, do not add it.
+- Code should be testable, behavior should be understandable and verifiable through testing. Error handling should be explicit and also verifiable.
+- Aim for code that can be understood, modified, and partially forgotten without losing correctness.`;
+
+export const agentHelpGuidance = `${agentHelpGuidanceHeader}
+
+For help using features added by pi-agent-tools—including MCP support, policy commands, subagents, personas, and model profiles—read the [pi-agent-tools agent guide](${agentGuidePath}).
+
+When a user asks about these features, consult the guide before answering and distinguish agent-callable tools from slash commands that the user must run.`;
+
+export function registerAgentPromptGuidance(pi: PiExtensionApi): void {
     pi.on("before_agent_start", (event) => {
-        if (event.systemPrompt.includes(agentToolsGuidanceHeader)) return;
-
-        const guidance = buildAgentToolsPromptGuidance(event.systemPromptOptions);
-        if (!guidance) return;
-
-        return {systemPrompt: `${event.systemPrompt}\n\n${guidance}`};
+        const systemPrompt = appendAgentPromptGuidance(event.systemPrompt, event.systemPromptOptions);
+        return systemPrompt === event.systemPrompt ? undefined : {systemPrompt};
     });
+}
+
+export function appendAgentPromptGuidance(
+    systemPrompt: string,
+    options: BuildSystemPromptOptions = {},
+): string {
+    const sections: string[] = [];
+    if (!systemPrompt.includes(engineeringPrincipleHeader)) sections.push(engineeringPrincipleGuidance);
+    if (!systemPrompt.includes(agentHelpGuidanceHeader)) sections.push(agentHelpGuidance);
+
+    const toolGuidance = buildAgentToolsPromptGuidance(options);
+    if (toolGuidance && !systemPrompt.includes(agentToolsGuidanceHeader)) sections.push(toolGuidance);
+
+    return sections.length > 0 ? [systemPrompt, ...sections].filter(Boolean).join("\n\n") : systemPrompt;
 }
 
 export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions = {}): string | null {
@@ -51,7 +83,7 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         const bashConstraint = hasTool(toolNames.bash) ?
             "- NEVER use bash for code execution, policies will default at denying you"
             : ""
-        
+
         sections.push([
             "Code execution tools:",
             "- Use execute_code for short scripts or source-file runs when direct runtime execution is clearer than shell.",

@@ -27,6 +27,10 @@ pi -e C:/Repositories/pi-agent-tools
 
 Avoid loading both a local-path copy and a git-installed copy at the same time; Pi treats them as separate package identities and both may register tools/hooks.
 
+## Agent help guide
+
+The extension links [docs/agent-guide.md](docs/agent-guide.md) into every system prompt. It explains how agents should help users with MCP servers, slash commands, policies, subagents, personas, model profiles, and other package capabilities.
+
 ## What this package registers
 
 ### Filesystem tools
