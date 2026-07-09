@@ -20,7 +20,9 @@ export function renderLines(lines: readonly string[]): TextComponent {
 export function renderLineFactory(buildLines: () => readonly string[]): TextComponent {
   return {
     render(width: number): string[] {
-      return buildLines().map(line => truncateToWidth(line, width));
+      // Pi resets SGR state after each rendered line. Keeping our own trailing
+      // full reset would clear the surrounding tool Box background before its padding.
+      return buildLines().map(line => withoutTrailingFullReset(truncateToWidth(line, width)));
     },
     invalidate(): void {
       // No cache: the next render rebuilds the logical lines.
@@ -50,6 +52,10 @@ export function sanitizeTerminalLine(value: string): string {
   return containsSgrPattern.test(sanitized) && !sanitized.endsWith("\x1b[0m")
     ? `${sanitized}\x1b[0m`
     : sanitized;
+}
+
+function withoutTrailingFullReset(value: string): string {
+  return value.endsWith("\x1b[0m") ? value.slice(0, -4) : value;
 }
 
 function renderWidth(width: number): number {

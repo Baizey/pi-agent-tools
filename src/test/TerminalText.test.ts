@@ -14,6 +14,13 @@ test("terminal lines never exceed the requested width", () => {
   assert.equal(lines[2], "abc def");
 });
 
+test("rendered component lines leave the surrounding tool background active", () => {
+  const line = renderLines(["\x1b[32margument\x1b[39m"]).render(40)[0];
+
+  assert.equal(line, "\x1b[32margument\x1b[39m");
+  assert.doesNotMatch(line, /\x1b\[0m$/);
+});
+
 test("terminal truncation preserves SGR styling and strips other escapes", () => {
   const styled = `\x1b[2m${"x".repeat(100)}\x1b[0m`;
   const cursorMove = "\x1b[1000Cx";
