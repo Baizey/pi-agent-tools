@@ -8,6 +8,8 @@ export enum SubagentTreeFilter {
   running = "running",
 }
 
+const maxRenderedTreeLines = 200;
+
 export function renderSubagentRunTree(rows: SubagentRunRow[], rootId: string, filter: SubagentTreeFilter = SubagentTreeFilter.all): string[] {
   rows = filterRows(rows, filter);
   const nodes = new Map<string, SubagentNode>();
@@ -52,10 +54,24 @@ export function renderSubagentRunTree(rows: SubagentRunRow[], rootId: string, fi
       .filter((node): node is SubagentNode => Boolean(node));
 
   if (roots.length === 0) return [];
-  return [
-    "Subagents",
-    ...roots.flatMap(root => renderSubagentTree(root, id => nodes.get(id)).slice(1)),
-  ];
+
+  const rendered = ["Subagents"];
+  let omitted = false;
+  for (const root of roots) {
+    const branch = renderSubagentTree(root, id => nodes.get(id)).slice(1);
+    const remaining = maxRenderedTreeLines - (rendered.length - 1);
+    if (remaining <= 0) {
+      omitted = true;
+      break;
+    }
+    rendered.push(...branch.slice(0, remaining));
+    if (branch.length > remaining) {
+      omitted = true;
+      break;
+    }
+  }
+  if (omitted) rendered.push(`… (additional subagents omitted; display limit ${maxRenderedTreeLines})`);
+  return rendered;
 }
 
 function filterRows(rows: SubagentRunRow[], filter: SubagentTreeFilter): SubagentRunRow[] {
@@ -72,7 +88,9 @@ function filterRows(rows: SubagentRunRow[], filter: SubagentTreeFilter): Subagen
   for (const row of rows) {
     if (!matches(row)) continue;
     let current: SubagentRunRow | undefined = row;
-    while (current) {
+    const visited = new Set<string>();
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
       included.add(current.id);
       current = current.parentId ? byId.get(current.parentId) : undefined;
     }

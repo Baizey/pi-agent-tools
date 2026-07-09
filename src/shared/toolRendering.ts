@@ -51,6 +51,8 @@ const nonSgrEscapePattern = /\x1b(?:\][^\x1b\x07]*(?:\x07|\x1b\\)?|\[[0-?]*[ -/]
 const unsafeControlPattern = /[\x00-\x08\x0b\x0c\x0e-\x1a\x1c-\x1f\x7f-\x9f]/g;
 const lineBreakPattern = /\r\n|\n|\r/g;
 const defaultFoldPreviewLines = 8;
+const maxExpandedOutputLines = 2_000;
+const maxDisplayCharacters = 200_000;
 
 export function renderToolCallInput(
   toolName: string,
@@ -74,9 +76,11 @@ export function renderToolResultOutput(
   const text = getTextOutput(result).trimEnd();
   if (!text) return renderLines([]);
 
-  const outputLines = splitLines(text).map((line) => color(theme, "toolOutput", line));
-  const lines = foldLines(outputLines, context, options, theme);
-  return renderLines(lines);
+  const rawLines = splitLines(text);
+  const selectedLines = context?.expanded === false
+    ? foldLines(rawLines, context, options, theme)
+    : limitExpandedOutputLines(rawLines, context, options.direction);
+  return renderLines(selectedLines.map((line) => color(theme, "toolOutput", line)));
 }
 
 export function foldLines(
@@ -170,11 +174,27 @@ function formatValue(value: unknown): string {
 }
 
 function getTextOutput(result: ToolResultLike): string {
-  const content = result.content ?? [];
-  return content.map((item) => {
-    if (item.type === "text") return item.text ?? "";
-    return `[image: ${item.mimeType ?? "unknown"}]`;
-  }).filter(Boolean).join("\n");
+  let output = "";
+  let truncated = false;
+
+  for (const item of result.content ?? []) {
+    const value = item.type === "text" ? item.text ?? "" : `[image: ${item.mimeType ?? "unknown"}]`;
+    if (!value) continue;
+    const separator = output ? "\n" : "";
+    const remaining = maxDisplayCharacters - output.length;
+    if (remaining <= separator.length) {
+      truncated = true;
+      break;
+    }
+    const available = remaining - separator.length;
+    output += separator + value.slice(0, available);
+    if (value.length > available) {
+      truncated = true;
+      break;
+    }
+  }
+
+  return truncated ? `${output}\n[display truncated]` : output;
 }
 
 function shorten(value: string, maxLength = 120): string {
@@ -193,12 +213,15 @@ function visibleWidth(value: string): number {
 
 export function truncateToWidth(value: string, width: number): string {
   const normalized = normalizeLineForRender(value);
-  if (!Number.isFinite(width)) return normalized;
-  if (width <= 0) return "";
-  if (visibleWidth(normalized) <= width) return normalized;
-  if (width <= 1) return "…";
+  if (width === Number.POSITIVE_INFINITY) return normalized;
+  if (!Number.isFinite(width) || width <= 0) return "";
 
-  const target = width - 1;
+  const columnWidth = Math.floor(width);
+  if (columnWidth <= 0) return "";
+  if (visibleWidth(normalized) <= columnWidth) return normalized;
+  if (columnWidth === 1) return "…";
+
+  const target = columnWidth - 1;
   let result = "";
   let used = 0;
   let hasAnsi = false;
@@ -224,6 +247,21 @@ function splitLines(value: string): string[] {
   return value.split(lineBreakPattern);
 }
 
+function limitExpandedOutputLines(
+  lines: string[],
+  context: RenderContextLike | undefined,
+  direction: FoldDirection | undefined,
+): string[] {
+  if (context?.expanded === false || lines.length <= maxExpandedOutputLines) return lines;
+
+  const retained = maxExpandedOutputLines - 1;
+  const omitted = lines.length - retained;
+  const notice = `... (${omitted} ${omitted === 1 ? "line" : "lines"} omitted from display)`;
+  return direction === FoldDirection.TAIL
+    ? [notice, ...lines.slice(-retained)]
+    : [...lines.slice(0, retained), notice];
+}
+
 function normalizeLineForRender(value: string): string {
   return stripNonSgrEscapes(value
     .replace(/\t/g, "  ")
@@ -246,19 +284,23 @@ function charWidth(char: string): number {
   const code = char.codePointAt(0) ?? 0;
   if (code === 0 || code < 32 || (code >= 0x7f && code < 0xa0)) return 0;
   if (code >= 0x300 && code <= 0x36f) return 0;
+  // Treat all supplementary-plane characters conservatively as wide. This can
+  // truncate historic scripts early, but it cannot under-count CJK or emoji.
+  if (code >= 0x10000) return 2;
   if (
     code >= 0x1100 && (
       code <= 0x115f ||
-      code === 0x2329 ||
-      code === 0x232a ||
+      (code >= 0x2300 && code <= 0x23ff) ||
+      (code >= 0x2600 && code <= 0x27bf) ||
+      (code >= 0x2b00 && code <= 0x2bff) ||
       (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) ||
       (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xd7b0 && code <= 0xd7ff) ||
       (code >= 0xf900 && code <= 0xfaff) ||
       (code >= 0xfe10 && code <= 0xfe19) ||
       (code >= 0xfe30 && code <= 0xfe6f) ||
       (code >= 0xff00 && code <= 0xff60) ||
-      (code >= 0xffe0 && code <= 0xffe6) ||
-      (code >= 0x1f300 && code <= 0x1faff)
+      (code >= 0xffe0 && code <= 0xffe6)
     )
   ) return 2;
   return 1;

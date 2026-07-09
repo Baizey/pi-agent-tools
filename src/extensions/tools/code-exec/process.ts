@@ -23,8 +23,8 @@ export function runProcess(
       return;
     }
 
-    let stdout = "";
-    let stderr = "";
+    const stdout = new BoundedOutput();
+    const stderr = new BoundedOutput();
     let timedOut = false;
     let settled = false;
     const finish = (exitCode: number | null, spawnError?: string) => {
@@ -32,7 +32,7 @@ export function runProcess(
       settled = true;
       clearTimeout(timeout);
       signal?.removeEventListener("abort", abort);
-      resolve({stdout: truncate(stdout), stderr: truncate(stderr), exitCode, timedOut, spawnError});
+      resolve({stdout: stdout.value(), stderr: stderr.value(), exitCode, timedOut, spawnError});
     };
     const timeout = setTimeout(() => {
       timedOut = true;
@@ -43,8 +43,8 @@ export function runProcess(
     const abort = () => child.kill("SIGTERM");
     signal?.addEventListener("abort", abort, {once: true});
 
-    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.stdout?.on("data", (chunk) => { stdout.append(chunk.toString()); });
+    child.stderr?.on("data", (chunk) => { stderr.append(chunk.toString()); });
     child.on("error", (error) => finish(null, error.message));
     child.on("close", (code) => finish(code));
     if (stdin !== undefined) child.stdin?.end(stdin);
@@ -56,7 +56,25 @@ export function firstLine(value: string): string | undefined {
   return value.split(/\r?\n/).map((line) => line.trim()).find(Boolean);
 }
 
-function truncate(value: string): string {
-  const max = 50_000;
-  return value.length > max ? `${value.slice(0, max)}\n[truncated]` : value;
+const maxCapturedCharacters = 50_000;
+
+export class BoundedOutput {
+  private content = "";
+  private truncated = false;
+
+  constructor(private readonly maxCharacters = maxCapturedCharacters) {}
+
+  append(chunk: string): void {
+    const remaining = this.maxCharacters - this.content.length;
+    if (remaining <= 0) {
+      if (chunk.length > 0) this.truncated = true;
+      return;
+    }
+    this.content += chunk.slice(0, remaining);
+    if (chunk.length > remaining) this.truncated = true;
+  }
+
+  value(): string {
+    return this.truncated ? `${this.content}\n[truncated]` : this.content;
+  }
 }

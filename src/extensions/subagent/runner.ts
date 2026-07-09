@@ -124,7 +124,7 @@ async function runSubagentProcess(
     subagents.finishRun(
       node.id,
       result.timedOut ? subagentNodeStatuses.timedOut : result.exitCode === 0 ? subagentNodeStatuses.done : subagentNodeStatuses.failed,
-      {latestLine: result.output, exitCode: result.exitCode, timedOut: result.timedOut, error: result.exitCode === 0 && !result.timedOut ? null : result.stderr || result.output},
+      {latestLine: shorten(lastLine(result.output), 500), exitCode: result.exitCode, timedOut: result.timedOut, error: result.exitCode === 0 && !result.timedOut ? null : result.stderr || result.output},
     );
     emitTreeUpdate();
     return {...result, tree: renderTree()};
@@ -201,6 +201,11 @@ async function writeTempPrompt(prompt: string): Promise<{dir: string; filePath: 
   return {dir, filePath};
 }
 
+const maxCapturedSubagentCharacters = 50_000;
+const maxSubagentEventCharacters = 1_000_000;
+const maxCapturedSubagentMessages = 1_000;
+const maxCapturedSubagentMessageCharacters = 1_000_000;
+
 async function runPiProcess(
   args: string[],
   request: SubagentRequest,
@@ -226,8 +231,11 @@ async function runPiProcess(
     });
 
     const messages: unknown[] = [];
+    let capturedMessageCharacters = 0;
     let stdout = "";
+    let discardingOversizedLine = false;
     let stderr = "";
+    let stderrTruncated = false;
     let output = "";
     let timedOut = false;
     const seenToolCalls = new Set<string>();
@@ -263,7 +271,14 @@ async function runPiProcess(
       if (!line.trim()) return;
       try {
         const event = JSON.parse(line);
-        if (event.message) messages.push(event.message);
+        if (
+          event.message
+          && messages.length < maxCapturedSubagentMessages
+          && capturedMessageCharacters + line.length <= maxCapturedSubagentMessageCharacters
+        ) {
+          messages.push(event.message);
+          capturedMessageCharacters += line.length;
+        }
         const directToolCall = toolCallFromEvent(event);
         if (directToolCall) {
           seenToolCalls.add(directToolCall.key);
@@ -278,8 +293,8 @@ async function runPiProcess(
         }
         const text = textFromMessage(event.message);
         if (text) {
-          output = text;
-          subagents.updateRun(node.id, {latestLine: lastLine(text)});
+          output = truncateSubagentText(text);
+          subagents.updateRun(node.id, {latestLine: shorten(lastLine(text), 500)});
           emitTreeUpdate();
         }
       } catch {
@@ -288,23 +303,39 @@ async function runPiProcess(
     };
 
     proc.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-      const lines = stdout.split("\n");
+      let text = chunk.toString();
+      if (discardingOversizedLine) {
+        const newline = text.indexOf("\n");
+        if (newline < 0) return;
+        text = text.slice(newline + 1);
+        discardingOversizedLine = false;
+      }
+
+      const lines = `${stdout}${text}`.split("\n");
       stdout = lines.pop() ?? "";
-      for (const line of lines) processLine(line);
+      for (const line of lines) {
+        if (line.length <= maxSubagentEventCharacters) processLine(line);
+      }
+      if (stdout.length > maxSubagentEventCharacters) {
+        stdout = "";
+        discardingOversizedLine = true;
+      }
     });
 
     proc.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      const appended = appendBounded(stderr, chunk.toString(), maxCapturedSubagentCharacters);
+      stderr = appended.value;
+      stderrTruncated ||= appended.truncated;
     });
 
     proc.on("close", (code) => {
-      if (stdout.trim()) processLine(stdout);
+      if (!discardingOversizedLine && stdout.trim()) processLine(stdout);
+      const capturedStderr = stderrTruncated ? `${stderr}\n[truncated]` : stderr;
       finish({
-        output: output || stderr || "(no output)",
+        output: output || capturedStderr || "(no output)",
         exitCode: code ?? 0,
         timedOut,
-        stderr,
+        stderr: capturedStderr,
         messages,
       });
     });
@@ -453,14 +484,36 @@ function genericArgsSummary(args: Record<string, unknown>): string | null {
   return entries.length > 0 ? JSON.stringify(args) : null;
 }
 
+function appendBounded(current: string, chunk: string, maxLength: number): {value: string; truncated: boolean} {
+  const remaining = maxLength - current.length;
+  if (remaining <= 0) return {value: current, truncated: chunk.length > 0};
+  return {
+    value: current + chunk.slice(0, remaining),
+    truncated: chunk.length > remaining,
+  };
+}
+
+function truncateSubagentText(value: string): string {
+  return value.length > maxCapturedSubagentCharacters
+    ? `${value.slice(0, maxCapturedSubagentCharacters)}\n[truncated]`
+    : value;
+}
+
 function shorten(value: string, maxLength = 140): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
+  const bounded = value.length > maxLength * 4 ? value.slice(0, maxLength * 4) : value;
+  const normalized = bounded.replace(/\s+/g, " ").trim();
+  return normalized.length > maxLength || bounded.length < value.length
+    ? `${normalized.slice(0, maxLength - 1)}…`
+    : normalized;
 }
 
 function lastLine(text: string): string {
-  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
-  return lines.length > 0 ? lines[lines.length - 1] : text;
+  let end = text.length;
+  while (end > 0 && /\s/.test(text[end - 1])) end--;
+  if (end === 0) return "";
+
+  const newline = Math.max(text.lastIndexOf("\n", end - 1), text.lastIndexOf("\r", end - 1));
+  return text.slice(newline + 1, end).trim();
 }
 
 function textFromMessage(message: unknown): string | null {
