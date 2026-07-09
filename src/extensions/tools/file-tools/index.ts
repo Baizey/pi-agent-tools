@@ -26,10 +26,10 @@ function registerFileTool(pi: PiExtensionApi, tool: FileToolRegistration): void 
       return tool.execute(params, signal, ctx);
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(tool.name, args, theme as never, context);
+      return renderToolCallInput(tool.name, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD});
+      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD});
     },
   });
 }

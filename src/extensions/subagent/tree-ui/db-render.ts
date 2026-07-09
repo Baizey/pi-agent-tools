@@ -1,5 +1,5 @@
 import {subagentRunStatuses, type SubagentRunRow} from "../../../storage";
-import {renderSubagentTree} from "./render";
+import {defaultSubagentTreeRenderLimits, renderSubagentTree} from "./render";
 import type {SubagentNode} from "./types";
 
 export enum SubagentTreeFilter {
@@ -8,93 +8,139 @@ export enum SubagentTreeFilter {
   running = "running",
 }
 
-const maxRenderedTreeLines = 200;
+const maxRenderedTreeLines = 201;
+export const subagentTreeRowLimit = 5_000;
 
-export function renderSubagentRunTree(rows: SubagentRunRow[], rootId: string, filter: SubagentTreeFilter = SubagentTreeFilter.all): string[] {
-  rows = filterRows(rows, filter);
-  const nodes = new Map<string, SubagentNode>();
+type IndexedTree = {
+  nodes: Map<string, SubagentNode>;
+  roots: SubagentNode[];
+};
 
-  for (const row of rows) {
-    nodes.set(row.id, {
-      id: row.id,
-      rootId: row.rootId,
-      parentId: row.parentId ?? undefined,
-      depth: row.depth,
-      mode: row.mode,
-      task: row.task,
-      role: row.role,
-      toolkits: row.profiles,
-      tools: row.tools,
-      status: row.status,
-      latestLine: row.latestLine,
-      startedAt: row.startedAt.getTime(),
-      finishedAt: row.finishedAt?.getTime(),
-      children: [],
-    });
-  }
+export function renderSubagentRunTree(
+  rows: SubagentRunRow[],
+  rootId: string,
+  filter: SubagentTreeFilter = SubagentTreeFilter.all,
+): string[] {
+  const indexedRows = rows.slice(0, subagentTreeRowLimit);
+  const visibleRows = filterRows(indexedRows, filter);
+  const tree = indexTree(visibleRows, rootId);
+  const lines = renderForest(tree);
+  return rows.length > indexedRows.length ? withRowLimitNotice(lines) : lines;
+}
+
+function indexTree(rows: SubagentRunRow[], rootId: string): IndexedTree {
+  const nodes = new Map(rows.map(row => [row.id, nodeFromRow(row)]));
+  const ordinalById = new Map(rows.map(row => [row.id, row.ordinal]));
 
   for (const node of nodes.values()) {
     if (!node.parentId) continue;
     const parent = nodes.get(node.parentId);
-    if (parent && !parent.children.includes(node.id)) parent.children.push(node.id);
+    if (parent) parent.children.push(node.id);
   }
 
-  const order = new Map(rows.map(row => [row.id, row.ordinal]));
   for (const node of nodes.values()) {
-    node.children.sort((left, right) => (order.get(left) ?? 0) - (order.get(right) ?? 0));
+    node.children.sort((left, right) => (ordinalById.get(left) ?? 0) - (ordinalById.get(right) ?? 0));
   }
 
   const explicitRoot = nodes.get(rootId);
   const roots = explicitRoot
     ? [explicitRoot]
-    : rows
-      .filter(row => row.parentId === null)
-      .sort((left, right) => left.ordinal - right.ordinal)
-      .map(row => nodes.get(row.id))
-      .filter((node): node is SubagentNode => Boolean(node));
+    : [...nodes.values()]
+      .filter(node => !node.parentId || !nodes.has(node.parentId))
+      .sort((left, right) => (ordinalById.get(left.id) ?? 0) - (ordinalById.get(right.id) ?? 0));
 
-  if (roots.length === 0) return [];
+  return {nodes, roots};
+}
 
-  const rendered = ["Subagents"];
-  let omitted = false;
-  for (const root of roots) {
-    const branch = renderSubagentTree(root, id => nodes.get(id)).slice(1);
-    const remaining = maxRenderedTreeLines - (rendered.length - 1);
-    if (remaining <= 0) {
-      omitted = true;
-      break;
-    }
-    rendered.push(...branch.slice(0, remaining));
-    if (branch.length > remaining) {
-      omitted = true;
-      break;
+function nodeFromRow(row: SubagentRunRow): SubagentNode {
+  return {
+    id: row.id,
+    rootId: row.rootId,
+    parentId: row.parentId ?? undefined,
+    depth: row.depth,
+    mode: row.mode,
+    task: row.task,
+    role: row.role,
+    toolkits: row.profiles,
+    tools: row.tools,
+    status: row.status,
+    latestLine: row.latestLine,
+    startedAt: row.startedAt.getTime(),
+    finishedAt: row.finishedAt?.getTime(),
+    children: [],
+  };
+}
+
+function renderForest(tree: IndexedTree): string[] {
+  if (tree.roots.length === 0) return [];
+
+  const lines = ["Subagents"];
+  for (let index = 0; index < tree.roots.length; index++) {
+    const available = maxRenderedTreeLines - lines.length;
+    if (available <= 0) return replaceLastLineWithForestNotice(lines);
+
+    const branch = renderSubagentTree(
+      tree.roots[index],
+      id => tree.nodes.get(id),
+      {...defaultSubagentTreeRenderLimits, maxLines: available + 1},
+    ).slice(1);
+    lines.push(...branch);
+
+    const hasMoreRoots = index < tree.roots.length - 1;
+    if (hasMoreRoots && lines.length >= maxRenderedTreeLines) {
+      return replaceLastLineWithForestNotice(lines);
     }
   }
-  if (omitted) rendered.push(`… (additional subagents omitted; display limit ${maxRenderedTreeLines})`);
-  return rendered;
+
+  return lines;
+}
+
+function withRowLimitNotice(lines: string[]): string[] {
+  const notice = "… (additional persisted subagent rows omitted)";
+  if (lines.length === 0) return ["Subagents", notice];
+  return lines.length < maxRenderedTreeLines
+    ? [...lines, notice]
+    : [...lines.slice(0, -1), notice];
+}
+
+function replaceLastLineWithForestNotice(lines: string[]): string[] {
+  const notice = `… (additional subagents omitted; display limit ${maxRenderedTreeLines})`;
+  return lines.length < maxRenderedTreeLines
+    ? [...lines, notice]
+    : [...lines.slice(0, -1), notice];
 }
 
 function filterRows(rows: SubagentRunRow[], filter: SubagentTreeFilter): SubagentRunRow[] {
   if (filter === SubagentTreeFilter.all) return rows;
-  const byId = new Map(rows.map(row => [row.id, row]));
-  const included = new Set<string>();
-  const matches = (row: SubagentRunRow) => filter === SubagentTreeFilter.running
-    ? row.status === subagentRunStatuses.starting || row.status === subagentRunStatuses.running
-    : row.status === subagentRunStatuses.done
-      || row.status === subagentRunStatuses.failed
-      || row.status === subagentRunStatuses.cancelled
-      || row.status === subagentRunStatuses.timedOut;
 
+  const rowsById = new Map(rows.map(row => [row.id, row]));
+  const includedIds = new Set<string>();
   for (const row of rows) {
-    if (!matches(row)) continue;
-    let current: SubagentRunRow | undefined = row;
-    const visited = new Set<string>();
-    while (current && !visited.has(current.id)) {
-      visited.add(current.id);
-      included.add(current.id);
-      current = current.parentId ? byId.get(current.parentId) : undefined;
-    }
+    if (matchesFilter(row, filter)) includeAncestors(row, rowsById, includedIds);
   }
+  return rows.filter(row => includedIds.has(row.id));
+}
 
-  return rows.filter(row => included.has(row.id));
+function matchesFilter(row: SubagentRunRow, filter: SubagentTreeFilter): boolean {
+  if (filter === SubagentTreeFilter.running) {
+    return row.status === subagentRunStatuses.starting || row.status === subagentRunStatuses.running;
+  }
+  return row.status === subagentRunStatuses.done
+    || row.status === subagentRunStatuses.failed
+    || row.status === subagentRunStatuses.cancelled
+    || row.status === subagentRunStatuses.timedOut;
+}
+
+function includeAncestors(
+  row: SubagentRunRow,
+  rowsById: ReadonlyMap<string, SubagentRunRow>,
+  includedIds: Set<string>,
+): void {
+  let current: SubagentRunRow | undefined = row;
+  const visited = new Set<string>();
+  while (current && !visited.has(current.id) && !includedIds.has(current.id)) {
+    visited.add(current.id);
+    includedIds.add(current.id);
+    current = current.parentId ? rowsById.get(current.parentId) : undefined;
+  }
 }

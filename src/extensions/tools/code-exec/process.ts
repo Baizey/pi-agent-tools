@@ -1,4 +1,5 @@
 import {spawn} from "node:child_process";
+import {BoundedTextBuffer} from "../../../shared/boundedText";
 
 export type ProcessResult = {
   stdout: string;
@@ -23,8 +24,8 @@ export function runProcess(
       return;
     }
 
-    const stdout = new BoundedOutput();
-    const stderr = new BoundedOutput();
+    const stdout = new BoundedTextBuffer(maxCapturedCharacters);
+    const stderr = new BoundedTextBuffer(maxCapturedCharacters);
     let timedOut = false;
     let settled = false;
     const finish = (exitCode: number | null, spawnError?: string) => {
@@ -57,24 +58,3 @@ export function firstLine(value: string): string | undefined {
 }
 
 const maxCapturedCharacters = 50_000;
-
-export class BoundedOutput {
-  private content = "";
-  private truncated = false;
-
-  constructor(private readonly maxCharacters = maxCapturedCharacters) {}
-
-  append(chunk: string): void {
-    const remaining = this.maxCharacters - this.content.length;
-    if (remaining <= 0) {
-      if (chunk.length > 0) this.truncated = true;
-      return;
-    }
-    this.content += chunk.slice(0, remaining);
-    if (chunk.length > remaining) this.truncated = true;
-  }
-
-  value(): string {
-    return this.truncated ? `${this.content}\n[truncated]` : this.content;
-  }
-}

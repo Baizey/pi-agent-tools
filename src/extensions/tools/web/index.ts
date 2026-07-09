@@ -37,10 +37,10 @@ export function registerWebLookupTool(pi: PiExtensionApi, services: AgentService
       }
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.webLookup, args, theme as never, context);
+      return renderToolCallInput(toolNames.webLookup, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
+      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   });
 }

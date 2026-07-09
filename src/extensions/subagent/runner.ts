@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {agentEnv, denyByDefaultEnv} from "../../shared/env";
+import {BoundedTextBuffer, truncateText} from "../../shared/boundedText";
 import {toolNames} from "../../shared/toolNames";
 import {policyDefaultsEnvForSubagents} from "../policy/defaults";
 import {
@@ -10,6 +11,7 @@ import {
   renderSubagentRunTree,
   subagentNodeStatuses,
   subagentTreeEnv,
+  subagentTreeRowLimit,
 } from "./tree-ui";
 import {
   ResolvedSubagentToolkits,
@@ -106,7 +108,10 @@ async function runSubagentProcess(
     toolkits: request.toolkits,
     tools: resolvedToolkits.tools,
   });
-  const renderTree = () => renderSubagentRunTree(subagents.listTree(node.rootId), node.id);
+  const renderTree = () => renderSubagentRunTree(
+    subagents.listTree(node.rootId, subagentTreeRowLimit + 1),
+    node.id,
+  );
   const emitTreeUpdate = () => onUpdate?.({
     content: [{type: "text", text: renderTree().join("\n")}],
     details: {rootId: node.rootId, nodeId: node.id},
@@ -234,8 +239,7 @@ async function runPiProcess(
     let capturedMessageCharacters = 0;
     let stdout = "";
     let discardingOversizedLine = false;
-    let stderr = "";
-    let stderrTruncated = false;
+    const stderr = new BoundedTextBuffer(maxCapturedSubagentCharacters);
     let output = "";
     let timedOut = false;
     const seenToolCalls = new Set<string>();
@@ -293,7 +297,7 @@ async function runPiProcess(
         }
         const text = textFromMessage(event.message);
         if (text) {
-          output = truncateSubagentText(text);
+          output = truncateText(text, maxCapturedSubagentCharacters);
           subagents.updateRun(node.id, {latestLine: shorten(lastLine(text), 500)});
           emitTreeUpdate();
         }
@@ -323,14 +327,12 @@ async function runPiProcess(
     });
 
     proc.stderr.on("data", (chunk) => {
-      const appended = appendBounded(stderr, chunk.toString(), maxCapturedSubagentCharacters);
-      stderr = appended.value;
-      stderrTruncated ||= appended.truncated;
+      stderr.append(chunk.toString());
     });
 
     proc.on("close", (code) => {
       if (!discardingOversizedLine && stdout.trim()) processLine(stdout);
-      const capturedStderr = stderrTruncated ? `${stderr}\n[truncated]` : stderr;
+      const capturedStderr = stderr.value();
       finish({
         output: output || capturedStderr || "(no output)",
         exitCode: code ?? 0,
@@ -482,21 +484,6 @@ function genericArgsSummary(args: Record<string, unknown>): string | null {
   const stringEntry = entries.find(([, value]) => typeof value === "string" && value.trim().length > 0);
   if (stringEntry) return `${stringEntry[0]}=${stringEntry[1]}`;
   return entries.length > 0 ? JSON.stringify(args) : null;
-}
-
-function appendBounded(current: string, chunk: string, maxLength: number): {value: string; truncated: boolean} {
-  const remaining = maxLength - current.length;
-  if (remaining <= 0) return {value: current, truncated: chunk.length > 0};
-  return {
-    value: current + chunk.slice(0, remaining),
-    truncated: chunk.length > remaining,
-  };
-}
-
-function truncateSubagentText(value: string): string {
-  return value.length > maxCapturedSubagentCharacters
-    ? `${value.slice(0, maxCapturedSubagentCharacters)}\n[truncated]`
-    : value;
 }
 
 function shorten(value: string, maxLength = 140): string {

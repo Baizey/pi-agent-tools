@@ -106,10 +106,10 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       return successResult(JSON.stringify(overview, null, 2), overview);
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.policyInfo, args, theme as never, context);
+      return renderToolCallInput(toolNames.policyInfo, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 16});
+      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 16});
     },
   });
 }

@@ -12,7 +12,8 @@ import {adapters, detect, detectAllRuntimes} from "./adapters";
 import {ensureCodeExecAllowed} from "./approval";
 import {contextForCwd, executeCodeParameters, isLanguage, parseInput} from "./input";
 import {runProcess} from "./process";
-import {formatRuntimeInfo, formatRunSummary, renderCodeExecCall} from "./rendering";
+import {renderCodeExecCall} from "./rendering";
+import {formatRuntimeInfo, formatRunSummary} from "./resultFormatting";
 import {Adapter, languages} from "./types";
 
 export async function registerCodeExecutionTool(pi: PiExtensionApi, services: AgentServices): Promise<void> {
@@ -70,10 +71,10 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       }
     },
     renderCall(args, theme, context) {
-      return renderCodeExecCall(args, theme as never, context);
+      return renderCodeExecCall(args, theme, context);
     },
     renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.TAIL, previewLines: 12});
+      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.TAIL, previewLines: 12});
     },
   });
 
@@ -95,10 +96,10 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       return successResult(formatRuntimeInfo(results), {runtimes: results});
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.executeCodeInfo, args, theme as never, context);
+      return renderToolCallInput(toolNames.executeCodeInfo, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 16});
+      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 16});
     },
   });
 }

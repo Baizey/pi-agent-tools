@@ -3,7 +3,7 @@ import {database_filename, isValidSubagentPersonaName, SqliteDatabase, SubagentD
 import {AgentModelProfile, agentModelProfiles, isAgentModelProfile, renderModelProfileConfig} from "./model-profiles";
 import {autoModelProfileConfig, ModelProfileConfigStore, normalizeConfigValue} from "./model-profile-config";
 import {renderLines} from "../../shared/toolRendering";
-import {renderSubagentRunTree, SubagentTreeFilter} from "./tree-ui";
+import {renderSubagentRunTree, SubagentTreeFilter, subagentTreeRowLimit} from "./tree-ui";
 
 const filterValues = Object.values(SubagentTreeFilter);
 
@@ -247,7 +247,8 @@ function refreshSubagentWidget(ctx: Pick<ExtensionContext, "ui"> | undefined): v
   const db = SqliteDatabase.readwrite(database_filename);
   try {
     const dao = new SubagentDao(db).initializeSchema();
-    const lines = renderSubagentRunTree(dao.listTree(rootId), rootId, widgetState.filter);
+    const rows = dao.listTree(rootId, subagentTreeRowLimit + 1);
+    const lines = renderSubagentRunTree(rows, rootId, widgetState.filter);
     setSubagentWidgetLines(ctx, lines.length > 0 ? lines : ["Subagents", "└─ No subagents"]);
   } finally {
     db.close();

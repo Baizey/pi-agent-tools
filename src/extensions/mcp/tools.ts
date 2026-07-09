@@ -156,10 +156,10 @@ function createMcpPiTool(input: {
       };
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(input.piToolName, args, theme as never, context);
+      return renderToolCallInput(input.piToolName, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 12});
+      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
     },
   };
 }

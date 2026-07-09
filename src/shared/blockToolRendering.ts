@@ -1,62 +1,115 @@
-import {FoldDirection, foldLines, renderLines} from "./toolRendering";
+import {addBoundaryNotice, FoldDirection, omittedLinesNotice, selectDisplayWindow, selectTextWindow} from "./rendering/displayBudget";
+import {renderLineFactory} from "./rendering/terminalText";
+import type {TextComponent} from "./rendering/terminalText";
+import type {ExpansionContext, RenderTheme} from "./rendering/types";
+import {formatDisplayValue} from "./rendering/valueFormat";
+import {foldLines} from "./toolRendering";
 
-type RenderContextLike = {
-  expanded?: boolean;
+export type ToolField = {
+  label: string;
+  value: unknown;
+  omit?: boolean;
 };
 
-type BlockFoldOptions = {
-  direction?: FoldDirection;
-  previewLines?: number;
+export type BlockToolCall = {
+  title: string;
+  fields?: readonly ToolField[];
+  block: {
+    label: string;
+    text: string;
+  };
+  fold?: {
+    direction?: FoldDirection;
+    previewLines?: number;
+  };
 };
 
-const maxExpandedBlockLines = 2_000;
+const maxBlockToolLines = 2_000;
+const maxBlockFieldLines = 100;
 const maxBlockDisplayCharacters = 200_000;
+const blockTruncatedNotice = "[block display truncated]";
 
 export function renderBlockToolCall(
-  header: string,
-  fields: Array<string | null | undefined>,
-  blockLabel: string,
-  block: string,
-  context?: RenderContextLike,
-  options: BlockFoldOptions = {},
-) {
-  const expanded = context?.expanded !== false;
-  const displayBlock = limitBlockCharacters(block, options.direction);
-  const blockLines = limitExpandedBlockLines(displayBlock.split(/\r\n|\n|\r/), expanded, options.direction);
-  const lines = [
-    header,
-    ...fields.filter((field): field is string => Boolean(field)),
-    ...renderBlockLines(blockLabel, blockLines, expanded ? {expanded: true} : context, options),
-  ];
-  return renderLines(lines);
+  call: BlockToolCall,
+  theme?: RenderTheme,
+  context?: ExpansionContext,
+): TextComponent {
+  return renderLineFactory(() => {
+    const title = color(theme, "toolTitle", bold(theme, call.title));
+    const fields = formatFields(call.fields ?? [], theme);
+    const blockLineBudget = maxBlockToolLines - 1 - fields.length;
+    const blockLines = formatBlock(call.block, context, call.fold ?? {}, blockLineBudget);
+    return [title, ...fields, ...blockLines];
+  });
 }
 
-function limitBlockCharacters(block: string, direction: FoldDirection | undefined): string {
-  if (block.length <= maxBlockDisplayCharacters) return block;
-  const notice = "[block display truncated]";
-  return direction === FoldDirection.TAIL
-    ? `${notice}\n${block.slice(-maxBlockDisplayCharacters)}`
-    : `${block.slice(0, maxBlockDisplayCharacters)}\n${notice}`;
+function formatFields(fields: readonly ToolField[], theme: RenderTheme | undefined): string[] {
+  const lines: string[] = [];
+  let omitted = false;
+
+  for (const field of fields) {
+    if (field.omit || field.value === undefined) continue;
+    if (lines.length >= maxBlockFieldLines - 1) {
+      omitted = true;
+      break;
+    }
+    lines.push(color(theme, "dim", `  ${field.label}: ${formatDisplayValue(field.value)}`));
+  }
+
+  if (omitted) lines.push(color(theme, "dim", "  ... additional fields omitted"));
+  return lines;
 }
 
-function limitExpandedBlockLines(lines: string[], expanded: boolean, direction: FoldDirection | undefined): string[] {
-  if (!expanded || lines.length <= maxExpandedBlockLines) return lines;
-
-  const retained = maxExpandedBlockLines - 1;
-  const omitted = lines.length - retained;
-  const notice = `... (${omitted} ${omitted === 1 ? "line" : "lines"} omitted from display)`;
-  return direction === FoldDirection.TAIL
-    ? [notice, ...lines.slice(-retained)]
-    : [...lines.slice(0, retained), notice];
-}
-
-function renderBlockLines(
-  blockLabel: string,
-  blockLines: string[],
-  context: RenderContextLike | undefined,
-  options: BlockFoldOptions,
+function formatBlock(
+  block: BlockToolCall["block"],
+  context: ExpansionContext | undefined,
+  fold: NonNullable<BlockToolCall["fold"]>,
+  maxLines: number,
 ): string[] {
-  if (blockLines.length <= 1) return [`  ${blockLabel}: ${blockLines[0] ?? ""}`];
-  const preview = foldLines(blockLines, context, options).map(line => `    ${line}`);
-  return [`  ${blockLabel}:`, ...preview];
+  const direction = fold.direction ?? FoldDirection.HEAD;
+  const bounded = selectTextWindow(block.text, maxBlockDisplayCharacters, direction);
+  const allLines = bounded.text.split(/\r\n|\n|\r/);
+  const contentLineBudget = Math.max(1, maxLines - 1);
+  const selectedLines = context?.expanded === false
+    ? foldLines(allLines, context, {
+      ...fold,
+      previewLines: collapsedPreviewLines(fold.previewLines, contentLineBudget, bounded.truncated),
+    })
+    : boundExpandedLines(allLines, direction, bounded.truncated ? 1 : 0, contentLineBudget);
+  const visibleLines = bounded.truncated
+    ? addBoundaryNotice(selectedLines, blockTruncatedNotice, direction)
+    : selectedLines;
+
+  if (visibleLines.length === 1) return [`  ${block.label}: ${visibleLines[0] ?? ""}`];
+  return [`  ${block.label}:`, ...visibleLines.map(line => `    ${line}`)];
+}
+
+function collapsedPreviewLines(requested: number | undefined, lineBudget: number, truncated: boolean): number {
+  const fallback = 8;
+  const normalized = requested === undefined || !Number.isFinite(requested)
+    ? fallback
+    : Math.max(1, Math.floor(requested));
+  const noticeLines = truncated ? 2 : 1; // Character notice plus a possible fold notice.
+  return Math.max(1, Math.min(normalized, lineBudget - noticeLines));
+}
+
+function boundExpandedLines(
+  lines: string[],
+  direction: FoldDirection,
+  reservedLines: number,
+  maxLines: number,
+): string[] {
+  const available = Math.max(1, maxLines - reservedLines);
+  if (lines.length <= available) return lines;
+
+  const window = selectDisplayWindow(lines, available - 1, direction);
+  return addBoundaryNotice(window.items, omittedLinesNotice(window.omitted), direction);
+}
+
+function color(theme: RenderTheme | undefined, name: string, text: string): string {
+  return theme?.fg ? theme.fg(name, text) : text;
+}
+
+function bold(theme: RenderTheme | undefined, text: string): string {
+  return theme?.bold ? theme.bold(text) : text;
 }

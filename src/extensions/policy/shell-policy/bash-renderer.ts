@@ -1,8 +1,9 @@
-import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
+import type {ExtensionContext, PiExtensionApi, Theme} from "../../../pi/types";
+import {renderBlockToolCall} from "../../../shared/blockToolRendering";
 import {toolNames} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
-import {renderBlockToolCall} from "../../../shared/blockToolRendering";
 import {stringValue} from "../../../shared/values";
+import type {ExpansionContext} from "../../../shared/rendering/types";
 
 type BashToolLike = {
   description: string;
@@ -14,59 +15,80 @@ type BashToolLike = {
     onUpdate?: unknown,
     ctx?: ExtensionContext,
   ): Promise<{
-    content: Array<{ type: "text"; text: string }>;
+    content: Array<{type: "text"; text: string}>;
     details?: Record<string, unknown>;
-    isError?: boolean
+    isError?: boolean;
   }>;
 };
 
-export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
-  let originalBash: BashToolLike | null = null;
-  try {
-    const piPackage = require("@earendil-works/pi-coding-agent") as {
-      createBashTool?: (cwd: string) => BashToolLike
-    };
-    originalBash = piPackage.createBashTool?.(process.cwd()) ?? null;
-  } catch {
-    return;
-  }
-  if (!originalBash || !pi.registerTool) return;
+const purposeDescription = "Briefly describe what this bash command is intended to achieve.";
 
+export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
+  const bash = loadBashTool();
+  if (!bash || !pi.registerTool) return;
+
+  const nativePurpose = hasPurposeParameter(bash.parameters);
   pi.registerTool({
     name: toolNames.bash,
     label: "bash",
-    description: originalBash.description,
-    parameters: addPurposeParameter(originalBash.parameters, "Briefly describe what this bash command is intended to achieve."),
+    description: bash.description,
+    parameters: nativePurpose ? bash.parameters : withPurposeParameter(bash.parameters),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
+      if (nativePurpose) return bash.execute(toolCallId, params, signal, onUpdate, ctx);
       const {purpose: _purpose, ...bashParams} = params;
-      return await originalBash.execute(toolCallId, bashParams, signal, onUpdate, ctx);
+      return bash.execute(toolCallId, bashParams, signal, onUpdate, ctx);
     },
-    renderCall(args, theme, context) {
-      const command = stringValue(args.command);
-      if (!command) return renderToolCallInput(toolNames.bash, args, theme as never, context);
-      return renderBlockToolCall(
-        toolNames.bash,
-        [
-          stringValue(args.purpose) ? `  purpose: ${stringValue(args.purpose)}` : null,
-          typeof args.timeout === "number" ? `  timeout: ${args.timeout}` : null,
-        ],
-        "command",
-        command,
-        context as {expanded?: boolean} | undefined,
-      );
-    },
+    renderCall: renderBashCall,
+    // renderResult is intentionally omitted. Pi inherits the built-in bash
+    // result renderer independently from this call renderer.
   });
 }
 
-function addPurposeParameter(parameters: Record<string, unknown>, description: string): Record<string, unknown> {
-  const properties = parameters.properties && typeof parameters.properties === "object" && !Array.isArray(parameters.properties)
-    ? parameters.properties as Record<string, unknown>
-    : {};
+export function renderBashCall(args: Record<string, unknown>, theme?: Theme, context?: ExpansionContext) {
+  const command = stringValue(args.command);
+  if (!command) {
+    return renderToolCallInput(toolNames.bash, args, theme, context);
+  }
+
+  const purpose = stringValue(args.purpose);
+  return renderBlockToolCall({
+    title: toolNames.bash,
+    fields: [
+      {label: "purpose", value: purpose, omit: !purpose},
+      {label: "timeout", value: args.timeout, omit: typeof args.timeout !== "number"},
+    ],
+    block: {label: "command", text: command},
+  }, theme, context);
+}
+
+function loadBashTool(): BashToolLike | undefined {
+  try {
+    const piPackage = require("@earendil-works/pi-coding-agent") as {
+      createBashTool?: (cwd: string) => BashToolLike;
+    };
+    return piPackage.createBashTool?.(process.cwd());
+  } catch {
+    return undefined;
+  }
+}
+
+function hasPurposeParameter(parameters: Record<string, unknown>): boolean {
+  return Object.prototype.hasOwnProperty.call(objectValue(parameters.properties), "purpose");
+}
+
+function withPurposeParameter(parameters: Record<string, unknown>): Record<string, unknown> {
+  const properties = objectValue(parameters.properties);
   return {
     ...parameters,
     properties: {
       ...properties,
-      purpose: {type: "string", description},
+      purpose: {type: "string", description: purposeDescription},
     },
   };
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
 }

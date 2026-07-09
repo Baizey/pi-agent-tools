@@ -95,23 +95,22 @@ export function registerLocalSqlTool(
         },
         renderCall(args, theme, context) {
             const sql = stringValue((args as LocalSqlParams).sql);
-            if (!sql) return renderToolCallInput(toolNames.localSql, args, theme as never, context);
-            const params = (args as LocalSqlParams).params;
-            return renderBlockToolCall(
-                toolNames.localSql,
-                [
-                    `  action: ${stringValue((args as LocalSqlParams).action) ?? "query"}`,
-                    stringValue((args as LocalSqlParams).purpose) ? `  purpose: ${stringValue((args as LocalSqlParams).purpose)}` : null,
-                    (args as LocalSqlParams).limit === undefined ? null : `  limit: ${String((args as LocalSqlParams).limit)}`,
-                    params && typeof params === "object" ? `  params: ${JSON.stringify(params)}` : null,
+            if (!sql) return renderToolCallInput(toolNames.localSql, args, theme, context);
+            const input = args as LocalSqlParams;
+            const purpose = stringValue(input.purpose);
+            return renderBlockToolCall({
+                title: toolNames.localSql,
+                fields: [
+                    {label: "action", value: stringValue(input.action) ?? "query"},
+                    {label: "purpose", value: purpose, omit: !purpose},
+                    {label: "limit", value: input.limit, omit: input.limit === undefined},
+                    {label: "params", value: input.params, omit: !input.params || typeof input.params !== "object"},
                 ],
-                "sql",
-                sql,
-                context as {expanded?: boolean} | undefined,
-            );
+                block: {label: "sql", text: sql},
+            }, theme, context);
         },
         renderResult(result, _options, theme, context) {
-            return renderToolResultOutput(result, theme as never, context, {direction: FoldDirection.HEAD, previewLines: 16});
+            return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 16});
         },
     });
 }

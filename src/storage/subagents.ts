@@ -139,11 +139,14 @@ export class SubagentDao {
         return this.orm.get(subagentRuns, {id}) as SubagentRunRow | undefined;
     }
 
-    listTree(rootId: string): SubagentRunRow[] {
-        return this.orm.all(subagentRuns, {rootId}, {orderBy: [
-            {column: "depth", direction: "asc"},
-            {column: "parentId", direction: "asc"},
-            {column: "ordinal", direction: "asc"},
-        ]}) as SubagentRunRow[];
+    listTree(rootId: string, limit?: number): SubagentRunRow[] {
+        return this.orm.all(subagentRuns, {rootId}, {
+            orderBy: [
+                {column: "depth", direction: "asc"},
+                {column: "parentId", direction: "asc"},
+                {column: "ordinal", direction: "asc"},
+            ],
+            limit,
+        }) as SubagentRunRow[];
     }
 }
