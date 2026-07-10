@@ -140,11 +140,11 @@ async function askCodeExecPolicyWithFlow(
 
     const fullItem = [
         `Language: ${input.language}`,
-        `Args: ${input.args.join(" ") ?? '(none)'}`,
-        `Stdin: ${input.stdin ?? '(none)'}`,
+        `Args: ${input.args.length > 0 ? input.args.join(" ") : "(none)"}`,
+        `Stdin: ${input.stdin ?? "(none)"}`,
         "-----",
-        input.source
-    ].join("\n")
+        input.source,
+    ].join("\n");
     const approval = await new UiDecisionFlowManager(ctx).runFlow<CodeExecPolicyApproval>(
         decisions.scope,
         decisions,
@@ -155,7 +155,7 @@ async function askCodeExecPolicyWithFlow(
             reason: `Code execution denied: ${codeExecFlowCancelReason(state)}`,
         }),
         new UIAiHelpWrap({
-            task: "You explain code execution approval requests. Be concise, neutral, and focus on what would run. Dont explain language, core context is provided alongside your summary",
+            task: "Explain code execution approval requests concisely and neutrally. Focus on what would run; the language and core context are already shown.",
             fullItem: fullItem,
             subItems: [],
             optionLabel: "ⓘ Explain what this code execution request does before deciding",

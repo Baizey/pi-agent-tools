@@ -40,7 +40,7 @@ export async function handleMcpCommand(
   const tokens = tokenizeMcpCommand(args);
   const action = firstMcpAction(tokens) ?? (tokens.length === 0 ? McpCommandAction.SHOW : null);
   if (!action) return err(`Unknown /${McpCommandName.MCP} action: ${tokens[0] ?? ""}`);
-  const rest = tokens.slice(tokens.length === 0 ? 0 : 1);
+  const rest = tokens.slice(1);
 
   switch (action) {
     case McpCommandAction.SHOW:

@@ -8,7 +8,6 @@ import {
   McpClientFactory,
   McpClientRequestOptions,
   McpConfigSnapshot,
-  McpHttpServerConfig,
   McpProgress,
   McpServerClient,
   McpServerConfig,

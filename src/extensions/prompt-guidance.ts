@@ -70,7 +70,7 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         ].join("\n"));
     }
 
-    if ([toolNames.policyInfo].some(hasTool)) {
+    if (hasTool(toolNames.policyInfo)) {
         sections.push([
             "Policy tools:",
             "- Use policy_info to inspect active policies or evaluate an exact path, shell command, code scope, or URL before retrying blocked work.",
@@ -80,16 +80,14 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
     }
 
     if ([toolNames.executeCode, toolNames.executeCodeInfo, toolNames.bash].some(hasTool)) {
-        const bashConstraint = hasTool(toolNames.bash) ?
-            "- NEVER use bash for code execution, policies will default at denying you"
-            : ""
-
         sections.push([
             "Code execution tools:",
             "- Use execute_code for short scripts or source-file runs when direct runtime execution is clearer than shell.",
             "- Use execute_code_info first when runtime availability or supported modes are uncertain.",
             "- Always provide a concise purpose; prefer inline mode for small throwaway snippets and file mode for existing source files.",
-            bashConstraint
+            ...(hasTool(toolNames.bash)
+                ? ["- NEVER use bash for code execution, policies will default at denying you"]
+                : []),
         ].join("\n"));
     }
 

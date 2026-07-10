@@ -65,7 +65,7 @@ function clearPolicies(runtime: AgentRuntime, tokens: string[]) {
   if (options.error) return err(options.error);
   const clearError = clearOptionsError(options, 1);
   if (clearError) return err(clearError);
-  const kind = firstKind(options.operands) ?? (options.operands.length === 0 ? null : null);
+  const kind = firstKind(options.operands);
   if (!kind) return err(`Missing or unknown policy kind. Expected one of: ${policyCommandKinds.join(", ")}`);
   if (!options.yes) return err(PolicyCommandText.CLEAR_REQUIRES_YES);
   clearPolicyKind(runtime, kind);

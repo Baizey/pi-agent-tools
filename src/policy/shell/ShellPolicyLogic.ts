@@ -56,7 +56,7 @@ export class ShellPolicyLogic {
     const segments = splitShellSegments(command);
     let hasUnknownSegment = false;
 
-    for (const segment of segments.length === 0 ? [command] : segments) {
+    for (const segment of segments) {
       const result = this.evaluateSegment(segment, denyByDefault);
       if (result === null) {
         hasUnknownSegment = true;
@@ -72,7 +72,7 @@ export class ShellPolicyLogic {
 
   pendingPolicyScopeOptions(command: string): ShellPolicyScopeOption[] {
     const segments = splitShellSegments(command);
-    for (const segment of segments.length === 0 ? [command] : segments) {
+    for (const segment of segments) {
       const options = this.pendingPolicyScopeOptionsForSegment(segment);
       if (options.length > 0) return options;
     }
@@ -203,13 +203,12 @@ export class ShellPolicyLogic {
     }
 
     const flagTokens = flagsForTokens(tokens, commandPrefix.length);
-    const flagResults = flagTokens.map((flag) => this.defaultFlagStatus(flag, denyByDefault));
 
     if (hasUnsafeShellSyntax(rawSegment, tokens)) {
       return this.deniedSegment(
         rawSegment,
         commandPrefix,
-        flagResults,
+        flagTokens.map((flag) => this.defaultFlagStatus(flag, denyByDefault)),
         denyByDefault,
         "Shell expansion or redirection is not allowed in shell policy evaluation.",
       );
@@ -590,7 +589,7 @@ const hasUnsafeBashCommand = (tokens: ShellToken[]): boolean => {
   const args = tokens.slice(1).map((it) => it.value.toLowerCase());
 
   if (["bash", "sh", "dash", "zsh", "ksh"].includes(executable)) {
-    return args.some((it) => it === "-c" || it.startsWith("-c") || (/^-[^-]/.test(it) && it.slice(1).includes("c")));
+    return args.some((it) => it.startsWith("-c") || (/^-[^-]/.test(it) && it.slice(1).includes("c")));
   }
 
   if (["eval", "source", ".", "exec"].includes(executable)) return true;
@@ -627,8 +626,6 @@ const isCommandCoreArgument = (token: ShellToken | undefined): token is ShellTok
 const isPathLikeArgument = (value: string): boolean =>
   value.includes("/") ||
   value.includes("\\") ||
-  value.startsWith("./") ||
-  value.startsWith("../") ||
   /^[a-zA-Z]:/.test(value);
 
 const isFileLikeArgument = (value: string): boolean => /(?:^|[^.])\.[a-zA-Z0-9]{1,12}$/.test(value);

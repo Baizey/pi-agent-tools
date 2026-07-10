@@ -51,7 +51,7 @@ export class PathPolicyLogic {
   private readonly standardizePath: PathStandardizer;
 
   constructor(options: PathPolicyLogicOptions = {}) {
-    this.standardizePath = options.standardizePath ?? PathPolicyLogic.defaultStandardizePath;
+    this.standardizePath = options.standardizePath ?? resolvePhysicalPath;
     if (options.policies) this.addPolicies(options.policies);
   }
 
@@ -65,11 +65,9 @@ export class PathPolicyLogic {
         evaluatedPath,
         evaluatedAccessType: accessType,
         matchedPattern: "(none)",
-        matchedLifetime: denyByDefault ? PolicyLifetime.FOREVER : PolicyLifetime.ONCE,
+        matchedLifetime: PolicyLifetime.FOREVER,
         matchedStatus: PolicyStatus.DENIED,
-        matchedReason: denyByDefault
-          ? "No matching policy found. denied by default, you cannot access this"
-          : "No matching policy found. Ask for permission if you want to proceed.",
+        matchedReason: "No matching policy found. denied by default, you cannot access this",
         resolutionSource: PolicyResolutionSource.SYSTEM,
       };
     }
@@ -119,15 +117,12 @@ export class PathPolicyLogic {
   }
 
   policiesSnapshot(): PathPolicy[] {
-    return this.policies.map((policy) => {
-      const snapshot = {
-        path: policy.path,
-        info: Object.fromEntries(
-          Object.entries(policy.info).map(([accessType, status]) => [accessType, status ? { ...status } : status]),
-        ) satisfies PathPolicy["info"],
-      } satisfies PathPolicy;
-      return snapshot;
-    });
+    return this.policies.map((policy) => ({
+      path: policy.path,
+      info: Object.fromEntries(
+        Object.entries(policy.info).map(([accessType, status]) => [accessType, status ? {...status} : status]),
+      ) satisfies PathPolicy["info"],
+    } satisfies PathPolicy));
   }
 
   persistedPolicies(): PathPolicy[] {
@@ -184,10 +179,6 @@ export class PathPolicyLogic {
 
     if (left === right) return true;
     return left.length > right.length && left.startsWith(right) && ["\\", "/"].includes(candidate[parent.length]);
-  }
-
-  private static defaultStandardizePath(input: string): string {
-    return resolvePhysicalPath(input);
   }
 
   private static looksLikeWindowsPath(value: string): boolean {

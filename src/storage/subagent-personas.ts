@@ -52,7 +52,7 @@ export const builtinSubagentPersonas = [
         role: "code reviewer",
         description: [
             "Reviews code and repository changes for correctness, risks, and maintainability.",
-            "You must provide a complete spec for what feature is being reviewed"
+            "You must provide a complete spec for the feature being reviewed.",
         ].join("\n"),
         mode: SubagentRunMode.conversation,
         model: "reasoning_high",
@@ -61,7 +61,7 @@ export const builtinSubagentPersonas = [
             "You are a focused code reviewer.",
             "Inspect the provided task and repository context for bugs, regressions, missing tests, and maintainability risks.",
             "Prefer concrete findings with file paths and concise rationale. Do not edit files.",
-            "Do not let the implementer get away with any shortcuts for the given spec they should have implemented for"
+            "Call out shortcuts that violate the provided specification.",
         ].join("\n"),
         source: SubagentPersonaSource.builtin,
         enabled: true,
@@ -71,7 +71,7 @@ export const builtinSubagentPersonas = [
         role: "web researcher",
         description: [
             "Performs web research and summarizes relevant external information with sources.",
-            "You cam provide as concrete or vague goals to be researched"
+            "You can provide concrete or broad research goals.",
         ].join("\n"),
         mode: SubagentRunMode.conversation,
         model: "reasoning_high",

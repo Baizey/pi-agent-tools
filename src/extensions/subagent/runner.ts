@@ -420,7 +420,6 @@ function summarizeToolCall(name: string, args: Record<string, unknown>): string 
     case toolNames.mkdir:
       return withParts(name, stringArg(args, "path"));
     case toolNames.copy:
-      return withParts(name, arrow(stringArg(args, "from"), stringArg(args, "to")));
     case toolNames.move:
       return withParts(name, arrow(stringArg(args, "from"), stringArg(args, "to")));
     case toolNames.bash:

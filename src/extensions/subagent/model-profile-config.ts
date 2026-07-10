@@ -4,7 +4,7 @@ import path from "node:path";
 import {AgentModelProfile, agentModelProfiles} from "./model-profile-types";
 
 export const autoModelProfileConfig = "auto";
-export type ModelProfileConfigValue = typeof autoModelProfileConfig | string;
+export type ModelProfileConfigValue = string;
 export type ModelProfileConfig = Partial<Record<AgentModelProfile, ModelProfileConfigValue>>;
 
 const profileValues = Object.values(agentModelProfiles);

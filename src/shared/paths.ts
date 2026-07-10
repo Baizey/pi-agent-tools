@@ -6,17 +6,28 @@ export function standardizePath(cwd: string, input: string): string {
 }
 
 export function resolvePhysicalPath(input: string): string {
-  const normalized = path.resolve(input).normalize().replace(/[\\/]+$/g, "");
+  const normalized = stripTrailingPathSeparators(path.resolve(input).normalize());
   const existingAncestor = nearestExistingAncestor(normalized);
   if (!existingAncestor) return normalized;
 
   try {
-    const physicalAncestor = fs.realpathSync.native(existingAncestor).replace(/[\\/]+$/g, "");
+    const physicalAncestor = stripTrailingPathSeparators(fs.realpathSync.native(existingAncestor));
     const suffix = path.relative(existingAncestor, normalized);
-    return suffix ? path.join(physicalAncestor, suffix).normalize().replace(/[\\/]+$/g, "") : physicalAncestor;
+    return suffix
+      ? stripTrailingPathSeparators(path.join(physicalAncestor, suffix).normalize())
+      : physicalAncestor;
   } catch {
     return normalized;
   }
+}
+
+export function stripTrailingPathSeparators(
+  input: string,
+  pathParser: Pick<typeof path, "parse"> = path,
+): string {
+  const root = pathParser.parse(input).root;
+  const stripped = input.replace(/[\\/]+$/g, "");
+  return stripped.length < root.length ? root : stripped;
 }
 
 function nearestExistingAncestor(input: string): string | null {

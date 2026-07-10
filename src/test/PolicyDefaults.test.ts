@@ -17,10 +17,10 @@ import {registerPathPolicy} from "../extensions/policy/path-policy";
 import {ensureShellAllowed} from "../extensions/policy/shell-policy";
 import type {ExtensionContext, PiExtensionApi, ToolCallDecision, ToolCallEvent} from "../index";
 
-function withCleanPolicyDefaults(fn: () => void): void {
+function withCleanPolicyDefaults(callback: () => void): void {
   resetPolicyDefaultsForTest();
   try {
-    fn();
+    callback();
   } finally {
     resetPolicyDefaultsForTest();
   }

@@ -44,7 +44,7 @@ export class CodeExecPolicyDao {
       order by "language" asc, "mode" asc
     `).all() as CodeExecPolicyRuleRow[];
 
-    return sanitizeCodeExecPolicySnapshot({policies: rows.map((row): CodeExecPolicy => ({...row}))}).policies;
+    return sanitizeCodeExecPolicySnapshot({policies: rows}).policies;
   }
 
   replacePolicies(policies: CodeExecPolicy[]): void {

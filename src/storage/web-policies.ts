@@ -46,7 +46,7 @@ export class WebPolicyDao {
       order by "host" asc, "path" asc, "accessType" asc
     `).all() as WebPolicyRuleRow[];
 
-    return sanitizeWebPolicySnapshot({policies: rows.map((row): WebPolicy => ({...row}))}).policies;
+    return sanitizeWebPolicySnapshot({policies: rows}).policies;
   }
 
   replacePolicies(policies: WebPolicy[]): void {

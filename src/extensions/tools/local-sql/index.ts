@@ -32,8 +32,8 @@ export function registerLocalSqlTool(
         label: "Local SQL",
         description: [
             "Readonly SQL access to the computer-local SQLite database. Use schema first to inspect available tables.",
-            "Available tables with information:" +
-            "- session history, with ALL previous sessions available for querying"
+            "Notable data:",
+            "- Session history, including all previous sessions.",
         ].join("\n"),
         parameters: {
             type: "object",
