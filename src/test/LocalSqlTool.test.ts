@@ -6,16 +6,6 @@ import {registerLocalSqlTool} from "../extensions/tools/local-sql";
 import {PiExtensionApi, ToolDefinition} from "../pi/types";
 import {SqliteDatabase} from "../storage";
 
-async function test(name: string, fn: () => Promise<void>): Promise<void> {
-  try {
-    await fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    throw error;
-  }
-}
-
 function withTool(fn: (tool: ToolDefinition) => Promise<void> | void) {
   const dir = tempDir("pi-local-sql-");
   const file = path.join(dir, "agent.sqlite");
@@ -42,15 +32,14 @@ function withTool(fn: (tool: ToolDefinition) => Promise<void> | void) {
   });
 }
 
-void (async () => {
-  await test("local_sql schema returns table metadata and examples", async () => withTool(async tool => {
+test("local_sql schema returns table metadata and examples", async () => withTool(async tool => {
     const result = await tool.execute("schema", {action: "schema"});
     assert.equal(result.isError, undefined);
     assert.match((result.content[0] as {text: string}).text, /items/);
     assert.match((result.content[0] as {text: string}).text, /examples/);
   }));
 
-  await test("local_sql runs readonly query with params, trailing semicolon, and compact details", async () => withTool(async tool => {
+test("local_sql runs readonly query with params, trailing semicolon, and compact details", async () => withTool(async tool => {
     const result = await tool.execute("query", {
       action: "query",
       sql: "select id, name from items where active = @active order by id;",
@@ -62,15 +51,14 @@ void (async () => {
     assert.match((result.content[0] as {text: string}).text, /Alpha/);
   }));
 
-  await test("local_sql rejects non-readonly sql", async () => withTool(async tool => {
+test("local_sql rejects non-readonly sql", async () => withTool(async tool => {
     const result = await tool.execute("delete", {action: "query", sql: "delete from items"});
     assert.equal(result.isError, true);
     assert.match((result.content[0] as {text: string}).text, /Only readonly SELECT or WITH/);
   }));
 
-  await test("local_sql caps returned row limit", async () => withTool(async tool => {
+test("local_sql caps returned row limit", async () => withTool(async tool => {
     const result = await tool.execute("limit", {action: "query", sql: "select * from items", limit: 999});
     assert.equal(result.isError, undefined);
     assert.deepEqual(result.details, {rowCount: 2, limit: 200});
-  }));
-})();
+}));

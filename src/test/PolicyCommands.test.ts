@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {test} from "./TestHarness";
 import {AgentRuntime} from "../pi/runtime";
 import {PathPolicyLogic} from "../policy/path/PathPolicyLogic";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";

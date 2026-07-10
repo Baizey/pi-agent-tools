@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import {PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {WebPolicyLogic, webPolicyPathForUrl} from "../policy/web/WebPolicyLogic";
 

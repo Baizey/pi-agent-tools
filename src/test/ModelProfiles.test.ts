@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {test} from "node:test";
 import {ExtensionContext} from "../pi/types";
 import {agentModelProfiles, renderModelProfileConfig, resolvedModelForProfile} from "../extensions/subagent/model-profiles";
 import {sanitizeModelProfileConfig} from "../extensions/subagent/model-profile-config";

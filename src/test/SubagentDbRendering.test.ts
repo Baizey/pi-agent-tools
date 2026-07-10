@@ -3,7 +3,6 @@ import {renderSubagentRunTree, SubagentTreeFilter} from "../extensions/subagent/
 import {subagentRunStatuses} from "../storage";
 import type {SubagentRunRow} from "../storage";
 import {SubagentRunMode} from "../shared/subagents";
-import {test} from "./TestHarness";
 
 test("subagent database rendering keeps matching ancestors", () => {
   const root = row("root", null, 1, subagentRunStatuses.running);

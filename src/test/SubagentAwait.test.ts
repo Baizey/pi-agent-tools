@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {test} from "./TestHarness";
 import {PiExtensionApi, registerSubagentTool, subagentRunModes, subagentToolkitNames, toolNames} from "../index";
 import {
   AsyncSubagentJob,

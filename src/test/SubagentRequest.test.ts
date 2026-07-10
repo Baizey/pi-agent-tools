@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {test} from "./TestHarness";
 import {agentEnv} from "../shared/env";
 import {parseSubagentRequest} from "../extensions/subagent/request";
 import {subagentRunModes} from "../extensions/subagent";

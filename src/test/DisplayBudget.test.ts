@@ -5,7 +5,6 @@ import {
   selectDisplayWindow,
   selectTextWindow,
 } from "../shared/rendering/displayBudget";
-import {test} from "./TestHarness";
 
 test("display windows select a bounded head or tail", () => {
   assert.deepEqual(selectDisplayWindow([1, 2, 3, 4], 2, FoldDirection.HEAD), {items: [1, 2], omitted: 2});

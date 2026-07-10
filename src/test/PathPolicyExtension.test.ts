@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {test} from "./TestHarness";
 import {FsAccessType, PolicyLifetime, PolicyStatus, registerPathPolicy} from "../index";
 import type {PiExtensionApi, ToolCallEvent, ToolCallDecision, ExtensionContext} from "../index";
 

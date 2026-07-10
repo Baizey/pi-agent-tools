@@ -3,16 +3,6 @@ import {registerWebLookupTool, webLookupFetchTimeoutMs} from "../extensions/tool
 import {PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {PiExtensionApi, ToolDefinition} from "../pi/types";
 
-async function test(name: string, fn: () => Promise<void>): Promise<void> {
-  try {
-    await fn();
-    console.log(`✓ ${name}`);
-  } catch (error) {
-    console.error(`✗ ${name}`);
-    throw error;
-  }
-}
-
 function registeredWebTool(options: {allowed?: boolean; onEvaluate?: (url: string, accessType: WebAccessType) => void} = {}): ToolDefinition {
   let tool: ToolDefinition | undefined;
   const pi = {
@@ -55,8 +45,7 @@ function registeredWebTool(options: {allowed?: boolean; onEvaluate?: (url: strin
   return tool;
 }
 
-void (async () => {
-  await test("web lookup requires exactly one of query or url", async () => {
+test("web lookup requires exactly one of query or url", async () => {
     const tool = registeredWebTool();
 
     const both = await tool.execute("1", {query: "pi", url: "https://example.com/"});
@@ -68,7 +57,7 @@ void (async () => {
     assert.match((neither.content[0] as {text: string}).text, /provide either query or url/);
   });
 
-  await test("web lookup denied policy does not call fetch", async () => {
+test("web lookup denied policy does not call fetch", async () => {
     const tool = registeredWebTool({allowed: false});
     const originalFetch = globalThis.fetch;
     let fetchCalled = false;
@@ -87,7 +76,7 @@ void (async () => {
     }
   });
 
-  await test("web lookup uses SEARCH for query and READ for url", async () => {
+test("web lookup uses SEARCH for query and READ for url", async () => {
     const evaluations: Array<{url: string; accessType: WebAccessType}> = [];
     const tool = registeredWebTool({onEvaluate: (url, accessType) => evaluations.push({url, accessType})});
     const originalFetch = globalThis.fetch;
@@ -105,7 +94,7 @@ void (async () => {
     assert.deepEqual(evaluations[1], {url: "https://example.com/docs", accessType: WebAccessType.READ});
   });
 
-  await test("web lookup has a built-in fetch timeout", async () => {
+test("web lookup has a built-in fetch timeout", async () => {
     const tool = registeredWebTool();
     const originalFetch = globalThis.fetch;
     const originalSetTimeout = globalThis.setTimeout;
@@ -133,7 +122,7 @@ void (async () => {
     }
   });
 
-  await test("web lookup passes cancellation signal to fetch", async () => {
+test("web lookup passes cancellation signal to fetch", async () => {
     const tool = registeredWebTool();
     const originalFetch = globalThis.fetch;
     let fetchSignal: AbortSignal | undefined;
@@ -152,5 +141,4 @@ void (async () => {
     } finally {
       globalThis.fetch = originalFetch;
     }
-  });
-})();
+});

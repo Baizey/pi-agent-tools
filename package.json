@@ -29,11 +29,13 @@
   "scripts": {
     "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
     "build": "npm run clean && tsc",
-    "test": "npm run build && node scripts/run-tests.js"
+    "test": "npm run build && jest --config jest.config.cjs --runInBand"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^30.0.0",
     "@types/node": "^26.0.1",
+    "jest": "^30.4.2",
     "typescript": "^6.0.3"
   },
   "private": true,

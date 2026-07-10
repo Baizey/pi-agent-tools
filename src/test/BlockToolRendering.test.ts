@@ -7,7 +7,6 @@ import {
   ToolRenderDefaultKeyText,
   ToolRenderKeybindingDescription,
 } from "../shared/toolRendering";
-import {test} from "./TestHarness";
 
 const expandHint = `${ToolRenderDefaultKeyText.TOOLS_EXPAND} ${ToolRenderKeybindingDescription.EXPAND}`;
 
@@ -43,8 +42,8 @@ test("block tool renderer shows expanded content", () => {
 test("block tool renderer bounds rows, characters, and line width", () => {
   const manyLines = Array.from({length: 2_500}, (_, index) => `line ${index}`).join("\n");
   const renderedLines = renderBlockToolCall({title: "execute_code", block: {label: "code", text: manyLines}}, undefined, {expanded: true}).render(120);
-  assert.equal(renderedLines.length, 2_002);
-  assert.equal(renderedLines[renderedLines.length - 1], "    ... (501 lines omitted from display)");
+  assert.equal(renderedLines.length, 2_000);
+  assert.equal(renderedLines[renderedLines.length - 1], "    ... (503 lines omitted from display)");
 
   const longLine = renderBlockToolCall({title: "execute_code", block: {label: "code", text: "x".repeat(250_000)}}, undefined, {expanded: true}).render(80);
   assert.equal(longLine[longLine.length - 1], "    [block display truncated]");

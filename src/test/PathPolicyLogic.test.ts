@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { tempDir, test } from "./TestHarness";
+import {tempDir} from "./TestHarness";
 import {
   FsAccessType,
   PathPolicy,
@@ -158,4 +158,4 @@ test("symlink inside allowed agent path cannot grant access to denied system pat
   assertDeniedOrUnknown(policy.evaluate(path.join(link, "payload.txt"), FsAccessType.READ, true));
 });
 
-test.skip("hard link inside allowed agent path cannot grant access to denied system file");
+test.skip("hard link inside allowed agent path cannot grant access to denied system file", () => {});

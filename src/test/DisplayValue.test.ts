@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {formatDisplayValue} from "../shared/rendering/valueFormat";
-import {test} from "./TestHarness";
 
 test("display values format primitives for fields or quoted arguments", () => {
   assert.equal(formatDisplayValue("hello"), "hello");

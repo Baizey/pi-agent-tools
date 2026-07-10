@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import {CodeExecPolicyLogic} from "../policy/code-exec/CodeExecPolicyLogic";
 import {PolicyLifetime, PolicyStatus} from "../policy/types";
 

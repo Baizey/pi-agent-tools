@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {test, tempDir} from "./TestHarness";
+import {tempDir} from "./TestHarness";
 import {Orm, SqliteDatabase, column, table} from "../storage";
 
 const widgets = table("widgets", {

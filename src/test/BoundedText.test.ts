@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {BoundedTextBuffer, truncateText} from "../shared/boundedText";
-import {test} from "./TestHarness";
 
 test("bounded text buffer retains content up to its limit across chunks", () => {
   const output = new BoundedTextBuffer(5);

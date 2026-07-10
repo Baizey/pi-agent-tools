@@ -8,7 +8,6 @@ import {
   ToolRenderKeybindingDescription,
   ToolRenderTerminalInput,
 } from "../shared/toolRendering";
-import {test} from "./TestHarness";
 
 const expandHint = `${ToolRenderDefaultKeyText.TOOLS_EXPAND} ${ToolRenderKeybindingDescription.EXPAND}`;
 const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");

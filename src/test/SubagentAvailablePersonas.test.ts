@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {test, tempDir} from "./TestHarness";
+import {tempDir} from "./TestHarness";
 import type {PiExtensionApi} from "../index";
 import {agentEnv, registerSubagentTool, SqliteDatabase, SubagentPersonaDao, toolNames} from "../index";
 import {SubagentPersonaSource, subagentRunModes, subagentToolkitNames} from "../shared/subagents";
@@ -59,7 +59,7 @@ test("available_personas seeds builtins and returns summary fields only", () => 
 
 test("available_personas reads PI_AGENT_SUBAGENT_TOOLKIT_CEILING by default", () => withDb(db => {
   withToolkitCeiling(`${subagentToolkitNames.meta},${subagentToolkitNames.webRead}`, () => {
-    assert.deepEqual(listAvailableSubagentPersonas(db).map(persona => persona.name), ["researcher", "rubber-duck"]);
+    assert.deepEqual(Array.from(listAvailableSubagentPersonas(db), persona => persona.name), ["researcher", "rubber-duck"]);
   });
 }));
 
@@ -88,7 +88,7 @@ test("available_personas filters by toolkit ceiling all-or-nothing", () => withD
   });
 
   const personas = listAvailableSubagentPersonas(db, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
-  const names = personas.map(persona => persona.name);
+  const names = Array.from(personas, persona => persona.name);
 
   assert.deepEqual(names, ["planner", "reviewer", "rubber-duck"]);
   assert.equal(names.includes("repo-writer"), false);

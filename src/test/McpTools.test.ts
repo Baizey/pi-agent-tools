@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {test} from "./TestHarness";
 import {McpConfigStore} from "../extensions/mcp/config";
 import {McpManager} from "../extensions/mcp/client";
 import {buildMcpPiToolNames, formatMcpResultText, McpToolRegistry, sanitizeToolNamePart} from "../extensions/mcp/tools";

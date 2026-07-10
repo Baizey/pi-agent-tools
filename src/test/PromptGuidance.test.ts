@@ -9,7 +9,6 @@ import {
   engineeringPrincipleHeader,
 } from "../extensions/prompt-guidance";
 import {toolNames} from "../shared/toolNames";
-import {test} from "./TestHarness";
 
 test("agent prompt guidance always includes the engineering principle", () => {
   const prompt = appendAgentPromptGuidance("base prompt", {selectedTools: []});

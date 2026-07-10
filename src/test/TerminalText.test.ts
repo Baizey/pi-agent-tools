@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import {renderLines, truncateToWidth} from "../shared/rendering/terminalText";
-import {test} from "./TestHarness";
 
 const stripAnsi = (value: string): string => value.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
 

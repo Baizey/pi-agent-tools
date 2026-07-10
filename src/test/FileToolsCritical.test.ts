@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {test} from "./TestHarness";
 import {copyPath, deletePath, makeDirectory, movePath, statPath} from "../extensions/tools/file-tools/operations";
 
 async function tempDir(): Promise<string> {

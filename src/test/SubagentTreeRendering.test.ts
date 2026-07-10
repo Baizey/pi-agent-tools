@@ -3,7 +3,6 @@ import {renderSubagentTree} from "../extensions/subagent/tree-ui";
 import type {SubagentNode, SubagentTreeRenderLimits} from "../extensions/subagent/tree-ui";
 import {renderLines} from "../shared/toolRendering";
 import {SubagentRunMode} from "../shared/subagents";
-import {test} from "./TestHarness";
 
 const smallLimits: SubagentTreeRenderLimits = {
   maxLines: 6,

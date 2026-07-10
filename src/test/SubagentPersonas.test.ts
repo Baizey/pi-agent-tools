@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import {test, tempDir} from "./TestHarness";
+import {tempDir} from "./TestHarness";
 import {SqliteDatabase, SubagentPersonaDao, isValidSubagentPersonaName, validateSubagentPersonaName} from "../storage";
 import {SubagentPersonaSource, subagentRunModes, subagentToolkitNames} from "../shared/subagents";
 import {parsePersonasCommandArgs, renderSubagentPersonaDetails, renderSubagentPersonaList} from "../extensions/subagent/commands";
@@ -28,7 +28,7 @@ test("subagent persona names must be lowercase ids", () => {
 
 test("subagent persona schema contains only persona registry fields", () => withDao((_dao, db) => {
   const columns = db.prepare(`pragma table_info("subagent_personas")`).all() as Array<{name: string}>;
-  assert.deepEqual(columns.map(column => column.name), [
+  assert.deepEqual(Array.from(columns, column => column.name), [
     "name",
     "role",
     "description",

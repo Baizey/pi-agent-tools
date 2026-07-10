@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {test} from "./TestHarness";
 import {agentEnv} from "../shared/env";
 import {FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";

@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {test} from "./TestHarness";
 import {McpConfigStore, sanitizeMcpConfig} from "../extensions/mcp/config";
 import {McpTransportKind} from "../extensions/mcp/types";
 

@@ -20,7 +20,7 @@ import {
   WebPolicyLogic,
   WebPolicyLogicStore,
 } from "../index";
-import {tempDir, test} from "./TestHarness";
+import {tempDir} from "./TestHarness";
 
 function tempFile(name: string): string {
   return path.join(tempDir("pi-agent-policy-store-"), name);
