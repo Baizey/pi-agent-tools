@@ -1,15 +1,8 @@
+import {SubagentRunStatus} from "../../../storage";
 import {SubagentRunMode, SubagentToolkit} from "../toolkits";
 
-export const subagentNodeStatuses = {
-  starting: "starting",
-  running: "running",
-  done: "done",
-  failed: "failed",
-  cancelled: "cancelled",
-  timedOut: "timed_out",
-} as const;
-
-export type SubagentNodeStatus = typeof subagentNodeStatuses[keyof typeof subagentNodeStatuses];
+export {SubagentRunStatus as subagentNodeStatuses};
+export type SubagentNodeStatus = SubagentRunStatus;
 
 export type SubagentNode = {
   id: string;

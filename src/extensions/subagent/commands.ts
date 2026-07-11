@@ -5,8 +5,6 @@ import {autoModelProfileConfig, ModelProfileConfigStore, normalizeConfigValue} f
 import {renderLines} from "../../shared/toolRendering";
 import {renderSubagentRunTree, SubagentTreeFilter, subagentTreeRowLimit} from "./tree-ui";
 
-const filterValues = Object.values(SubagentTreeFilter);
-
 type SubagentWidgetState = {
   enabled: boolean;
   filter: SubagentTreeFilter;
@@ -34,7 +32,8 @@ export function registerSubagentCommands(pi: PiExtensionApi): void {
     description: "Show or hide the subagent tree widget. Usage: /subagents [on|off] [all|done|running]",
     getArgumentCompletions(prefix) {
       const parts = prefix.trim().split(/\s+/).filter(Boolean);
-      const options = parts.length <= 1 ? ["on", "off", ...filterValues] : filterValues;
+      const filters = Object.values(SubagentTreeFilter);
+      const options = parts.length <= 1 ? ["on", "off", ...filters] : filters;
       const current = parts.length > 0 ? parts[parts.length - 1] : "";
       return options
         .filter(option => option.startsWith(current))
@@ -322,5 +321,5 @@ function modelProfileCompletionOptions(parts: string[]): string[] {
 }
 
 function isFilter(value: string): value is SubagentTreeFilter {
-  return (filterValues as string[]).includes(value);
+  return Object.values(SubagentTreeFilter).some((filter) => filter === value);
 }

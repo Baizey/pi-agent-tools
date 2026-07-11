@@ -4,7 +4,7 @@ import type {TextComponent} from "./rendering/terminalText";
 import type {ExpansionContext, RenderTheme} from "./rendering/types";
 import {formatDisplayValue} from "./rendering/valueFormat";
 import {formatKeybindingHint} from "./rendering/keybindingHint";
-import {BoundedTextBuffer} from "./boundedText";
+import {BoundedTextBuffer, TextRetention} from "./boundedText";
 
 export {FoldDirection, renderLines, truncateToWidth};
 export type {TextComponent};
@@ -123,7 +123,8 @@ function collectResultText(
   result: ToolResultLike,
   direction: FoldDirection,
 ): {text: string; truncated: boolean} {
-  const output = new BoundedTextBuffer(maxDisplayCharacters, displayTruncatedNotice, direction);
+  const retention = direction === FoldDirection.TAIL ? TextRetention.TAIL : TextRetention.HEAD;
+  const output = new BoundedTextBuffer(maxDisplayCharacters, displayTruncatedNotice, retention);
   let hasContent = false;
 
   for (const part of result.content ?? []) {

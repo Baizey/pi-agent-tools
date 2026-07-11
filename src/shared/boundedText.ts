@@ -1,5 +1,9 @@
 export const defaultTruncationNotice = "[truncated]";
-export type TextRetention = "head" | "tail";
+
+export enum TextRetention {
+  HEAD = "head",
+  TAIL = "tail",
+}
 
 /** Accumulates a bounded text stream without retaining discarded chunks. */
 export class BoundedTextBuffer {
@@ -10,14 +14,14 @@ export class BoundedTextBuffer {
   constructor(
     maxCharacters: number,
     private readonly truncationNotice = defaultTruncationNotice,
-    private readonly retention: TextRetention = "head",
+    private readonly retention: TextRetention = TextRetention.HEAD,
   ) {
     this.capacity = characterLimit(maxCharacters);
   }
 
   append(chunk: string): void {
     if (!chunk) return;
-    if (this.retention === "tail") {
+    if (this.retention === TextRetention.TAIL) {
       const combined = this.text + chunk;
       this.truncated ||= combined.length > this.capacity;
       this.text = this.capacity === 0 ? "" : combined.slice(-this.capacity);

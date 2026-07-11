@@ -8,7 +8,10 @@ import {
   currentShellPolicyDefault,
   currentWebPolicyDefault,
   parsePolicyDefaultCommand,
+  PolicyDefaultAction,
+  PolicyDefaultCommandScope,
   PolicyDefaultMode,
+  PolicyDefaultTarget,
   policyDefaultCommandCompletions,
   policyDefaultsEnvForSubagents,
   resetPolicyDefaultsForTest,
@@ -54,7 +57,11 @@ test("policy default command parses actions, targets, and scope", () => {
 
 test("policy defaults apply independently to root and subagent scopes", () => {
   withCleanPolicyDefaults(() => {
-    applyPolicyDefaultCommand({action: "allow", targets: ["web"], scope: "subagents"});
+    applyPolicyDefaultCommand({
+      action: PolicyDefaultAction.ALLOW,
+      targets: [PolicyDefaultTarget.WEB],
+      scope: PolicyDefaultCommandScope.SUBAGENTS,
+    });
 
     assert.equal(currentWebPolicyDefault(WebAccessType.READ, false), PolicyDefaultMode.ASK);
     assert.equal(currentWebPolicyDefault(WebAccessType.SEARCH, false), PolicyDefaultMode.ASK);
@@ -68,21 +75,21 @@ test("policy defaults apply independently to root and subagent scopes", () => {
 
 test("policy defaults can allow, deny, ask, and reset grouped targets", () => {
   withCleanPolicyDefaults(() => {
-    applyPolicyDefaultCommand({action: "allow", targets: ["all"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.ALLOW, targets: [PolicyDefaultTarget.ALL], scope: PolicyDefaultCommandScope.ROOT});
     assert.equal(currentPathPolicyDefault(FsAccessType.READ, false), PolicyDefaultMode.ALLOW);
     assert.equal(currentShellPolicyDefault(false), PolicyDefaultMode.ALLOW);
     assert.equal(currentWebPolicyDefault(WebAccessType.SEARCH, false), PolicyDefaultMode.ALLOW);
 
-    applyPolicyDefaultCommand({action: "deny", targets: ["io_write"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.DENY, targets: [PolicyDefaultTarget.IO_WRITE], scope: PolicyDefaultCommandScope.ROOT});
     assert.equal(currentPathPolicyDefault(FsAccessType.WRITE, false), PolicyDefaultMode.DENY);
     assert.equal(currentPathPolicyDefault(FsAccessType.EDIT, false), PolicyDefaultMode.DENY);
     assert.equal(currentPathPolicyDefault(FsAccessType.DELETE, false), PolicyDefaultMode.DENY);
     assert.equal(currentPathPolicyDefault(FsAccessType.READ, false), PolicyDefaultMode.ALLOW);
 
-    applyPolicyDefaultCommand({action: "ask", targets: ["shell"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.ASK, targets: [PolicyDefaultTarget.SHELL], scope: PolicyDefaultCommandScope.ROOT});
     assert.equal(currentShellPolicyDefault(true), PolicyDefaultMode.ASK);
 
-    applyPolicyDefaultCommand({action: "reset", targets: ["all"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.RESET, targets: [PolicyDefaultTarget.ALL], scope: PolicyDefaultCommandScope.ROOT});
     assert.equal(currentPathPolicyDefault(FsAccessType.READ, false), PolicyDefaultMode.ASK);
     assert.equal(currentPathPolicyDefault(FsAccessType.READ, true), PolicyDefaultMode.DENY);
     assert.equal(currentShellPolicyDefault(false), PolicyDefaultMode.ASK);
@@ -103,7 +110,7 @@ test("policy default command autocompletes actions targets and scopes", () => {
 test("shell policy default allow still honors explicit denials after unmatched segments", async () => {
   resetPolicyDefaultsForTest();
   try {
-    applyPolicyDefaultCommand({action: "allow", targets: ["shell"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.ALLOW, targets: [PolicyDefaultTarget.SHELL], scope: PolicyDefaultCommandScope.ROOT});
     const shellPolicy = new ShellPolicyLogic({
       policies: [ShellPolicyLogic.createPolicy("git", PolicyStatus.DENIED, PolicyLifetime.SESSION, "git denied for test")],
     });
@@ -150,14 +157,14 @@ test("path policy hook honors session default allow and deny modes for unmatched
     registerPathPolicy(pi, {sessionDao: {} as never, subagentDao: {} as never, runtimeFor: () => runtime as never});
     assert.ok(handler);
 
-    applyPolicyDefaultCommand({action: "allow", targets: ["io_read"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.ALLOW, targets: [PolicyDefaultTarget.IO_READ], scope: PolicyDefaultCommandScope.ROOT});
     const allowed = await handler(
       {type: "tool_call", toolCallId: "read-1", toolName: "read", input: {path: "unmatched.txt"}},
       {cwd: process.cwd(), hasUI: false},
     );
     assert.equal(allowed, undefined);
 
-    applyPolicyDefaultCommand({action: "deny", targets: ["io_read"], scope: "root"});
+    applyPolicyDefaultCommand({action: PolicyDefaultAction.DENY, targets: [PolicyDefaultTarget.IO_READ], scope: PolicyDefaultCommandScope.ROOT});
     const denied = await handler(
       {type: "tool_call", toolCallId: "read-2", toolName: "read", input: {path: "unmatched.txt"}},
       {cwd: process.cwd(), hasUI: false},

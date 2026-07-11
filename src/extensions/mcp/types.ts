@@ -35,8 +35,6 @@ export enum McpToolExposureStatus {
   NOT_EXPOSED = "not exposed",
 }
 
-export const mcpCommandActions = Object.values(McpCommandAction);
-
 export const defaultMcpConnectTimeoutMs = 15_000;
 export const defaultMcpListToolsTimeoutMs = 15_000;
 export const defaultMcpToolTimeoutMs = 60_000;

@@ -1,4 +1,4 @@
-import {Orm, column, table, type Row} from "./orm";
+import {Orm, SortDirection, column, table, type Row} from "./orm";
 import {SqliteDatabase} from "./sqlite";
 import {
     SubagentPersonaSource,
@@ -253,7 +253,7 @@ export class SubagentPersonaDao {
         return this.orm.all(subagentPersonas, where, {
             orderBy: {
                 column: "name",
-                direction: "asc"
+                direction: SortDirection.ASC
             }
         }) as SubagentPersonaRow[];
     }

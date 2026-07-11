@@ -2,8 +2,13 @@ import {AutocompleteItem, PiExtensionApi} from "../../pi/types";
 import {FsAccessType, WebAccessType} from "../../policy/types";
 import {AgentEnvName, agentEnv, isAgentEnvEnabled} from "../../shared/env";
 
-export const policyDefaultActions = ["show", "allow", "deny", "ask", "reset"] as const;
-export type PolicyDefaultAction = typeof policyDefaultActions[number];
+export enum PolicyDefaultAction {
+  SHOW = "show",
+  ALLOW = "allow",
+  DENY = "deny",
+  ASK = "ask",
+  RESET = "reset",
+}
 
 export enum PolicyDefaultMode {
   ASK = "ask",
@@ -11,33 +16,34 @@ export enum PolicyDefaultMode {
   DENY = "deny",
 }
 
-const policyDefaultModes = Object.values(PolicyDefaultMode);
+export enum PolicyDefaultCommandScope {
+  ROOT = "root",
+  SUBAGENTS = "subagents",
+  ALL = "all",
+}
 
-export const policyDefaultScopes = ["root", "subagents", "all"] as const;
-export type PolicyDefaultCommandScope = typeof policyDefaultScopes[number];
-export type PolicyDefaultStoredScope = "root" | "subagents";
+export type PolicyDefaultStoredScope = PolicyDefaultCommandScope.ROOT | PolicyDefaultCommandScope.SUBAGENTS;
 
-export const policyDefaultTargets = [
-  "all",
-  "io",
-  "io_read",
-  "io_write",
-  "io_execute",
-  "shell",
-  "code",
-  "web",
-  "web_read",
-  "web_search",
-] as const;
-export type PolicyDefaultTarget = typeof policyDefaultTargets[number];
+export enum PolicyDefaultTarget {
+  ALL = "all",
+  IO = "io",
+  IO_READ = "io_read",
+  IO_WRITE = "io_write",
+  IO_EXECUTE = "io_execute",
+  SHELL = "shell",
+  CODE = "code",
+  WEB = "web",
+  WEB_READ = "web_read",
+  WEB_SEARCH = "web_search",
+}
 
 const targetAliases: Record<string, PolicyDefaultTarget> = {
-  path: "io",
-  filesystem: "io",
-  fs: "io",
-  bash: "shell",
-  execute_bash: "shell",
-  execute_code: "code",
+  path: PolicyDefaultTarget.IO,
+  filesystem: PolicyDefaultTarget.IO,
+  fs: PolicyDefaultTarget.IO,
+  bash: PolicyDefaultTarget.SHELL,
+  execute_bash: PolicyDefaultTarget.SHELL,
+  execute_code: PolicyDefaultTarget.CODE,
 };
 
 export type PolicyDefaultOverrides = {
@@ -59,8 +65,12 @@ type PolicyDefaultKey =
   | {kind: "web"; accessType: WebAccessType};
 
 export type ParsedPolicyDefaultCommand =
-  | {action: "show"}
-  | {action: "allow" | "deny" | "ask" | "reset"; targets: PolicyDefaultTarget[]; scope: PolicyDefaultCommandScope};
+  | {action: PolicyDefaultAction.SHOW}
+  | {
+    action: PolicyDefaultAction.ALLOW | PolicyDefaultAction.DENY | PolicyDefaultAction.ASK | PolicyDefaultAction.RESET;
+    targets: PolicyDefaultTarget[];
+    scope: PolicyDefaultCommandScope;
+  };
 
 export type PolicyDefaultCommandParseResult = ParsedPolicyDefaultCommand | {error: string};
 
@@ -93,16 +103,16 @@ export function registerPolicyDefaultCommand(pi: PiExtensionApi): void {
 
 export function parsePolicyDefaultCommand(args: string): PolicyDefaultCommandParseResult {
   const tokens = args.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return {action: "show"};
+  if (tokens.length === 0) return {action: PolicyDefaultAction.SHOW};
 
   const action = tokens.shift() as string;
   if (!isPolicyDefaultAction(action)) return {error: `Unknown /policy-default action: ${action}`};
-  if (action === "show") {
+  if (action === PolicyDefaultAction.SHOW) {
     return tokens.length === 0 ? {action} : {error: "Usage: /policy-default show"};
   }
 
   const targets: PolicyDefaultTarget[] = [];
-  let scope: PolicyDefaultCommandScope = "root";
+  let scope = PolicyDefaultCommandScope.ROOT;
 
   for (let index = 0; index < tokens.length; index++) {
     const token = tokens[index];
@@ -132,12 +142,18 @@ export function parsePolicyDefaultCommand(args: string): PolicyDefaultCommandPar
   return {action, targets, scope};
 }
 
-export function applyPolicyDefaultCommand(command: Extract<ParsedPolicyDefaultCommand, {action: "allow" | "deny" | "ask" | "reset"}>): void {
-  const scopes = command.scope === "all" ? ["root", "subagents"] as const : [command.scope] as const;
+export function applyPolicyDefaultCommand(command: Exclude<ParsedPolicyDefaultCommand, {action: PolicyDefaultAction.SHOW}>): void {
+  const scopes: PolicyDefaultStoredScope[] = command.scope === PolicyDefaultCommandScope.ALL
+    ? [PolicyDefaultCommandScope.ROOT, PolicyDefaultCommandScope.SUBAGENTS]
+    : [command.scope];
   const keys = command.targets.flatMap(expandPolicyDefaultTarget);
   for (const scope of scopes) {
     for (const key of keys) {
-      setPolicyDefault(scope, key, command.action === "reset" ? undefined : policyDefaultModeForAction(command.action));
+      setPolicyDefault(
+        scope,
+        key,
+        command.action === PolicyDefaultAction.RESET ? undefined : policyDefaultModeForAction(command.action),
+      );
     }
   }
 }
@@ -172,8 +188,8 @@ export function policyDefaultSnapshot(): PolicyDefaultSnapshot {
 export function formatPolicyDefaultSnapshot(snapshot: PolicyDefaultSnapshot = policyDefaultSnapshot()): string {
   return [
     "Policy default responses (session-only; explicit policies still win):",
-    ...formatScope("root", snapshot.root, rootBaseDefaults()),
-    ...formatScope("subagents", snapshot.subagents, denyBaseDefaults()),
+    ...formatScope(PolicyDefaultCommandScope.ROOT, snapshot.root, rootBaseDefaults()),
+    ...formatScope(PolicyDefaultCommandScope.SUBAGENTS, snapshot.subagents, denyBaseDefaults()),
   ].join("\n");
 }
 
@@ -181,15 +197,15 @@ export function policyDefaultCommandCompletions(prefix: string): AutocompleteIte
   const context = completionContext(prefix);
   const first = context.tokens[0];
 
-  if (!first || context.tokens.length === 0) return completeValues(policyDefaultActions, context.current, context.base);
-  if (context.tokens.length === 1 && !prefix.endsWith(" ")) return completeValues(policyDefaultActions, context.current, context.base);
-  if (first === "show") return null;
-  if (!isPolicyDefaultAction(first) || first === "show") return null;
+  if (!first || context.tokens.length === 0) return completeValues(Object.values(PolicyDefaultAction), context.current, context.base);
+  if (context.tokens.length === 1 && !prefix.endsWith(" ")) return completeValues(Object.values(PolicyDefaultAction), context.current, context.base);
+  if (first === PolicyDefaultAction.SHOW) return null;
+  if (!isPolicyDefaultAction(first) || first === PolicyDefaultAction.SHOW) return null;
 
-  if (context.previous === "--scope") return completeValues(policyDefaultScopes, context.current, context.base);
+  if (context.previous === "--scope") return completeValues(Object.values(PolicyDefaultCommandScope), context.current, context.base);
   if (context.current.startsWith("--scope=")) {
     const valuePrefix = context.current.slice("--scope=".length);
-    return policyDefaultScopes
+    return Object.values(PolicyDefaultCommandScope)
       .filter((scope) => scope.startsWith(valuePrefix))
       .map((scope) => ({value: `${context.base}--scope=${scope}`, label: `--scope=${scope}`}));
   }
@@ -199,7 +215,8 @@ export function policyDefaultCommandCompletions(prefix: string): AutocompleteIte
 
   const completedTargetTokens = context.current === "" ? context.tokens.slice(1) : context.tokens.slice(1, -1);
   const usedTargets = new Set(completedTargetTokens.map(normalizePolicyDefaultTarget).filter((value): value is PolicyDefaultTarget => Boolean(value)));
-  const targets = policyDefaultTargets.filter((target) => !usedTargets.has(target) || target === "all");
+  const targets = Object.values(PolicyDefaultTarget)
+    .filter((target) => !usedTargets.has(target) || target === PolicyDefaultTarget.ALL);
   return completeValues([...targets, "--scope"], context.current, context.base);
 }
 
@@ -234,30 +251,30 @@ function setPolicyDefault(scope: PolicyDefaultStoredScope, key: PolicyDefaultKey
 
 function expandPolicyDefaultTarget(target: PolicyDefaultTarget): PolicyDefaultKey[] {
   switch (target) {
-    case "all":
+    case PolicyDefaultTarget.ALL:
       return [
-        ...expandPolicyDefaultTarget("io"),
-        ...expandPolicyDefaultTarget("shell"),
-        ...expandPolicyDefaultTarget("code"),
-        ...expandPolicyDefaultTarget("web"),
+        ...expandPolicyDefaultTarget(PolicyDefaultTarget.IO),
+        ...expandPolicyDefaultTarget(PolicyDefaultTarget.SHELL),
+        ...expandPolicyDefaultTarget(PolicyDefaultTarget.CODE),
+        ...expandPolicyDefaultTarget(PolicyDefaultTarget.WEB),
       ];
-    case "io":
+    case PolicyDefaultTarget.IO:
       return Object.values(FsAccessType).map((accessType) => ({kind: "path", accessType}) as const);
-    case "io_read":
+    case PolicyDefaultTarget.IO_READ:
       return [{kind: "path", accessType: FsAccessType.READ}];
-    case "io_write":
+    case PolicyDefaultTarget.IO_WRITE:
       return [FsAccessType.WRITE, FsAccessType.EDIT, FsAccessType.DELETE].map((accessType) => ({kind: "path", accessType}) as const);
-    case "io_execute":
+    case PolicyDefaultTarget.IO_EXECUTE:
       return [{kind: "path", accessType: FsAccessType.EXECUTE}];
-    case "shell":
+    case PolicyDefaultTarget.SHELL:
       return [{kind: "shell"}];
-    case "code":
+    case PolicyDefaultTarget.CODE:
       return [{kind: "code"}];
-    case "web":
+    case PolicyDefaultTarget.WEB:
       return Object.values(WebAccessType).map((accessType) => ({kind: "web", accessType}) as const);
-    case "web_read":
+    case PolicyDefaultTarget.WEB_READ:
       return [{kind: "web", accessType: WebAccessType.READ}];
-    case "web_search":
+    case PolicyDefaultTarget.WEB_SEARCH:
       return [{kind: "web", accessType: WebAccessType.SEARCH}];
   }
 }
@@ -327,31 +344,35 @@ function basePolicyDefaultMode(denyByDefault: boolean): PolicyDefaultMode {
   return denyByDefault ? PolicyDefaultMode.DENY : PolicyDefaultMode.ASK;
 }
 
-function policyDefaultModeForAction(action: "allow" | "deny" | "ask"): PolicyDefaultMode {
+function policyDefaultModeForAction(
+  action: PolicyDefaultAction.ALLOW | PolicyDefaultAction.DENY | PolicyDefaultAction.ASK,
+): PolicyDefaultMode {
   switch (action) {
-    case "allow":
+    case PolicyDefaultAction.ALLOW:
       return PolicyDefaultMode.ALLOW;
-    case "deny":
+    case PolicyDefaultAction.DENY:
       return PolicyDefaultMode.DENY;
-    case "ask":
+    case PolicyDefaultAction.ASK:
       return PolicyDefaultMode.ASK;
   }
 }
 
 function normalizePolicyDefaultTarget(value: string): PolicyDefaultTarget | null {
   const normalized = value.trim().toLowerCase().replace(/-/g, "_");
-  if ((policyDefaultTargets as readonly string[]).includes(normalized)) return normalized as PolicyDefaultTarget;
+  if (Object.values(PolicyDefaultTarget).some((target) => target === normalized)) return normalized as PolicyDefaultTarget;
   return targetAliases[normalized] ?? null;
 }
 
 function isPolicyDefaultAction(value: string): value is PolicyDefaultAction {
-  return (policyDefaultActions as readonly string[]).includes(value);
+  return Object.values(PolicyDefaultAction).some((action) => action === value);
 }
 
 function normalizePolicyDefaultScope(value: string): PolicyDefaultCommandScope | null {
   const normalized = value.trim().toLowerCase();
-  if (normalized === "agent") return "root";
-  return (policyDefaultScopes as readonly string[]).includes(normalized) ? normalized as PolicyDefaultCommandScope : null;
+  if (normalized === "agent") return PolicyDefaultCommandScope.ROOT;
+  return Object.values(PolicyDefaultCommandScope).some((scope) => scope === normalized)
+    ? normalized as PolicyDefaultCommandScope
+    : null;
 }
 
 function serializePolicyDefaultOverrides(overrides: PolicyDefaultOverrides): string {
@@ -384,7 +405,7 @@ function normalizeOverrides(input: Partial<PolicyDefaultOverrides> | undefined):
 }
 
 function isPolicyDefaultMode(value: unknown): value is PolicyDefaultMode {
-  return typeof value === "string" && (policyDefaultModes as readonly string[]).includes(value);
+  return typeof value === "string" && Object.values(PolicyDefaultMode).some((mode) => mode === value);
 }
 
 function isFsAccessType(value: string): value is FsAccessType {
@@ -433,6 +454,6 @@ function policyDefaultUsage(): string {
     "/policy-default deny <target...> [--scope root|subagents|all]",
     "/policy-default ask <target...> [--scope root|subagents|all]",
     "/policy-default reset <target...> [--scope root|subagents|all]",
-    `Targets: ${policyDefaultTargets.join(", ")}`,
+    `Targets: ${Object.values(PolicyDefaultTarget).join(", ")}`,
   ].join("\n");
 }

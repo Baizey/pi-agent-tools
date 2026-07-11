@@ -5,7 +5,7 @@ import path from "node:path";
 import {McpConfigStore} from "../extensions/mcp/config";
 import {McpManager} from "../extensions/mcp/client";
 import {buildMcpPiToolNames, formatMcpResultText, McpToolRegistry, sanitizeToolNamePart} from "../extensions/mcp/tools";
-import {McpConfigSnapshot, McpServerClient, McpTool, McpTransportKind} from "../extensions/mcp/types";
+import {McpCommandAction, McpConfigSnapshot, McpServerClient, McpTool, McpTransportKind} from "../extensions/mcp/types";
 import {PiExtensionApi, ToolDefinition} from "../pi/types";
 
 function config(): McpConfigSnapshot {
@@ -105,7 +105,7 @@ test("mcp registry registers exposed tools and blocks newly hidden tools at exec
   assert.match((call.content[0] as {text: string}).text, /called read-file/);
   assert.deepEqual((call.details as {structuredContent?: unknown} | undefined)?.structuredContent, {ok: true});
 
-  store.setToolExposure("fs", "hide", ["read-file"]);
+  store.setToolExposure("fs", McpCommandAction.HIDE, ["read-file"]);
   manager.updateConfig(store.load());
   call = await registered[0].execute("2", {path: "a.txt"});
   assert.equal(call.isError, true);

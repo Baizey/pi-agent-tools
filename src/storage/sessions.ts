@@ -1,5 +1,5 @@
 import {SqliteDatabase} from "./sqlite";
-import {Orm, column, table, type Row} from "./orm";
+import {Orm, SortDirection, column, table, type Row} from "./orm";
 import type {AgentMessage, ReadonlySessionManager, SessionEntry, SessionHeader, SessionMessageEntry} from "../pi/types";
 
 export const sessions = table("sessions", {
@@ -127,13 +127,13 @@ export class SessionDao {
 
     listSessions(options: {cwd?: string; limit?: number} = {}): SessionRow[] {
         return this.orm.all(sessions, options.cwd ? {cwd: options.cwd} : {}, {
-            orderBy: {column: "updatedAt", direction: "desc"},
+            orderBy: {column: "updatedAt", direction: SortDirection.DESC},
             limit: options.limit,
         });
     }
 
     messages(sessionId: string): SessionMessageRow[] {
-        return this.orm.all(sessionMessages, {sessionId}, {orderBy: {column: "timestamp", direction: "asc"}});
+        return this.orm.all(sessionMessages, {sessionId}, {orderBy: {column: "timestamp", direction: SortDirection.ASC}});
     }
 
     searchSessions(query: string, options: {cwd?: string; limit?: number} = {}): SessionSearchResult[] {

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {McpConfigStore, sanitizeMcpConfig} from "../extensions/mcp/config";
-import {McpTransportKind} from "../extensions/mcp/types";
+import {McpCommandAction, McpTransportKind} from "../extensions/mcp/types";
 
 function tempFile(): string {
   return path.join(fs.mkdtempSync(path.join(os.tmpdir(), "pi-mcp-config-")), "mcp.json");
@@ -68,8 +68,8 @@ test("mcp config store persists expose hide and reset changes", () => {
     },
   });
 
-  store.setToolExposure("filesystem", "expose", ["read_file", "list_dir"]);
-  store.setToolExposure("filesystem", "hide", ["write_file", "read_file"]);
+  store.setToolExposure("filesystem", McpCommandAction.EXPOSE, ["read_file", "list_dir"]);
+  store.setToolExposure("filesystem", McpCommandAction.HIDE, ["write_file", "read_file"]);
   let loaded = store.load();
   assert.deepEqual(loaded.servers.filesystem.tools, {expose: ["list_dir"], hide: ["read_file", "write_file"]});
 

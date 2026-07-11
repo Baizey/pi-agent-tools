@@ -7,8 +7,6 @@ export const autoModelProfileConfig = "auto";
 export type ModelProfileConfigValue = string;
 export type ModelProfileConfig = Partial<Record<AgentModelProfile, ModelProfileConfigValue>>;
 
-const profileValues = Object.values(agentModelProfiles);
-
 export class ModelProfileConfigStore {
   constructor(private readonly file = defaultModelProfileConfigFile()) {}
 
@@ -52,7 +50,7 @@ export function defaultModelProfileConfigFile(): string {
 export function sanitizeModelProfileConfig(value: unknown): ModelProfileConfig {
   if (!isRecord(value)) return {};
   const config: ModelProfileConfig = {};
-  for (const profile of profileValues) {
+  for (const profile of Object.values(agentModelProfiles)) {
     const raw = value[profile];
     if (typeof raw !== "string") continue;
     const normalized = normalizeConfigValue(raw);

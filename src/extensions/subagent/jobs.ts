@@ -1,17 +1,17 @@
 import {readSubagentTreeContext} from "./tree-ui";
 import {subagentRunModes} from "./toolkits";
-import {database_filename, SqliteDatabase, SubagentDao} from "../../storage";
+import {database_filename, SqliteDatabase, SubagentDao, SubagentRunStatus} from "../../storage";
 import {runSubagent, SubagentRequest, SubagentResult, SubagentUpdate} from "./runner";
 
-export const subagentJobStatuses = {
-  running: "running",
-  idle: "idle",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
+export enum SubagentJobStatus {
+  running = "running",
+  idle = "idle",
+  completed = "completed",
+  failed = "failed",
+  cancelled = "cancelled",
+}
 
-export type SubagentJobStatus = typeof subagentJobStatuses[keyof typeof subagentJobStatuses];
+export import subagentJobStatuses = SubagentJobStatus;
 
 export type AsyncSubagentJob = {
   id: string;
@@ -94,7 +94,7 @@ export function cancelAsyncSubagentJob(job: AsyncSubagentJob): void {
   if (job.status !== subagentJobStatuses.running && job.status !== subagentJobStatuses.idle) return;
   job.status = subagentJobStatuses.cancelled;
   job.finishedAt = Date.now();
-  updatePersistedJob(job.id, subagentJobStatuses.cancelled, "cancelled");
+  updatePersistedJob(job.id, SubagentRunStatus.cancelled, "cancelled");
   job.controller.abort();
 }
 
@@ -164,10 +164,17 @@ export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
   };
 }
 
-function updatePersistedJob(id: string, status: "cancelled" | "failed", latestLine: string): void {
+function updatePersistedJob(
+  id: string,
+  status: SubagentRunStatus.cancelled | SubagentRunStatus.failed,
+  latestLine: string,
+): void {
   const db = SqliteDatabase.readwrite(database_filename);
   try {
-    new SubagentDao(db).initializeSchema().finishRun(id, status, {latestLine, error: status === "failed" ? latestLine : null});
+    new SubagentDao(db).initializeSchema().finishRun(id, status, {
+      latestLine,
+      error: status === SubagentRunStatus.failed ? latestLine : null,
+    });
   } finally {
     db.close();
   }
@@ -230,7 +237,7 @@ function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, o
       job.status = subagentJobStatuses.failed;
       job.error = error instanceof Error ? error.message : String(error);
       job.finishedAt = Date.now();
-      updatePersistedJob(job.id, subagentJobStatuses.failed, job.error);
+      updatePersistedJob(job.id, SubagentRunStatus.failed, job.error);
     });
 }
 

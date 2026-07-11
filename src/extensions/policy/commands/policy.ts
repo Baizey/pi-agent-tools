@@ -16,7 +16,7 @@ import {formatCodePolicies} from "./code";
 import {formatIoPolicies} from "./io";
 import {formatShellPolicies} from "./shell";
 import {formatWebPolicies} from "./web";
-import {PolicyCommandAction, PolicyCommandKind, PolicyCommandName, policyCommandKinds} from "./types";
+import {PolicyCommandAction, PolicyCommandKind, PolicyCommandName} from "./types";
 import {formatPolicySections} from "./display";
 
 export function registerPolicyCommand(pi: PiExtensionApi, services: AgentServices): void {
@@ -66,7 +66,7 @@ function clearPolicies(runtime: AgentRuntime, tokens: string[]) {
   const clearError = clearOptionsError(options, 1);
   if (clearError) return err(clearError);
   const kind = firstKind(options.operands);
-  if (!kind) return err(`Missing or unknown policy kind. Expected one of: ${policyCommandKinds.join(", ")}`);
+  if (!kind) return err(`Missing or unknown policy kind. Expected one of: ${Object.values(PolicyCommandKind).join(", ")}`);
   if (!options.yes) return err(PolicyCommandText.CLEAR_REQUIRES_YES);
   clearPolicyKind(runtime, kind);
   return ok(formatPolicyKind(runtime, kind));

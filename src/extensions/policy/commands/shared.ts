@@ -15,12 +15,8 @@ import {
   defaultPolicyCommandLifetime,
   PolicyCommandAction,
   PolicyCommandCodeMode,
-  policyCommandAccessTypes,
-  policyCommandActions,
-  policyCommandKinds,
-  policyCommandLifetimeArgs,
-  policyCommandWebAccessTypes,
   PolicyCommandKind,
+  PolicyCommandLifetimeArg,
   PolicyCommandMessageKind,
   PolicyCommandOption,
   PolicyCommandResult,
@@ -48,12 +44,12 @@ export function err(message: string): PolicyCommandResult {
 
 export function firstAction(tokens: string[]): PolicyCommandAction | null {
   const action = tokens[0] as PolicyCommandAction | undefined;
-  return action && policyCommandActions.includes(action) ? action : null;
+  return action && Object.values(PolicyCommandAction).includes(action) ? action : null;
 }
 
 export function firstKind(tokens: string[]): PolicyCommandKind | null {
   const kind = tokens[0] as PolicyCommandKind | undefined;
-  return kind && policyCommandKinds.includes(kind) ? kind : null;
+  return kind && Object.values(PolicyCommandKind).includes(kind) ? kind : null;
 }
 
 export function parseCommonOptions(tokens: string[]): CommonPolicyCommandOptions {
@@ -184,7 +180,10 @@ export function tokenizePolicyCommandArgs(args: string): string[] {
   return tokens;
 }
 
-export function parseFsAccessTypes(tokens: string[], fallback = policyCommandAccessTypes): {accessTypes: FsAccessType[]; unknown: string[]} {
+export function parseFsAccessTypes(
+  tokens: string[],
+  fallback = Object.values(FsAccessType),
+): {accessTypes: FsAccessType[]; unknown: string[]} {
   const accessTypes: FsAccessType[] = [];
   const unknown: string[] = [];
   for (const token of tokens) {
@@ -195,7 +194,10 @@ export function parseFsAccessTypes(tokens: string[], fallback = policyCommandAcc
   return {accessTypes: accessTypes.length > 0 ? accessTypes : [...fallback], unknown};
 }
 
-export function parseWebAccessTypes(tokens: string[], fallback = policyCommandWebAccessTypes): {accessTypes: WebAccessType[]; unknown: string[]} {
+export function parseWebAccessTypes(
+  tokens: string[],
+  fallback = Object.values(WebAccessType),
+): {accessTypes: WebAccessType[]; unknown: string[]} {
   const accessTypes: WebAccessType[] = [];
   const unknown: string[] = [];
   for (const token of tokens) {
@@ -208,12 +210,12 @@ export function parseWebAccessTypes(tokens: string[], fallback = policyCommandWe
 
 export function parseFsAccessType(token: string): FsAccessType | null {
   const value = token.toUpperCase() as FsAccessType;
-  return policyCommandAccessTypes.includes(value) ? value : null;
+  return Object.values(FsAccessType).includes(value) ? value : null;
 }
 
 export function parseWebAccessType(token: string): WebAccessType | null {
   const value = token.toUpperCase() as WebAccessType;
-  return policyCommandWebAccessTypes.includes(value) ? value : null;
+  return Object.values(WebAccessType).includes(value) ? value : null;
 }
 
 export function parseCodeMode(token: string | undefined): CodeExecMode | PolicyCommandWildcard.ALL | null {
@@ -316,13 +318,16 @@ export function completionValues(values: readonly string[], prefix: string): Aut
     .map((value) => ({value: `${base}${value}`, label: value}));
 }
 
-export function commonCompletions(prefix: string, actions: readonly PolicyCommandAction[] = policyCommandActions): AutocompleteItem[] {
+export function commonCompletions(
+  prefix: string,
+  actions: readonly PolicyCommandAction[] = Object.values(PolicyCommandAction),
+): AutocompleteItem[] {
   const tokens = tokenizePolicyCommandArgs(prefix);
   if (tokens.length <= 1 && !prefix.endsWith(" ")) return completionValues(actions, prefix);
   return completionValues([
-    ...policyCommandAccessTypes,
-    ...policyCommandWebAccessTypes,
-    ...policyCommandLifetimeArgs,
+    ...Object.values(FsAccessType),
+    ...Object.values(WebAccessType),
+    ...Object.values(PolicyCommandLifetimeArg),
     PolicyCommandOption.LIFETIME,
     PolicyCommandOption.REASON,
     PolicyCommandOption.YES,

@@ -4,7 +4,6 @@ import {McpConnectionState, McpManager, McpServerRuntimeState} from "./client";
 import {McpToolRegistry} from "./tools";
 import {
   McpCommandAction,
-  mcpCommandActions,
   McpCommandMessageKind,
   McpCommandResult,
   McpCommandTarget,
@@ -52,9 +51,9 @@ export async function handleMcpCommand(
     case McpCommandAction.REFRESH:
       return await refreshMcp(input, rest, signal);
     case McpCommandAction.EXPOSE:
-      return exposeOrHideMcp(input, rest, "expose");
+      return exposeOrHideMcp(input, rest, McpCommandAction.EXPOSE);
     case McpCommandAction.HIDE:
-      return exposeOrHideMcp(input, rest, "hide");
+      return exposeOrHideMcp(input, rest, McpCommandAction.HIDE);
     case McpCommandAction.RESET:
       return resetMcpExposure(input, rest);
   }
@@ -66,7 +65,7 @@ export function mcpCommandCompletions(prefix: string, config: McpConfigSnapshot,
   const tokens = tokenizeMcpCommand(prefix);
   const current = prefix.endsWith(" ") ? "" : tokens[tokens.length - 1] ?? "";
   const base = prefix.slice(0, prefix.length - current.length);
-  if (tokens.length <= 1 && !prefix.endsWith(" ")) return completionValues(mcpCommandActions, current, base);
+  if (tokens.length <= 1 && !prefix.endsWith(" ")) return completionValues(Object.values(McpCommandAction), current, base);
 
   const action = firstMcpAction(tokens);
   const serverNames = Object.keys(config.servers);
@@ -88,7 +87,7 @@ export function mcpCommandCompletions(prefix: string, config: McpConfigSnapshot,
 function exposeOrHideMcp(
   input: {store: McpConfigStore; manager: McpManager; registry: McpToolRegistry},
   tokens: string[],
-  mode: "expose" | "hide",
+  mode: McpCommandAction.EXPOSE | McpCommandAction.HIDE,
 ): McpCommandResult {
   const [serverName, ...tools] = tokens;
   if (!serverName) return err(`Missing MCP server name for ${mode}.`);
@@ -101,7 +100,7 @@ function exposeOrHideMcp(
   return ok([
     `MCP ${mode} updated for ${serverName}: ${tools.join(", ")}`,
     registration.registered.length > 0 ? `Registered tools: ${registration.registered.map((tool) => tool.piToolName).join(", ")}` : undefined,
-    mode === "hide" ? "Already registered hidden tools remain visible until /reload, but calls are blocked immediately." : undefined,
+    mode === McpCommandAction.HIDE ? "Already registered hidden tools remain visible until /reload, but calls are blocked immediately." : undefined,
     "",
     formatMcpStatus(nextConfig, input.manager, serverName),
   ].filter((line): line is string => line !== undefined).join("\n"));
@@ -255,7 +254,7 @@ function tokenizeMcpCommand(args: string): string[] {
 
 function firstMcpAction(tokens: string[]): McpCommandAction | null {
   const action = tokens[0] as McpCommandAction | undefined;
-  return action && mcpCommandActions.includes(action) ? action : null;
+  return action && Object.values(McpCommandAction).includes(action) ? action : null;
 }
 
 function actionUsesToolOperands(action: McpCommandAction): boolean {

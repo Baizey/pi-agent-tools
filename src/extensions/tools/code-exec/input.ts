@@ -1,7 +1,7 @@
 import path from "node:path";
 import {ExtensionContext} from "../../../pi/types";
 import {stringValue} from "../../../shared/values";
-import {CodeLanguage, ExecInput, languages, ParsedExecInput} from "./types";
+import {CodeLanguage, ExecInput, ExecutionMode, ParsedExecInput} from "./types";
 
 export function executeCodeParameters(availableLanguages: CodeLanguage[]): Record<string, unknown> {
   return {
@@ -29,7 +29,7 @@ export function executeCodeParameters(availableLanguages: CodeLanguage[]): Recor
 
 export function parseInput(params: ExecInput, defaultCwd: string): ParsedExecInput | {error: string} {
   const language = stringValue(params.language);
-  if (!language || !isLanguage(language)) return {error: `Missing or unsupported language. Supported: ${languages.join(", ")}.`};
+  if (!language || !isLanguage(language)) return {error: `Missing or unsupported language. Supported: ${Object.values(CodeLanguage).join(", ")}.`};
   const code = stringValue(params.code);
   const file = stringValue(params.file);
   if (!!code === !!file) return {error: "Provide exactly one of code or file."};
@@ -38,11 +38,19 @@ export function parseInput(params: ExecInput, defaultCwd: string): ParsedExecInp
   const timeoutSeconds = typeof params.timeoutSeconds === "number" && Number.isFinite(params.timeoutSeconds) && params.timeoutSeconds > 0
     ? Math.min(params.timeoutSeconds, 600)
     : 30;
-  return {language, mode: code ? "inline" : "file", source: code ?? file ?? "", args, stdin: stringValue(params.stdin) ?? undefined, cwd, timeoutSeconds};
+  return {
+    language,
+    mode: code ? ExecutionMode.INLINE : ExecutionMode.FILE,
+    source: code ?? file ?? "",
+    args,
+    stdin: stringValue(params.stdin) ?? undefined,
+    cwd,
+    timeoutSeconds,
+  };
 }
 
 export function isLanguage(value: string): value is CodeLanguage {
-  return (languages as readonly string[]).includes(value);
+  return Object.values(CodeLanguage).some((language) => language === value);
 }
 
 export function contextForCwd(ctx: ExtensionContext | undefined, cwd: string): ExtensionContext {

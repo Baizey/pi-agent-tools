@@ -1,13 +1,13 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {Adapter, CodeLanguage, ExecPlan, ExecutionMode, languages, RuntimeInfo} from "./types";
+import {Adapter, CodeLanguage, ExecPlan, ExecutionMode, RuntimeInfo, TempArtifactMode} from "./types";
 import {firstLine, runProcess} from "./process";
 
 const detectionCache = new Map<CodeLanguage, Promise<RuntimeInfo>>();
 
 export async function detectAllRuntimes(): Promise<RuntimeInfo[]> {
-  return Promise.all(languages.map(async (language) => detect(adapters[language])));
+  return Promise.all(Object.values(CodeLanguage).map(async (language) => detect(adapters[language])));
 }
 
 export async function detect(adapter: Adapter): Promise<RuntimeInfo> {
@@ -20,19 +20,19 @@ export async function detect(adapter: Adapter): Promise<RuntimeInfo> {
 }
 
 export const adapters: Record<CodeLanguage, Adapter> = {
-  javascript: interpreted("javascript", ["node"], ["--version"], (exe, source, mode, args) => mode === "inline" ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
-  typescript: tempFileAdapter("typescript", ["tsx", "ts-node"], ["--version"], ".ts", (exe, file, args) => [exe, [file, ...args]]),
-  python: interpreted("python", process.platform === "win32" ? ["python", "py", "python3"] : ["python3", "python"], ["--version"], (exe, source, mode, args) => mode === "inline" ? [exe, ["-c", source, ...args]] : [exe, [source, ...args]]),
-  powershell: interpreted("powershell", process.platform === "win32" ? ["pwsh", "powershell"] : ["pwsh"], ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"], (exe, source, mode, args) => mode === "inline" ? [exe, ["-NoProfile", "-Command", source, ...args]] : [exe, ["-NoProfile", "-File", source, ...args]]),
-  ruby: interpreted("ruby", ["ruby"], ["--version"], (exe, source, mode, args) => mode === "inline" ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
-  php: interpreted("php", ["php"], ["--version"], (exe, source, mode, args) => mode === "inline" ? [exe, ["-r", source, ...args]] : [exe, [source, ...args]]),
-  perl: interpreted("perl", ["perl"], ["--version"], (exe, source, mode, args) => mode === "inline" ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
-  go: tempFileAdapter("go", ["go"], ["version"], ".go", (exe, file, args) => [exe, ["run", file, ...args]]),
-  java: tempFileAdapter("java", ["java"], ["-version"], ".java", (exe, file, args) => [exe, [file, ...args]], ["Uses Java source-file execution; requires Java 11+."], "Main.java"),
-  dotnet: tempFileAdapter("dotnet", ["dotnet-script", "csi"], ["--version"], ".csx", (exe, file, args) => exe === "csi" ? [exe, [file, ...args]] : [exe, [file, "--", ...args]], ["Requires dotnet-script or csi for script execution."]),
-  c: compiledAdapter("c", [["gcc", ["--version"]], ["clang", ["--version"]]], ".c", (exe, src, out) => [exe, [src, "-o", out]]),
-  cpp: compiledAdapter("cpp", [["g++", ["--version"]], ["clang++", ["--version"]]], ".cpp", (exe, src, out) => [exe, [src, "-o", out]]),
-  rust: compiledAdapter("rust", [["rustc", ["--version"]]], ".rs", (exe, src, out) => [exe, [src, "-o", out]]),
+  javascript: interpreted(CodeLanguage.JAVASCRIPT, ["node"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
+  typescript: tempFileAdapter(CodeLanguage.TYPESCRIPT, ["tsx", "ts-node"], ["--version"], ".ts", (exe, file, args) => [exe, [file, ...args]]),
+  python: interpreted(CodeLanguage.PYTHON, process.platform === "win32" ? ["python", "py", "python3"] : ["python3", "python"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-c", source, ...args]] : [exe, [source, ...args]]),
+  powershell: interpreted(CodeLanguage.POWERSHELL, process.platform === "win32" ? ["pwsh", "powershell"] : ["pwsh"], ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-NoProfile", "-Command", source, ...args]] : [exe, ["-NoProfile", "-File", source, ...args]]),
+  ruby: interpreted(CodeLanguage.RUBY, ["ruby"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
+  php: interpreted(CodeLanguage.PHP, ["php"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-r", source, ...args]] : [exe, [source, ...args]]),
+  perl: interpreted(CodeLanguage.PERL, ["perl"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
+  go: tempFileAdapter(CodeLanguage.GO, ["go"], ["version"], ".go", (exe, file, args) => [exe, ["run", file, ...args]]),
+  java: tempFileAdapter(CodeLanguage.JAVA, ["java"], ["-version"], ".java", (exe, file, args) => [exe, [file, ...args]], ["Uses Java source-file execution; requires Java 11+."], "Main.java"),
+  dotnet: tempFileAdapter(CodeLanguage.DOTNET, ["dotnet-script", "csi"], ["--version"], ".csx", (exe, file, args) => exe === "csi" ? [exe, [file, ...args]] : [exe, [file, "--", ...args]], ["Requires dotnet-script or csi for script execution."]),
+  c: compiledAdapter(CodeLanguage.C, [["gcc", ["--version"]], ["clang", ["--version"]]], ".c", (exe, src, out) => [exe, [src, "-o", out]]),
+  cpp: compiledAdapter(CodeLanguage.CPP, [["g++", ["--version"]], ["clang++", ["--version"]]], ".cpp", (exe, src, out) => [exe, [src, "-o", out]]),
+  rust: compiledAdapter(CodeLanguage.RUST, [["rustc", ["--version"]]], ".rs", (exe, src, out) => [exe, [src, "-o", out]]),
 };
 
 function interpreted(
@@ -43,8 +43,8 @@ function interpreted(
 ): Adapter {
   return {
     language,
-    modes: ["inline", "file"],
-    async detect() { return detectExecutable(language, executables, versionArgs, ["inline", "file"]); },
+    modes: [ExecutionMode.INLINE, ExecutionMode.FILE],
+    async detect() { return detectExecutable(language, executables, versionArgs, [ExecutionMode.INLINE, ExecutionMode.FILE]); },
     async plan(input) {
       const info = await detect(adapters[language]);
       const [command, args] = build(info.executable!, input.source, input.mode, input.args);
@@ -64,14 +64,14 @@ function tempFileAdapter(
 ): Adapter {
   return {
     language,
-    modes: ["inline", "file"],
-    tempArtifacts: "inline",
-    async detect() { return detectExecutable(language, executables, versionArgs, ["inline", "file"], notes); },
+    modes: [ExecutionMode.INLINE, ExecutionMode.FILE],
+    tempArtifacts: TempArtifactMode.INLINE,
+    async detect() { return detectExecutable(language, executables, versionArgs, [ExecutionMode.INLINE, ExecutionMode.FILE], notes); },
     async plan(input) {
       const info = await detect(adapters[language]);
       let cleanup: (() => Promise<void>) | undefined;
       let file = input.source;
-      if (input.mode === "inline") {
+      if (input.mode === ExecutionMode.INLINE) {
         const temp = await fs.mkdtemp(path.join(os.tmpdir(), `pi-code-${language}-`));
         file = path.join(temp, inlineFileName ?? `main${extension}`);
         await fs.writeFile(file, input.source, "utf8");
@@ -91,20 +91,20 @@ function compiledAdapter(
 ): Adapter {
   return {
     language,
-    modes: ["inline", "file"],
-    tempArtifacts: "always",
+    modes: [ExecutionMode.INLINE, ExecutionMode.FILE],
+    tempArtifacts: TempArtifactMode.ALWAYS,
     async detect() {
       for (const [exe, versionArgs] of compilers) {
-        const info = await detectExecutable(language, [exe], versionArgs, ["inline", "file"], ["Compiles to a temporary executable before running."]);
+        const info = await detectExecutable(language, [exe], versionArgs, [ExecutionMode.INLINE, ExecutionMode.FILE], ["Compiles to a temporary executable before running."]);
         if (info.available) return info;
       }
-      return {language, available: false, modes: ["inline", "file"], error: `No compiler found: ${compilers.map(([it]) => it).join(", ")}`};
+      return {language, available: false, modes: [ExecutionMode.INLINE, ExecutionMode.FILE], error: `No compiler found: ${compilers.map(([it]) => it).join(", ")}`};
     },
     async plan(input) {
       const info = await detect(adapters[language]);
       const temp = await fs.mkdtemp(path.join(os.tmpdir(), `pi-code-${language}-`));
-      const source = input.mode === "inline" ? path.join(temp, `main${extension}`) : input.source;
-      if (input.mode === "inline") await fs.writeFile(source, input.source, "utf8");
+      const source = input.mode === ExecutionMode.INLINE ? path.join(temp, `main${extension}`) : input.source;
+      if (input.mode === ExecutionMode.INLINE) await fs.writeFile(source, input.source, "utf8");
       const output = path.join(temp, process.platform === "win32" ? "program.exe" : "program");
       const [compileCommand, compileArgs] = buildCompile(info.executable!, source, output);
       return {

@@ -5,6 +5,7 @@ import {
   CodeExecPolicyDao,
   CodeExecPolicyLogic,
   CodeExecPolicyLogicStore,
+  CodeExecMode,
   FsAccessType,
   PathPolicyDao,
   PathPolicyLogic,
@@ -147,15 +148,15 @@ test("code execution policy store roundtrips forever policies through sqlite", (
   const store = new CodeExecPolicyLogicStore(daos.code);
   const saved = new CodeExecPolicyLogic();
   saved.addPolicies([
-    CodeExecPolicyLogic.createPolicy("JavaScript", "inline", PolicyStatus.DENIED, PolicyLifetime.FOREVER, "no"),
+    CodeExecPolicyLogic.createPolicy("JavaScript", CodeExecMode.INLINE, PolicyStatus.DENIED, PolicyLifetime.FOREVER, "no"),
   ]);
 
   store.save(saved);
 
   const loaded = new CodeExecPolicyLogic();
   store.loadInto(loaded);
-  assert.equal(loaded.evaluate("javascript", "inline")?.matchedStatus, PolicyStatus.DENIED);
-  assert.equal(loaded.evaluate("javascript", "file", false), null);
+  assert.equal(loaded.evaluate("javascript", CodeExecMode.INLINE)?.matchedStatus, PolicyStatus.DENIED);
+  assert.equal(loaded.evaluate("javascript", CodeExecMode.FILE, false), null);
 }));
 
 test("web policy store roundtrips forever policies through sqlite", () => withPolicyDaos((daos) => {
@@ -211,7 +212,7 @@ test("legacy shell JSON imports into sqlite and is deleted", () => withPolicyDao
 test("legacy code execution JSON imports into sqlite and is deleted", () => withPolicyDaos((daos) => {
   const file = tempFile("code-exec-policy.json");
   fs.writeFileSync(file, JSON.stringify({
-    policies: [CodeExecPolicyLogic.createPolicy("python", "file", PolicyStatus.ALLOWED, PolicyLifetime.FOREVER, "ok")],
+    policies: [CodeExecPolicyLogic.createPolicy("python", CodeExecMode.FILE, PolicyStatus.ALLOWED, PolicyLifetime.FOREVER, "ok")],
   }), "utf8");
 
   const first = new CodeExecPolicyLogic();
@@ -220,7 +221,7 @@ test("legacy code execution JSON imports into sqlite and is deleted", () => with
 
   const second = new CodeExecPolicyLogic();
   new CodeExecPolicyLogicStore(daos.code).loadInto(second);
-  assert.equal(second.evaluate("python", "file")?.matchedStatus, PolicyStatus.ALLOWED);
+  assert.equal(second.evaluate("python", CodeExecMode.FILE)?.matchedStatus, PolicyStatus.ALLOWED);
 }));
 
 test("legacy web JSON imports into sqlite and is deleted", () => withPolicyDaos((daos) => {

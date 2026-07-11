@@ -1,6 +1,13 @@
 import {PiExtensionApi} from "../../../pi/types";
 import {AgentServices} from "../../../pi/runtime";
-import {FsAccessType, PolicyResolutionSource, PolicyStatus, WebAccessType, policyResolutionSourceText} from "../../../policy/types";
+import {
+  CodeExecMode,
+  FsAccessType,
+  PolicyResolutionSource,
+  PolicyStatus,
+  WebAccessType,
+  policyResolutionSourceText,
+} from "../../../policy/types";
 import {toolNames} from "../../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult as toolErrorResult, successResult} from "../../../shared/toolResults";
@@ -27,10 +34,6 @@ type PolicyInfoParams = {
   url?: unknown;
 };
 
-const fsAccessTypes = Object.values(FsAccessType);
-const webAccessTypes = Object.values(WebAccessType);
-const policyInfoKinds = Object.values(PolicyInfoKind);
-
 export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
     name: toolNames.policyInfo,
@@ -42,7 +45,7 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       properties: {
         kind: {
           type: "string",
-          enum: policyInfoKinds,
+          enum: Object.values(PolicyInfoKind),
           description: "Use overview for all active policies, path to evaluate a path, shell to evaluate a command, code to evaluate code execution, or web to evaluate a URL. Defaults to overview.",
           default: PolicyInfoKind.OVERVIEW,
         },
@@ -52,7 +55,7 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
         },
         accessType: {
           type: "string",
-          enum: [...fsAccessTypes, ...webAccessTypes],
+          enum: [...Object.values(FsAccessType), ...Object.values(WebAccessType)],
           description: "Optional access type to evaluate. For path use file access types; for web use READ or SEARCH. If omitted, all relevant access types are evaluated.",
         },
         command: {
@@ -117,7 +120,9 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
 function parsePolicyInfoKind(value: unknown): PolicyInfoKind | null {
   if (value === undefined || value === null) return PolicyInfoKind.OVERVIEW;
   const candidate = stringValue(value);
-  return candidate && policyInfoKinds.includes(candidate as PolicyInfoKind) ? candidate as PolicyInfoKind : null;
+  return candidate && Object.values(PolicyInfoKind).includes(candidate as PolicyInfoKind)
+    ? candidate as PolicyInfoKind
+    : null;
 }
 
 function pathPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
@@ -125,6 +130,7 @@ function pathPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
   if (!candidatePath) return errorResult("Missing required parameter for path policy lookup: path.");
 
   const requestedAccessType = stringValue(input.accessType);
+  const fsAccessTypes = Object.values(FsAccessType);
   const accessTypes = requestedAccessType ? [requestedAccessType] : fsAccessTypes;
   const invalid = accessTypes.find((it) => !fsAccessTypes.includes(it as FsAccessType));
   if (invalid) return errorResult(`Invalid path accessType: ${invalid}`);
@@ -177,9 +183,10 @@ function shellPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input
 
 function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: PolicyInfoParams) {
   const language = stringValue(input.language);
-  const mode = stringValue(input.mode);
+  const rawMode = stringValue(input.mode);
+  const mode = Object.values(CodeExecMode).find((candidate) => candidate === rawMode);
   if (!language) return errorResult("Missing required parameter for code policy lookup: language.");
-  if (mode !== "inline" && mode !== "file") return errorResult("Missing or invalid required parameter for code policy lookup: mode.");
+  if (!mode) return errorResult("Missing or invalid required parameter for code policy lookup: mode.");
 
   const rawCodePolicy = runtime.codeExecPolicy.evaluate(language, mode, false);
   const codePolicy = rawCodePolicy
@@ -197,7 +204,7 @@ function codePolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input:
   const file = stringValue(input.file);
   const pathChecks = [
     {target: cwd ?? ".", accessType: FsAccessType.EXECUTE, result: runtime.pathPolicy.evaluate(cwd ?? ".", FsAccessType.EXECUTE, false)},
-    ...(mode === "file" && file ? [
+    ...(mode === CodeExecMode.FILE && file ? [
       {target: file, accessType: FsAccessType.READ, result: runtime.pathPolicy.evaluate(file, FsAccessType.READ, false)},
       {target: file, accessType: FsAccessType.EXECUTE, result: runtime.pathPolicy.evaluate(file, FsAccessType.EXECUTE, false)},
     ] : []),
@@ -224,6 +231,7 @@ function webPolicyInfo(runtime: ReturnType<AgentServices["runtimeFor"]>, input: 
   if (!url) return errorResult("Missing required parameter for web policy lookup: url.");
 
   const requestedAccessType = stringValue(input.accessType);
+  const webAccessTypes = Object.values(WebAccessType);
   const accessTypes = requestedAccessType ? [requestedAccessType] : webAccessTypes;
   const invalid = accessTypes.find((it) => !webAccessTypes.includes(it as WebAccessType));
   if (invalid) return errorResult(`Invalid web accessType: ${invalid}`);

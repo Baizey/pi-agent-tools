@@ -1,17 +1,17 @@
-import {Orm, column, table, type Row} from "./orm";
+import {Orm, SortDirection, column, table, type Row} from "./orm";
 import {SqliteDatabase} from "./sqlite";
 import type {SubagentToolkit, SubagentRunMode} from "../shared/subagents";
 
-export const subagentRunStatuses = {
-    starting: "starting",
-    running: "running",
-    done: "done",
-    failed: "failed",
-    cancelled: "cancelled",
-    timedOut: "timed_out",
-} as const;
+export enum SubagentRunStatus {
+    starting = "starting",
+    running = "running",
+    done = "done",
+    failed = "failed",
+    cancelled = "cancelled",
+    timedOut = "timed_out",
+}
 
-export type SubagentRunStatus = typeof subagentRunStatuses[keyof typeof subagentRunStatuses];
+export import subagentRunStatuses = SubagentRunStatus;
 
 export const subagentRuns = table("subagent_runs", {
     id: column.text().primaryKey(),
@@ -142,9 +142,9 @@ export class SubagentDao {
     listTree(rootId: string, limit?: number): SubagentRunRow[] {
         return this.orm.all(subagentRuns, {rootId}, {
             orderBy: [
-                {column: "depth", direction: "asc"},
-                {column: "parentId", direction: "asc"},
-                {column: "ordinal", direction: "asc"},
+                {column: "depth", direction: SortDirection.ASC},
+                {column: "parentId", direction: SortDirection.ASC},
+                {column: "ordinal", direction: SortDirection.ASC},
             ],
             limit,
         }) as SubagentRunRow[];

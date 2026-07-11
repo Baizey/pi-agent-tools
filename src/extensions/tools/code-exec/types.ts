@@ -1,21 +1,27 @@
-export const languages = [
-  "javascript",
-  "typescript",
-  "python",
-  "powershell",
-  "ruby",
-  "php",
-  "perl",
-  "go",
-  "java",
-  "dotnet",
-  "c",
-  "cpp",
-  "rust",
-] as const;
+import {CodeExecMode} from "../../../policy/types";
 
-export type CodeLanguage = typeof languages[number];
-export type ExecutionMode = "inline" | "file";
+export enum CodeLanguage {
+  JAVASCRIPT = "javascript",
+  TYPESCRIPT = "typescript",
+  PYTHON = "python",
+  POWERSHELL = "powershell",
+  RUBY = "ruby",
+  PHP = "php",
+  PERL = "perl",
+  GO = "go",
+  JAVA = "java",
+  DOTNET = "dotnet",
+  C = "c",
+  CPP = "cpp",
+  RUST = "rust",
+}
+
+export import ExecutionMode = CodeExecMode;
+
+export enum TempArtifactMode {
+  INLINE = "inline",
+  ALWAYS = "always",
+}
 
 export type ExecInput = {
   language?: unknown;
@@ -60,7 +66,7 @@ export type ExecPlan = {
 export type Adapter = {
   language: CodeLanguage;
   modes: ExecutionMode[];
-  tempArtifacts?: "inline" | "always";
+  tempArtifacts?: TempArtifactMode;
   detect(): Promise<RuntimeInfo>;
   plan(input: {mode: ExecutionMode; source: string; args: string[]; cwd: string}): Promise<ExecPlan>;
 };

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {BoundedTextBuffer, truncateText} from "../shared/boundedText";
+import {BoundedTextBuffer, TextRetention, truncateText} from "../shared/boundedText";
 
 test("bounded text buffer retains content up to its limit across chunks", () => {
   const output = new BoundedTextBuffer(5);
@@ -14,7 +14,7 @@ test("bounded text buffer retains content up to its limit across chunks", () => 
 });
 
 test("bounded text buffer can retain the tail", () => {
-  const output = new BoundedTextBuffer(5, "[truncated]", "tail");
+  const output = new BoundedTextBuffer(5, "[truncated]", TextRetention.TAIL);
   output.append("123");
   output.append("4567");
   assert.equal(output.content(), "34567");

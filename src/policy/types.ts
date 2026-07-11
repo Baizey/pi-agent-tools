@@ -118,7 +118,10 @@ export type ShellPolicyScopeOption = {
   allowAllFlags?: boolean;
 };
 
-export type CodeExecMode = "inline" | "file";
+export enum CodeExecMode {
+  INLINE = "inline",
+  FILE = "file",
+}
 export type CodeExecPolicyLanguage = string | "*";
 export type CodeExecPolicyMode = CodeExecMode | "*";
 

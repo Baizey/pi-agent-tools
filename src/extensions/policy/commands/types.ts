@@ -1,4 +1,4 @@
-import {FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../../../policy/types";
+import {CodeExecMode, FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../../../policy/types";
 
 export enum PolicyCommandName {
   POLICY = "policy",
@@ -39,10 +39,7 @@ export enum PolicyCommandLifetimeArg {
   FOREVER = "forever",
 }
 
-export enum PolicyCommandCodeMode {
-  INLINE = "inline",
-  FILE = "file",
-}
+export import PolicyCommandCodeMode = CodeExecMode;
 
 export enum PolicyCommandWildcard {
   ALL = "*",
@@ -70,12 +67,6 @@ export type CommonPolicyCommandOptions = {
   operands: string[];
   error?: string;
 };
-
-export const policyCommandActions = Object.values(PolicyCommandAction);
-export const policyCommandKinds = Object.values(PolicyCommandKind);
-export const policyCommandLifetimeArgs = Object.values(PolicyCommandLifetimeArg);
-export const policyCommandAccessTypes = Object.values(FsAccessType);
-export const policyCommandWebAccessTypes = Object.values(WebAccessType);
 
 export const defaultPolicyCommandLifetime = PolicyLifetime.SESSION;
 

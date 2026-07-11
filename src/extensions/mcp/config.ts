@@ -6,6 +6,7 @@ import {
   defaultMcpListToolsTimeoutMs,
   defaultMcpToolMaxTotalTimeoutMs,
   defaultMcpToolTimeoutMs,
+  McpCommandAction,
   McpConfigSnapshot,
   McpHttpServerConfig,
   McpServerConfig,
@@ -44,7 +45,11 @@ export class McpConfigStore {
     return config;
   }
 
-  setToolExposure(serverName: string, mode: "expose" | "hide", tools: string[]): McpConfigSnapshot {
+  setToolExposure(
+    serverName: string,
+    mode: McpCommandAction.EXPOSE | McpCommandAction.HIDE,
+    tools: string[],
+  ): McpConfigSnapshot {
     return this.updateServer(serverName, (server) => setToolExposure(server, mode, tools));
   }
 
@@ -152,12 +157,16 @@ function sanitizeToolExposure(value: unknown): McpServerToolExposure {
   };
 }
 
-function setToolExposure(server: McpServerConfig, mode: "expose" | "hide", tools: string[]): McpServerConfig {
+function setToolExposure(
+  server: McpServerConfig,
+  mode: McpCommandAction.EXPOSE | McpCommandAction.HIDE,
+  tools: string[],
+): McpServerConfig {
   const cleanTools = normalizeMcpToolList(tools);
   const expose = new Set(server.tools.expose ?? []);
   const hide = new Set(server.tools.hide ?? []);
   for (const tool of cleanTools) {
-    if (mode === "expose") {
+    if (mode === McpCommandAction.EXPOSE) {
       expose.add(tool);
       hide.delete(tool);
     } else {

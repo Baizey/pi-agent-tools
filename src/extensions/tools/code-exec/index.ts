@@ -14,7 +14,7 @@ import {contextForCwd, executeCodeParameters, isLanguage, parseInput} from "./in
 import {runProcess} from "./process";
 import {renderCodeExecCall} from "./rendering";
 import {formatRuntimeInfo, formatRunSummary} from "./resultFormatting";
-import {Adapter, languages} from "./types";
+import {Adapter, CodeLanguage, ExecutionMode, TempArtifactMode} from "./types";
 
 export async function registerCodeExecutionTool(pi: PiExtensionApi, services: AgentServices): Promise<void> {
   const runtimeInfo = await detectAllRuntimes();
@@ -86,7 +86,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       type: "object",
       additionalProperties: false,
       properties: {
-        language: {type: "string", enum: languages, description: "Optional language to inspect."},
+        language: {type: "string", enum: Object.values(CodeLanguage), description: "Optional language to inspect."},
       },
     },
     async execute(_toolCallId, rawParams) {
@@ -108,10 +108,11 @@ async function ensureTempArtifactsAllowed(
   ctx: ExtensionContext,
   runtime: ReturnType<AgentServices["runtimeFor"]>,
   adapter: Adapter,
-  mode: "inline" | "file",
+  mode: ExecutionMode,
   denyByDefault: boolean,
 ): Promise<string | null> {
-  const usesTempArtifacts = adapter.tempArtifacts === "always" || (adapter.tempArtifacts === "inline" && mode === "inline");
+  const usesTempArtifacts = adapter.tempArtifacts === TempArtifactMode.ALWAYS
+    || (adapter.tempArtifacts === TempArtifactMode.INLINE && mode === ExecutionMode.INLINE);
   if (!usesTempArtifacts) return null;
 
   const tempRoot = os.tmpdir();

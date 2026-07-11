@@ -2,7 +2,17 @@ import {SqliteDatabase} from "./sqlite";
 
 type SqlValue = string | number | bigint | Buffer | null;
 type RowValue = string | number | boolean | Date | object | Buffer | null;
-type SqliteType = "text" | "integer" | "real" | "blob";
+enum SqliteType {
+    TEXT = "text",
+    INTEGER = "integer",
+    REAL = "real",
+    BLOB = "blob",
+}
+
+export enum SortDirection {
+    ASC = "asc",
+    DESC = "desc",
+}
 
 type ColumnConfig<T> = {
     sqliteType: SqliteType;
@@ -38,7 +48,7 @@ export type Insert<TTable extends Table<ColumnMap>> = Partial<Row<TTable>>;
 export type Where<TTable extends Table<ColumnMap>> = Partial<Row<TTable>>;
 export type OrderBy<TTable extends Table<ColumnMap>> = {
     column: keyof Row<TTable> & string;
-    direction?: "asc" | "desc";
+    direction?: SortDirection;
 };
 export type QueryOptions<TTable extends Table<ColumnMap>> = {
     limit?: number;
@@ -63,37 +73,37 @@ function makeColumn<T>(config: ColumnConfig<T>): Column<T> {
 
 export const column = {
     text: () => makeColumn<string>({
-        sqliteType: "text",
+        sqliteType: SqliteType.TEXT,
         encode: value => value,
         decode: value => String(value),
     }),
     integer: () => makeColumn<number>({
-        sqliteType: "integer",
+        sqliteType: SqliteType.INTEGER,
         encode: value => value,
         decode: value => Number(value),
     }),
     real: () => makeColumn<number>({
-        sqliteType: "real",
+        sqliteType: SqliteType.REAL,
         encode: value => value,
         decode: value => Number(value),
     }),
     boolean: () => makeColumn<boolean>({
-        sqliteType: "integer",
+        sqliteType: SqliteType.INTEGER,
         encode: value => value ? 1 : 0,
         decode: value => Boolean(value),
     }),
     date: () => makeColumn<Date>({
-        sqliteType: "integer",
+        sqliteType: SqliteType.INTEGER,
         encode: value => value.getTime(),
         decode: value => new Date(Number(value)),
     }),
     json: <T extends object>() => makeColumn<T>({
-        sqliteType: "text",
+        sqliteType: SqliteType.TEXT,
         encode: value => JSON.stringify(value),
         decode: value => JSON.parse(String(value)) as T,
     }),
     blob: () => makeColumn<Buffer>({
-        sqliteType: "blob",
+        sqliteType: SqliteType.BLOB,
         encode: value => value,
         decode: value => Buffer.isBuffer(value) ? value : Buffer.from(value as ArrayBuffer),
     }),
