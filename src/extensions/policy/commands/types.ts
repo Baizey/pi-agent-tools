@@ -1,6 +1,4 @@
-import {FsAccessType, PolicyLifetime, PolicyStatus, PolicyWildcard, WebAccessType} from "../../../policy/types";
-
-export {PolicyWildcard};
+import {FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../../../policy/types";
 
 export enum PolicyCommandName {
   POLICY = "policy",

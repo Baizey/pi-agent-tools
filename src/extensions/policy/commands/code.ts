@@ -1,6 +1,6 @@
 import {AutocompleteItem, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
-import {CodeExecPolicyMode, PolicyLifetime} from "../../../policy/types";
+import {CodeExecPolicyMode, PolicyLifetime, PolicyWildcard} from "../../../policy/types";
 import {
   clearOptionsError,
   commonCompletions,
@@ -15,7 +15,7 @@ import {
   tokenizePolicyCommandArgs,
 } from "./shared";
 import {formatCodeEvaluation, formatCodePoliciesList} from "./display";
-import {PolicyCommandAction, PolicyCommandKind, PolicyCommandName, PolicyWildcard, policyStatusForAction} from "./types";
+import {PolicyCommandAction, PolicyCommandKind, PolicyCommandName, policyStatusForAction} from "./types";
 
 export function registerPolicyCodeCommand(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerCommand?.(PolicyCommandName.CODE, {

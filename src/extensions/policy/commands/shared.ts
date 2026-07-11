@@ -6,6 +6,7 @@ import {
   FsAccessType,
   PathPolicyDeleteRequest,
   PolicyLifetime,
+  PolicyWildcard,
   ShellPolicyDeleteRequest,
   WebAccessType,
   WebPolicyDeleteRequest,
@@ -19,7 +20,6 @@ import {
   PolicyCommandMessageKind,
   PolicyCommandOption,
   PolicyCommandResult,
-  PolicyWildcard,
   policyLifetimeForArg,
 } from "./types";
 

@@ -4,14 +4,14 @@ import {PathPolicyLogic} from "../policy/path/PathPolicyLogic";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";
 import {CodeExecPolicyLogic} from "../policy/code-exec/CodeExecPolicyLogic";
 import {WebPolicyLogic} from "../policy/web/WebPolicyLogic";
-import {CodeExecMode, FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
+import {CodeExecMode, FsAccessType, PolicyLifetime, PolicyStatus, PolicyWildcard, WebAccessType} from "../policy/types";
 import {handlePolicyIoCommand} from "../extensions/policy/commands/io";
 import {handlePolicyWebCommand} from "../extensions/policy/commands/web";
 import {handlePolicyCodeCommand} from "../extensions/policy/commands/code";
 import {handlePolicyShellCommand} from "../extensions/policy/commands/shell";
 import {handlePolicyCommand} from "../extensions/policy/commands/policy";
 import {tokenizePolicyCommandArgs} from "../extensions/policy/commands/shared";
-import {PolicyCommandAction, PolicyCommandKind, PolicyCommandLifetimeArg, PolicyCommandMessageKind, PolicyCommandOption, PolicyWildcard} from "../extensions/policy/commands/types";
+import {PolicyCommandAction, PolicyCommandKind, PolicyCommandLifetimeArg, PolicyCommandMessageKind, PolicyCommandOption} from "../extensions/policy/commands/types";
 
 class FakeStore<TPolicy> {
   saveCount = 0;
