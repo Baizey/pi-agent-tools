@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {agentEnv} from "../shared/env";
+import {AgentEnvName} from "../shared/env";
 import {FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";
 import {
@@ -66,7 +66,7 @@ test("policy defaults apply independently to root and subagent scopes", () => {
     assert.equal(currentWebPolicyDefault(WebAccessType.READ, false), PolicyDefaultMode.ASK);
     assert.equal(currentWebPolicyDefault(WebAccessType.SEARCH, false), PolicyDefaultMode.ASK);
 
-    const env = policyDefaultsEnvForSubagents()[agentEnv.policyDefaults];
+    const env = policyDefaultsEnvForSubagents()[AgentEnvName.policyDefaults];
     assert.ok(env);
     const parsed = JSON.parse(env) as {web: Record<string, string>};
     assert.deepEqual(parsed.web, {READ: PolicyDefaultMode.ALLOW, SEARCH: PolicyDefaultMode.ALLOW});

@@ -8,7 +8,7 @@ import {
   WebAccessType,
   policyResolutionSourceText,
 } from "../../../policy/types";
-import {toolNames} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult as toolErrorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
@@ -36,7 +36,7 @@ type PolicyInfoParams = {
 
 export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
-    name: toolNames.policyInfo,
+    name: ToolName.policyInfo,
     label: "Policy Info",
     description: "Show active path, shell, code, and web policies, or evaluate a specific policy target.",
     parameters: {
@@ -109,7 +109,7 @@ export function registerPolicyInfoTool(pi: PiExtensionApi, services: AgentServic
       return successResult(JSON.stringify(overview, null, 2), overview);
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.policyInfo, args, theme, context);
+      return renderToolCallInput(ToolName.policyInfo, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 16});

@@ -5,20 +5,19 @@ import {
   parseSubagentToolkitCeiling,
   resolveSubagentToolkits,
   serializeSubagentToolkitCeiling,
-  subagentToolkitNames,
+  SubagentToolkitName,
 } from "../extensions/subagent";
 
-const toolkit = subagentToolkitNames;
 
 test("subagent toolkit ceiling prevents nested agents from escalating capabilities", () => {
-  const parentToolkits = [toolkit.spawnSubagent];
-  const requestedToolkits = [toolkit.spawnSubagent, toolkit.meta, toolkit.ioRead, toolkit.ioWrite];
+  const parentToolkits = [SubagentToolkitName.spawnSubagent];
+  const requestedToolkits = [SubagentToolkitName.spawnSubagent, SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.ioWrite];
 
   assert.deepEqual(applySubagentToolkitCeiling(requestedToolkits, parentToolkits), ["spawn_subagent"]);
 });
 
 test("subagent toolkit ceiling falls back to no toolkits when requested toolkits exceed parent capabilities", () => {
-  assert.deepEqual(applySubagentToolkitCeiling([toolkit.ioRead], [toolkit.spawnSubagent]), []);
+  assert.deepEqual(applySubagentToolkitCeiling([SubagentToolkitName.ioRead], [SubagentToolkitName.spawnSubagent]), []);
   assert.deepEqual(resolveSubagentToolkits([]).tools, []);
   assert.deepEqual(resolveSubagentToolkits([]).instructions, ["You have access to no tools."]);
 });
@@ -33,8 +32,8 @@ test("subagent toolkit normalization defaults to no toolkits", () => {
 test("subagent toolkit ceiling allows only the intersection of requested and parent capabilities", () => {
   assert.deepEqual(
     applySubagentToolkitCeiling(
-      [toolkit.meta, toolkit.ioRead, toolkit.ioWrite, toolkit.executeBash, toolkit.webRead, toolkit.spawnSubagent],
-      [toolkit.meta, toolkit.ioRead, toolkit.webRead, toolkit.spawnSubagent],
+      [SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.ioWrite, SubagentToolkitName.executeBash, SubagentToolkitName.webRead, SubagentToolkitName.spawnSubagent],
+      [SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.webRead, SubagentToolkitName.spawnSubagent],
     ),
     ["meta", "io_read", "web_read", "spawn_subagent"],
   );
@@ -42,11 +41,11 @@ test("subagent toolkit ceiling allows only the intersection of requested and par
 
 test("subagent toolkit ceiling treats malformed inherited ceilings as no capabilities", () => {
   assert.deepEqual(parseSubagentToolkitCeiling("totally_fake, also_fake"), []);
-  assert.deepEqual(applySubagentToolkitCeiling([toolkit.ioRead], parseSubagentToolkitCeiling("totally_fake")), []);
+  assert.deepEqual(applySubagentToolkitCeiling([SubagentToolkitName.ioRead], parseSubagentToolkitCeiling("totally_fake")), []);
 });
 
 test("subagent toolkit ceiling serialization round-trips without granting defaults", () => {
-  const serialized = serializeSubagentToolkitCeiling([toolkit.spawnSubagent]);
+  const serialized = serializeSubagentToolkitCeiling([SubagentToolkitName.spawnSubagent]);
 
   assert.equal(serialized, "spawn_subagent");
   assert.deepEqual(parseSubagentToolkitCeiling(serialized), ["spawn_subagent"]);
@@ -56,15 +55,15 @@ test("subagent toolkit ceiling serialization round-trips without granting defaul
 });
 
 test("meta toolkit grants harness introspection tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits([toolkit.meta]).tools, ["policy_info", "local_sql"]);
+  assert.deepEqual(resolveSubagentToolkits([SubagentToolkitName.meta]).tools, ["policy_info", "local_sql"]);
 });
 
 test("io_read toolkit grants read-only filesystem tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits([toolkit.ioRead]).tools, ["read", "stat"]);
+  assert.deepEqual(resolveSubagentToolkits([SubagentToolkitName.ioRead]).tools, ["read", "stat"]);
 });
 
 test("spawn_subagent toolkit grants delegation and persona tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits([toolkit.spawnSubagent]).tools, [
+  assert.deepEqual(resolveSubagentToolkits([SubagentToolkitName.spawnSubagent]).tools, [
     "subagent_spawn",
     "subagent_spawn_persona",
     "available_personas",
@@ -76,5 +75,5 @@ test("spawn_subagent toolkit grants delegation and persona tooling", () => {
 });
 
 test("web_read toolkit grants web lookup tooling", () => {
-  assert.deepEqual(resolveSubagentToolkits([toolkit.webRead]).tools, ["web_lookup"]);
+  assert.deepEqual(resolveSubagentToolkits([SubagentToolkitName.webRead]).tools, ["web_lookup"]);
 });

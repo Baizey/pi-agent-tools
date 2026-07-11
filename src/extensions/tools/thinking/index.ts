@@ -1,6 +1,6 @@
 import {AutocompleteItem, PiExtensionApi} from "../../../pi/types";
 import {renderBlockToolCall} from "../../../shared/blockToolRendering";
-import {toolNames} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 import {FoldDirection} from "../../../shared/toolRendering";
 import {successResult} from "../../../shared/toolResults";
 
@@ -11,7 +11,7 @@ export enum ThinkingMode {
 
 export function registerThinkingTool(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.thinking,
+    name: ToolName.thinking,
     label: "Thinking",
     description: "Share concise thoughts or reasoning before continuing with the task.",
     promptSnippet: "Share concise thoughts or reasoning",
@@ -38,7 +38,7 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
     renderCall(args, theme, context) {
       const thoughts = (args as {thoughts?: unknown}).thoughts;
       return renderBlockToolCall({
-        title: toolNames.thinking,
+        title: ToolName.thinking,
         block: {label: "thoughts", text: typeof thoughts === "string" ? thoughts : ""},
         fold: {direction: FoldDirection.TAIL},
       }, theme, context);
@@ -75,7 +75,7 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
 }
 
 export function isThinkingToolEnabled(pi: PiExtensionApi): boolean | undefined {
-  return pi.getActiveTools?.().includes(toolNames.thinking);
+  return pi.getActiveTools?.().includes(ToolName.thinking);
 }
 
 export function setThinkingToolEnabled(pi: PiExtensionApi, enabled: boolean): boolean {
@@ -83,8 +83,8 @@ export function setThinkingToolEnabled(pi: PiExtensionApi, enabled: boolean): bo
   if (!activeTools || !pi.setActiveTools) return false;
 
   let next = activeTools;
-  if (enabled && !activeTools.includes(toolNames.thinking)) next = [...activeTools, toolNames.thinking];
-  if (!enabled) next = activeTools.filter((name) => name !== toolNames.thinking);
+  if (enabled && !activeTools.includes(ToolName.thinking)) next = [...activeTools, ToolName.thinking];
+  if (!enabled) next = activeTools.filter((name) => name !== ToolName.thinking);
   pi.setActiveTools(next);
   return true;
 }

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import {renderSubagentRunTree, SubagentTreeFilter} from "../extensions/subagent/tree-ui";
-import {subagentRunStatuses} from "../storage";
+import {SubagentRunStatus} from "../storage";
 import type {SubagentRunRow} from "../storage";
 import {SubagentRunMode} from "../shared/subagents";
 
 test("subagent database rendering keeps matching ancestors", () => {
-  const root = row("root", null, 1, subagentRunStatuses.running);
-  const child = row("child", "root", 1, subagentRunStatuses.done);
+  const root = row("root", null, 1, SubagentRunStatus.running);
+  const child = row("child", "root", 1, SubagentRunStatus.done);
 
   const lines = renderSubagentRunTree([root, child], "root", SubagentTreeFilter.done);
   assert.match(lines.join("\n"), /reviewer \(root\)/);
@@ -28,8 +28,8 @@ test("subagent database rendering treats missing parents as roots", () => {
 });
 
 test("subagent filtering terminates on cyclic persisted parents", () => {
-  const first = row("first", "second", 1, subagentRunStatuses.done);
-  const second = row("second", "first", 1, subagentRunStatuses.done);
+  const first = row("first", "second", 1, SubagentRunStatus.done);
+  const second = row("second", "first", 1, SubagentRunStatus.done);
   assert.deepEqual(renderSubagentRunTree([first, second], "session", SubagentTreeFilter.done), []);
 });
 
@@ -37,7 +37,7 @@ function row(
   id: string,
   parentId: string | null,
   ordinal: number,
-  status: SubagentRunRow["status"] = subagentRunStatuses.running,
+  status: SubagentRunRow["status"] = SubagentRunStatus.running,
 ): SubagentRunRow {
   return {
     id,

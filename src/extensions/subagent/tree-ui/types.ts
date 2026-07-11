@@ -1,8 +1,7 @@
 import {SubagentRunStatus} from "../../../storage";
-import {SubagentRunMode, SubagentToolkit} from "../toolkits";
+import {SubagentRunMode, SubagentToolkitName} from "../toolkits";
 
-export {SubagentRunStatus as subagentNodeStatuses};
-export type SubagentNodeStatus = SubagentRunStatus;
+export {SubagentRunStatus};
 
 export type SubagentNode = {
   id: string;
@@ -12,9 +11,9 @@ export type SubagentNode = {
   mode: SubagentRunMode;
   task: string;
   role: string;
-  toolkits: SubagentToolkit[];
+  toolkits: SubagentToolkitName[];
   tools: string[];
-  status: SubagentNodeStatus;
+  status: SubagentRunStatus;
   latestLine: string;
   startedAt: number;
   finishedAt?: number;

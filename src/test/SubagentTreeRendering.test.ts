@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {renderSubagentTree, subagentNodeStatuses} from "../extensions/subagent/tree-ui";
+import {renderSubagentTree, SubagentRunStatus} from "../extensions/subagent/tree-ui";
 import type {SubagentNode, SubagentTreeRenderLimits} from "../extensions/subagent/tree-ui";
 import {renderLines} from "../shared/toolRendering";
 import {SubagentRunMode} from "../shared/subagents";
@@ -71,7 +71,7 @@ function node(id: string, overrides: Partial<SubagentNode> = {}): SubagentNode {
     role: "reviewer",
     toolkits: [],
     tools: [],
-    status: subagentNodeStatuses.running,
+    status: SubagentRunStatus.running,
     latestLine: "",
     startedAt: 0,
     children: [],

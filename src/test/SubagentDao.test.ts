@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {tempDir} from "./TestHarness";
-import {SqliteDatabase, SubagentDao, subagentRunStatuses} from "../storage";
-import {subagentRunModes} from "../shared/subagents";
+import {SqliteDatabase, SubagentDao, SubagentRunStatus} from "../storage";
+import {SubagentRunMode} from "../shared/subagents";
 import {renderSubagentRunTree} from "../extensions/subagent/tree-ui";
 
 function withDao(fn: (dao: SubagentDao) => void) {
@@ -24,7 +24,7 @@ test("subagent dao stores and renders a tree using explicit parent relationships
     parentId: undefined,
     ordinal: 1,
     depth: 0,
-    mode: subagentRunModes.async,
+    mode: SubagentRunMode.async,
     task: "root task",
     role: "root role",
     toolkits: [],
@@ -36,14 +36,14 @@ test("subagent dao stores and renders a tree using explicit parent relationships
     parentId: "root-session-1",
     ordinal: 1,
     depth: 1,
-    mode: subagentRunModes.sync,
+    mode: SubagentRunMode.sync,
     task: "child task",
     role: "child role",
     toolkits: [],
     tools: [],
   });
-  dao.updateRun("root-session-1", {status: subagentRunStatuses.running, latestLine: "working"});
-  dao.finishRun("root-session-1-1", subagentRunStatuses.done, {latestLine: "done"});
+  dao.updateRun("root-session-1", {status: SubagentRunStatus.running, latestLine: "working"});
+  dao.finishRun("root-session-1-1", SubagentRunStatus.done, {latestLine: "done"});
 
   const tree = renderSubagentRunTree(dao.listTree("root-session"), "root-session-1");
   assert.deepEqual(tree, [
@@ -60,7 +60,7 @@ test("subagent dao allocates child ordinals per parent", () => withDao(dao => {
     rootId: "root",
     ordinal: 1,
     depth: 0,
-    mode: subagentRunModes.async,
+    mode: SubagentRunMode.async,
     task: "first",
     role: "first role",
     toolkits: [],

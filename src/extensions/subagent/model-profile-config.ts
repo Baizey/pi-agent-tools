@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {AgentModelProfile, agentModelProfiles} from "./model-profile-types";
+import {AgentModelProfile} from "./model-profile-types";
 
 export const autoModelProfileConfig = "auto";
 export type ModelProfileConfigValue = string;
@@ -50,7 +50,7 @@ export function defaultModelProfileConfigFile(): string {
 export function sanitizeModelProfileConfig(value: unknown): ModelProfileConfig {
   if (!isRecord(value)) return {};
   const config: ModelProfileConfig = {};
-  for (const profile of Object.values(agentModelProfiles)) {
+  for (const profile of Object.values(AgentModelProfile)) {
     const raw = value[profile];
     if (typeof raw !== "string") continue;
     const normalized = normalizeConfigValue(raw);

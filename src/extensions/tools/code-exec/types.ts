@@ -1,5 +1,7 @@
 import {CodeExecMode} from "../../../policy/types";
 
+export {CodeExecMode};
+
 export enum CodeLanguage {
   JAVASCRIPT = "javascript",
   TYPESCRIPT = "typescript",
@@ -15,8 +17,6 @@ export enum CodeLanguage {
   CPP = "cpp",
   RUST = "rust",
 }
-
-export import ExecutionMode = CodeExecMode;
 
 export enum TempArtifactMode {
   INLINE = "inline",
@@ -36,7 +36,7 @@ export type ExecInput = {
 
 export type ParsedExecInput = {
   language: CodeLanguage;
-  mode: ExecutionMode;
+  mode: CodeExecMode;
   source: string;
   args: string[];
   stdin?: string;
@@ -50,7 +50,7 @@ export type RuntimeInfo = {
   executable?: string;
   version?: string;
   error?: string;
-  modes: ExecutionMode[];
+  modes: CodeExecMode[];
   notes?: string[];
 };
 
@@ -65,8 +65,8 @@ export type ExecPlan = {
 
 export type Adapter = {
   language: CodeLanguage;
-  modes: ExecutionMode[];
+  modes: CodeExecMode[];
   tempArtifacts?: TempArtifactMode;
   detect(): Promise<RuntimeInfo>;
-  plan(input: {mode: ExecutionMode; source: string; args: string[]; cwd: string}): Promise<ExecPlan>;
+  plan(input: {mode: CodeExecMode; source: string; args: string[]; cwd: string}): Promise<ExecPlan>;
 };

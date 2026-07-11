@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import {PiExtensionApi, registerSubagentTool, subagentRunModes, subagentToolkitNames, toolNames} from "../index";
+import {PiExtensionApi, registerSubagentTool, SubagentRunMode, SubagentToolkitName, ToolName} from "../index";
 import {
   AsyncSubagentJob,
   defaultSubagentAwaitTimeoutSeconds,
   formatTimedOutJobs,
-  subagentJobStatuses,
+  SubagentJobStatus,
 } from "../extensions/subagent/jobs";
 
 function fakeJob(overrides: Partial<AsyncSubagentJob> = {}): AsyncSubagentJob {
@@ -12,14 +12,14 @@ function fakeJob(overrides: Partial<AsyncSubagentJob> = {}): AsyncSubagentJob {
   return {
     id: "job-1",
     request: {
-      mode: subagentRunModes.async,
+      mode: SubagentRunMode.async,
       task: "scan repository for subagent status handling",
       role: "status scanner",
       toolkits: [],
       cwd: process.cwd(),
       timeoutSeconds: 900,
     },
-    status: subagentJobStatuses.running,
+    status: SubagentJobStatus.running,
     startedAt,
     controller: new AbortController(),
     latestUpdateText: "Subagents\n└─ status scanner (job-1) ⏳ reading files",
@@ -38,7 +38,7 @@ test("subagent await tool defaults to a thirty second wait", () => {
 
   registerSubagentTool(pi);
 
-  const awaitTool = tools[toolNames.subagentAwait];
+  const awaitTool = tools[ToolName.subagentAwait];
   assert.ok(awaitTool);
   const timeoutParam = (((awaitTool.parameters.properties as Record<string, unknown>).timeoutSeconds) as {default?: number; description?: string});
   assert.equal(timeoutParam.default, defaultSubagentAwaitTimeoutSeconds);
@@ -51,14 +51,14 @@ test("timed out subagent await responses include current job statuses", () => {
     fakeJob(),
     fakeJob({
       id: "job-2",
-      status: subagentJobStatuses.completed,
+      status: SubagentJobStatus.completed,
       finishedAt: Date.now(),
       latestUpdateText: "Subagents\n└─ reviewer (job-2) ✓ done",
       request: {
-        mode: subagentRunModes.async,
+        mode: SubagentRunMode.async,
         task: "finished review",
         role: "reviewer",
-        toolkits: [subagentToolkitNames.ioRead],
+        toolkits: [SubagentToolkitName.ioRead],
         cwd: process.cwd(),
         timeoutSeconds: 900,
       },

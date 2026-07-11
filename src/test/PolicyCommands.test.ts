@@ -4,14 +4,14 @@ import {PathPolicyLogic} from "../policy/path/PathPolicyLogic";
 import {ShellPolicyLogic} from "../policy/shell/ShellPolicyLogic";
 import {CodeExecPolicyLogic} from "../policy/code-exec/CodeExecPolicyLogic";
 import {WebPolicyLogic} from "../policy/web/WebPolicyLogic";
-import {FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
+import {CodeExecMode, FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../policy/types";
 import {handlePolicyIoCommand} from "../extensions/policy/commands/io";
 import {handlePolicyWebCommand} from "../extensions/policy/commands/web";
 import {handlePolicyCodeCommand} from "../extensions/policy/commands/code";
 import {handlePolicyShellCommand} from "../extensions/policy/commands/shell";
 import {handlePolicyCommand} from "../extensions/policy/commands/policy";
 import {tokenizePolicyCommandArgs} from "../extensions/policy/commands/shared";
-import {PolicyCommandAction, PolicyCommandCodeMode, PolicyCommandKind, PolicyCommandLifetimeArg, PolicyCommandMessageKind, PolicyCommandOption, PolicyCommandWildcard} from "../extensions/policy/commands/types";
+import {PolicyCommandAction, PolicyCommandKind, PolicyCommandLifetimeArg, PolicyCommandMessageKind, PolicyCommandOption, PolicyWildcard} from "../extensions/policy/commands/types";
 
 class FakeStore<TPolicy> {
   saveCount = 0;
@@ -132,16 +132,16 @@ test("policy-code manages explicit code execution policies", () => {
   const rt = runtime();
 
   const ar = agentRuntime(rt);
-  const result = handlePolicyCodeCommand(ar, `${PolicyCommandAction.DENY} JavaScript ${PolicyCommandCodeMode.INLINE} ${PolicyCommandOption.LIFETIME} ${PolicyCommandLifetimeArg.FOREVER}`);
+  const result = handlePolicyCodeCommand(ar, `${PolicyCommandAction.DENY} JavaScript ${CodeExecMode.INLINE} ${PolicyCommandOption.LIFETIME} ${PolicyCommandLifetimeArg.FOREVER}`);
   assert.equal(result.kind, PolicyCommandMessageKind.INFO);
   assert.equal(rt.codeExecPolicyStore.saveCount, 1);
-  assert.equal(rt.codeExecPolicy.evaluate("javascript", PolicyCommandCodeMode.INLINE)?.matchedStatus, PolicyStatus.DENIED);
+  assert.equal(rt.codeExecPolicy.evaluate("javascript", CodeExecMode.INLINE)?.matchedStatus, PolicyStatus.DENIED);
 
-  handlePolicyCodeCommand(ar, `${PolicyCommandAction.ALLOW} ${PolicyCommandWildcard.ALL} ${PolicyCommandCodeMode.FILE}`);
-  assert.equal(rt.codeExecPolicy.evaluate("python", PolicyCommandCodeMode.FILE)?.matchedStatus, PolicyStatus.ALLOWED);
+  handlePolicyCodeCommand(ar, `${PolicyCommandAction.ALLOW} ${PolicyWildcard.ALL} ${CodeExecMode.FILE}`);
+  assert.equal(rt.codeExecPolicy.evaluate("python", CodeExecMode.FILE)?.matchedStatus, PolicyStatus.ALLOWED);
 
-  handlePolicyCodeCommand(ar, `${PolicyCommandAction.REMOVE} javascript ${PolicyCommandCodeMode.INLINE}`);
-  assert.equal(rt.codeExecPolicy.evaluate("javascript", PolicyCommandCodeMode.INLINE, false), null);
+  handlePolicyCodeCommand(ar, `${PolicyCommandAction.REMOVE} javascript ${CodeExecMode.INLINE}`);
+  assert.equal(rt.codeExecPolicy.evaluate("javascript", CodeExecMode.INLINE, false), null);
   assert.equal(rt.codeExecPolicyStore.saveCount, 2);
 });
 
@@ -245,7 +245,7 @@ test("policy show and eval outputs are concise text, not JSON", () => {
   handlePolicyIoCommand(ar, `${PolicyCommandAction.ALLOW} ./src ${FsAccessType.READ} ${FsAccessType.WRITE} ${FsAccessType.EDIT}`);
   handlePolicyIoCommand(ar, `${PolicyCommandAction.DENY} ./src ${FsAccessType.EXECUTE}`);
   handlePolicyWebCommand(ar, `${PolicyCommandAction.ALLOW} https://example.com/docs ${WebAccessType.READ}`);
-  handlePolicyCodeCommand(ar, `${PolicyCommandAction.DENY} javascript ${PolicyCommandCodeMode.INLINE}`);
+  handlePolicyCodeCommand(ar, `${PolicyCommandAction.DENY} javascript ${CodeExecMode.INLINE}`);
   handlePolicyShellCommand(ar, `${PolicyCommandAction.ALLOW} git status --short`);
 
   const ioShow = handlePolicyIoCommand(ar, PolicyCommandAction.SHOW);
@@ -275,7 +275,7 @@ test("policy umbrella shows and clears all explicit policy kinds", () => {
   const ar = agentRuntime(rt);
   handlePolicyIoCommand(ar, `${PolicyCommandAction.ALLOW} ./src ${FsAccessType.READ}`);
   handlePolicyWebCommand(ar, `${PolicyCommandAction.ALLOW} https://example.com ${WebAccessType.READ}`);
-  handlePolicyCodeCommand(ar, `${PolicyCommandAction.ALLOW} python ${PolicyCommandCodeMode.INLINE}`);
+  handlePolicyCodeCommand(ar, `${PolicyCommandAction.ALLOW} python ${CodeExecMode.INLINE}`);
   handlePolicyShellCommand(ar, `${PolicyCommandAction.ALLOW} npm test`);
 
   let result = handlePolicyCommand(ar, `${PolicyCommandAction.CLEAR} ${PolicyCommandKind.ALL}`);

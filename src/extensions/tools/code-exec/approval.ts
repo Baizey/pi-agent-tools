@@ -5,7 +5,8 @@ import {
     CodeExecPolicyScopeOption,
     PolicyLifetime,
     PolicyResolutionSource,
-    PolicyStatus
+    PolicyStatus,
+    PolicyWildcard,
 } from "../../../policy/types";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {UIAiHelpWrap} from "../../shared/ui-flow/DecisionAiHelper";
@@ -39,8 +40,8 @@ async function askForCodeExecPolicy(
     const failed = (reason: string): CodeExecPolicyResult => ({
         language: input.language,
         mode: input.mode,
-        matchedLanguage: "*",
-        matchedMode: "*",
+        matchedLanguage: PolicyWildcard.ALL,
+        matchedMode: PolicyWildcard.ALL,
         matchedScope: "(none)",
         matchedLifetime: PolicyLifetime.ONCE,
         matchedStatus: PolicyStatus.DENIED,

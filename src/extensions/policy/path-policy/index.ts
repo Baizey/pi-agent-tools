@@ -3,9 +3,9 @@ import {PiExtensionApi, ExtensionContext} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
 import {PathPolicyLogic} from "../../../policy/path/PathPolicyLogic";
 import {FsAccessType, PathPolicyResult, PolicyLifetime, PolicyResolutionSource, PolicyStatus} from "../../../policy/types";
-import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
+import {AgentEnvName, isAgentEnvEnabled} from "../../../shared/env";
 import {standardizePath} from "../../../shared/paths";
-import {toolNames} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
 import {stringValues} from "../../../shared/values";
 import {currentPathPolicyDefault, PolicyDefaultMode} from "../defaults";
@@ -22,7 +22,7 @@ export function registerPathPolicy(pi: PiExtensionApi, services: AgentServices):
                 runtime,
                 pathAccess.path,
                 pathAccess.accessType,
-                isAgentEnvEnabled(agentEnv.pathDenyByDefault),
+                isAgentEnvEnabled(AgentEnvName.pathDenyByDefault),
             );
             if (reason) return {block: true, reason};
         }
@@ -225,27 +225,27 @@ type PathAccess = {
 
 function pathAccessesForToolCall(toolName: string, input: Record<string, unknown>): PathAccess[] {
     switch (toolName) {
-        case toolNames.read:
-        case toolNames.stat:
+        case ToolName.read:
+        case ToolName.stat:
             return accesses(input.path, FsAccessType.READ);
 
-        case toolNames.write:
-        case toolNames.mkdir:
+        case ToolName.write:
+        case ToolName.mkdir:
             return accesses(input.path, FsAccessType.WRITE);
 
-        case toolNames.edit:
+        case ToolName.edit:
             return accesses(input.path, FsAccessType.EDIT);
 
-        case toolNames.delete:
+        case ToolName.delete:
             return accesses(input.path, FsAccessType.DELETE);
 
-        case toolNames.copy:
+        case ToolName.copy:
             return [
                 ...accesses(input.from, FsAccessType.READ),
                 ...accesses(input.to, FsAccessType.WRITE),
             ];
 
-        case toolNames.move:
+        case ToolName.move:
             return [
                 ...accesses(input.from, FsAccessType.DELETE),
                 ...accesses(input.to, FsAccessType.WRITE),

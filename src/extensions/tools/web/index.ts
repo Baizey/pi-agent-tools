@@ -1,8 +1,8 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
 import {PolicyLifetime, PolicyResolutionSource, PolicyStatus, WebAccessType, WebPolicyResult, WebPolicyScopeOption} from "../../../policy/types";
-import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
-import {toolNames} from "../../../shared/toolNames";
+import {AgentEnvName, isAgentEnvEnabled} from "../../../shared/env";
+import {ToolName} from "../../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
 import {UiDecision, UiDecisionFlowManager, UiFlowShortcut} from "../../shared/ui-flow";
@@ -14,7 +14,7 @@ export const webLookupFetchTimeoutMs = 30_000;
 
 export function registerWebLookupTool(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerTool?.({
-    name: toolNames.webLookup,
+    name: ToolName.webLookup,
     label: "Web Lookup",
     description: "Minimal policy-aware web tool. Provide query to search the web, or url to fetch and read a page.",
     parameters: objectSchema({
@@ -37,7 +37,7 @@ export function registerWebLookupTool(pi: PiExtensionApi, services: AgentService
       }
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.webLookup, args, theme, context);
+      return renderToolCallInput(ToolName.webLookup, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -47,7 +47,7 @@ export function registerWebLookupTool(pi: PiExtensionApi, services: AgentService
 
 async function searchWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntime, query: string, maxResults: number, signal?: AbortSignal) {
   const searchUrl = `${defaultSearchUrl}?q=${encodeURIComponent(query)}`;
-  const denied = await ensureWebAllowed(ctx, runtime, searchUrl, WebAccessType.SEARCH, isAgentEnvEnabled(agentEnv.webDenyByDefault));
+  const denied = await ensureWebAllowed(ctx, runtime, searchUrl, WebAccessType.SEARCH, isAgentEnvEnabled(AgentEnvName.webDenyByDefault));
   if (denied) return errorResult(denied);
 
   const html = await fetchText(searchUrl, signal);
@@ -59,7 +59,7 @@ async function searchWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntim
 }
 
 async function readWeb(ctx: ExtensionContext | undefined, runtime: AgentRuntime, url: string, raw: boolean, signal?: AbortSignal) {
-  const denied = await ensureWebAllowed(ctx, runtime, url, WebAccessType.READ, isAgentEnvEnabled(agentEnv.webDenyByDefault));
+  const denied = await ensureWebAllowed(ctx, runtime, url, WebAccessType.READ, isAgentEnvEnabled(AgentEnvName.webDenyByDefault));
   if (denied) return errorResult(denied);
 
   const html = await fetchText(url, signal);

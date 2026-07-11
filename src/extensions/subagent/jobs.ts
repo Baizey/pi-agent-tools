@@ -1,5 +1,5 @@
 import {readSubagentTreeContext} from "./tree-ui";
-import {subagentRunModes} from "./toolkits";
+import {SubagentRunMode} from "./toolkits";
 import {database_filename, SqliteDatabase, SubagentDao, SubagentRunStatus} from "../../storage";
 import {runSubagent, SubagentRequest, SubagentResult, SubagentUpdate} from "./runner";
 
@@ -11,7 +11,6 @@ export enum SubagentJobStatus {
   cancelled = "cancelled",
 }
 
-export import subagentJobStatuses = SubagentJobStatus;
 
 export type AsyncSubagentJob = {
   id: string;
@@ -42,7 +41,7 @@ export function startAsyncSubagentJob(request: SubagentRequest, onUpdate?: Subag
   const job: AsyncSubagentJob = {
     id: identity.id,
     request,
-    status: subagentJobStatuses.running,
+    status: SubagentJobStatus.running,
     startedAt: Date.now(),
     controller,
     history: [],
@@ -71,8 +70,8 @@ export function getAsyncSubagentJobs(jobIds: string[]): {jobs: AsyncSubagentJob[
 }
 
 export function sendConversationMessage(job: AsyncSubagentJob, task: string, onUpdate?: SubagentUpdate): void {
-  if (job.status !== subagentJobStatuses.idle) return;
-  job.status = subagentJobStatuses.running;
+  if (job.status !== SubagentJobStatus.idle) return;
+  job.status = SubagentJobStatus.running;
   job.finishedAt = undefined;
   job.result = undefined;
   job.error = undefined;
@@ -91,8 +90,8 @@ export function sendConversationMessage(job: AsyncSubagentJob, task: string, onU
 }
 
 export function cancelAsyncSubagentJob(job: AsyncSubagentJob): void {
-  if (job.status !== subagentJobStatuses.running && job.status !== subagentJobStatuses.idle) return;
-  job.status = subagentJobStatuses.cancelled;
+  if (job.status !== SubagentJobStatus.running && job.status !== SubagentJobStatus.idle) return;
+  job.status = SubagentJobStatus.cancelled;
   job.finishedAt = Date.now();
   updatePersistedJob(job.id, SubagentRunStatus.cancelled, "cancelled");
   job.controller.abort();
@@ -105,7 +104,7 @@ export async function waitForJobs(
 ): Promise<boolean> {
   const deadline = Date.now() + Math.max(1, timeoutSeconds) * 1000;
 
-  while (jobs.some((job) => job.status === subagentJobStatuses.running)) {
+  while (jobs.some((job) => job.status === SubagentJobStatus.running)) {
     if (signal?.aborted || Date.now() >= deadline) return false;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -114,7 +113,7 @@ export async function waitForJobs(
 }
 
 export function unfinishedJobIds(jobs: AsyncSubagentJob[]): string[] {
-  return jobs.filter((job) => job.status === subagentJobStatuses.running).map((job) => job.id);
+  return jobs.filter((job) => job.status === SubagentJobStatus.running).map((job) => job.id);
 }
 
 export function formatAwaitedJob(job: AsyncSubagentJob): string {
@@ -224,17 +223,17 @@ function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, o
 
   void runSubagent(request, job.controller.signal, captureUpdate)
     .then((result) => {
-      if (job.status === subagentJobStatuses.cancelled) return;
+      if (job.status === SubagentJobStatus.cancelled) return;
       job.result = result;
       job.history.push({task, output: result.output});
       job.status = result.exitCode === 0 && !result.timedOut
-        ? request.mode === subagentRunModes.conversation ? subagentJobStatuses.idle : subagentJobStatuses.completed
-        : subagentJobStatuses.failed;
-      job.finishedAt = job.status === subagentJobStatuses.idle ? undefined : Date.now();
+        ? request.mode === SubagentRunMode.conversation ? SubagentJobStatus.idle : SubagentJobStatus.completed
+        : SubagentJobStatus.failed;
+      job.finishedAt = job.status === SubagentJobStatus.idle ? undefined : Date.now();
     })
     .catch((error) => {
-      if (job.status === subagentJobStatuses.cancelled) return;
-      job.status = subagentJobStatuses.failed;
+      if (job.status === SubagentJobStatus.cancelled) return;
+      job.status = SubagentJobStatus.failed;
       job.error = error instanceof Error ? error.message : String(error);
       job.finishedAt = Date.now();
       updatePersistedJob(job.id, SubagentRunStatus.failed, job.error);

@@ -1,6 +1,6 @@
 import {Orm, SortDirection, column, table, type Row} from "./orm";
 import {SqliteDatabase} from "./sqlite";
-import type {SubagentToolkit, SubagentRunMode} from "../shared/subagents";
+import type {SubagentToolkitName, SubagentRunMode} from "../shared/subagents";
 
 export enum SubagentRunStatus {
     starting = "starting",
@@ -11,7 +11,6 @@ export enum SubagentRunStatus {
     timedOut = "timed_out",
 }
 
-export import subagentRunStatuses = SubagentRunStatus;
 
 export const subagentRuns = table("subagent_runs", {
     id: column.text().primaryKey(),
@@ -23,7 +22,7 @@ export const subagentRuns = table("subagent_runs", {
     task: column.text().notNull(),
     role: column.text().notNull().default("''"),
     persona: column.text().nullable(),
-    profiles: column.json<SubagentToolkit[]>().notNull(),
+    profiles: column.json<SubagentToolkitName[]>().notNull(),
     tools: column.json<string[]>().notNull(),
     status: column.text().notNull(),
     latestLine: column.text().notNull(),
@@ -50,7 +49,7 @@ export type StartSubagentRunInput = {
     task: string;
     role: string;
     persona?: string | null;
-    toolkits: SubagentToolkit[];
+    toolkits: SubagentToolkitName[];
     tools: string[];
 };
 
@@ -113,7 +112,7 @@ export class SubagentDao {
             ...(typeof input.persona === "string" ? {persona: input.persona} : {}),
             profiles: input.toolkits,
             tools: input.tools,
-            status: subagentRunStatuses.starting,
+            status: SubagentRunStatus.starting,
             latestLine: input.task,
             startedAt: now,
             updatedAt: now,

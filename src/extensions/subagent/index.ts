@@ -1,6 +1,6 @@
 import {ExtensionContext, PiExtensionApi} from "../../pi/types";
 import {database_filename, normalizeSubagentPersonaName, SqliteDatabase, SubagentPersonaDao} from "../../storage";
-import {toolNames} from "../../shared/toolNames";
+import {ToolName} from "../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {
@@ -12,12 +12,12 @@ import {
   getAsyncSubagentJobs,
   jobDetails,
   sendConversationMessage,
-  subagentJobStatuses,
+  SubagentJobStatus,
   startAsyncSubagentJob,
   waitForJobs,
 } from "./jobs";
-import {agentModelProfiles, resolveAgentModelProfile} from "./model-profiles";
-import {defaultSubagentTimeoutSeconds, subagentRunModes, subagentToolkits} from "./toolkits";
+import {AgentModelProfile, resolveAgentModelProfile} from "./model-profiles";
+import {defaultSubagentTimeoutSeconds, SubagentRunMode, subagentToolkits} from "./toolkits";
 import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
 import {registerSubagentCommands, updateSubagentWidget} from "./commands";
@@ -43,7 +43,7 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
 
 function registerSubagent(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagentSpawn,
+    name: ToolName.subagentSpawn,
     label: "Subagent",
     description: "Run a scoped subagent. Supports sync one-shot, async job, and conversation modes.",
     parameters: subagentParameters(),
@@ -53,7 +53,7 @@ function registerSubagent(pi: PiExtensionApi): void {
       return executeSubagentRequest(request, signal, onUpdate, ctx);
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.subagentSpawn, args, theme, context);
+      return renderToolCallInput(ToolName.subagentSpawn, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -63,7 +63,7 @@ function registerSubagent(pi: PiExtensionApi): void {
 
 function registerSubagentPersona(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagentSpawnPersona,
+    name: ToolName.subagentSpawnPersona,
     label: "Subagent Persona",
     description: "Spawn a subagent from a registered persona preset. Provide only the persona name, task, and optional timeout.",
     parameters: subagentPersonaParameters(),
@@ -98,7 +98,7 @@ function registerSubagentPersona(pi: PiExtensionApi): void {
       }
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.subagentSpawnPersona, args, theme, context);
+      return renderToolCallInput(ToolName.subagentSpawnPersona, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -122,17 +122,17 @@ async function executeSubagentRequest(
   request.rootSessionId = ctx?.sessionManager?.getSessionId();
   const treeUpdate = subagentUiUpdater(onUpdate, ctx);
 
-  if (request.mode === subagentRunModes.async || request.mode === subagentRunModes.conversation) {
+  if (request.mode === SubagentRunMode.async || request.mode === SubagentRunMode.conversation) {
     const job = startAsyncSubagentJob(request, treeUpdate);
     return successResult(
-      request.mode === subagentRunModes.conversation
-        ? `Started conversation subagent ${job.id}. Use ${toolNames.subagentMessage} to continue or ${toolNames.subagentCancel} when done.`
-        : `Started async subagent job ${job.id}. Use ${toolNames.subagentStatus} to check progress.`,
+      request.mode === SubagentRunMode.conversation
+        ? `Started conversation subagent ${job.id}. Use ${ToolName.subagentMessage} to continue or ${ToolName.subagentCancel} when done.`
+        : `Started async subagent job ${job.id}. Use ${ToolName.subagentStatus} to check progress.`,
       jobDetails(job),
     );
   }
 
-  if (request.mode === subagentRunModes.sync) {
+  if (request.mode === SubagentRunMode.sync) {
     const result = await runSubagent(
       request,
       signal,
@@ -146,7 +146,7 @@ async function executeSubagentRequest(
 
 function registerSubagentStatus(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagentStatus,
+    name: ToolName.subagentStatus,
     label: "Subagent Status",
     description: "Check the status and result of an async subagent job.",
     parameters: singleJobParameters(),
@@ -160,7 +160,7 @@ function registerSubagentStatus(pi: PiExtensionApi): void {
       return successResult(`Subagent job ${job.id} is ${job.status}.`, jobDetails(job));
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.subagentStatus, args, theme, context);
+      return renderToolCallInput(ToolName.subagentStatus, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -170,7 +170,7 @@ function registerSubagentStatus(pi: PiExtensionApi): void {
 
 function registerSubagentAwait(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagentAwait,
+    name: ToolName.subagentAwait,
     label: "Await Subagent",
     description: "Wait for one or more async subagent jobs to finish and return their results.",
     parameters: awaitJobParameters(),
@@ -194,7 +194,7 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
       }
 
       const text = jobs.map(formatAwaitedJob).join("\n\n---\n\n");
-      const hasFailed = jobs.some((job) => job.status === subagentJobStatuses.failed || job.status === subagentJobStatuses.cancelled);
+      const hasFailed = jobs.some((job) => job.status === SubagentJobStatus.failed || job.status === SubagentJobStatus.cancelled);
       return {
         content: [{type: "text" as const, text}],
         details,
@@ -202,7 +202,7 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
       };
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.subagentAwait, args, theme, context);
+      return renderToolCallInput(ToolName.subagentAwait, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -212,7 +212,7 @@ function registerSubagentAwait(pi: PiExtensionApi): void {
 
 function registerSubagentMessage(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagentMessage,
+    name: ToolName.subagentMessage,
     label: "Message Subagent",
     description: "Send another message to an idle conversation subagent.",
     parameters: {
@@ -232,14 +232,14 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
       if (!task) return errorResult("Missing required parameter: task.");
       const job = getAsyncSubagentJob(jobId);
       if (!job) return errorResult(`Unknown subagent job: ${jobId}`);
-      if (job.request.mode !== subagentRunModes.conversation) return errorResult(`Subagent job ${jobId} is not a conversation.`);
-      if (job.status !== subagentJobStatuses.idle) return errorResult(`Conversation subagent ${jobId} is ${job.status}, not idle.`);
+      if (job.request.mode !== SubagentRunMode.conversation) return errorResult(`Subagent job ${jobId} is not a conversation.`);
+      if (job.status !== SubagentJobStatus.idle) return errorResult(`Conversation subagent ${jobId} is ${job.status}, not idle.`);
 
       sendConversationMessage(job, task, subagentUiUpdater(onUpdate, ctx));
       return successResult(`Sent message to conversation subagent ${job.id}.`, jobDetails(job));
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.subagentMessage, args, theme, context);
+      return renderToolCallInput(ToolName.subagentMessage, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -249,7 +249,7 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
 
 function registerSubagentCancel(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: toolNames.subagentCancel,
+    name: ToolName.subagentCancel,
     label: "Cancel Subagent",
     description: "Cancel a running async subagent job.",
     parameters: singleJobParameters(),
@@ -258,7 +258,7 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       if (!jobId) return errorResult("Missing required parameter: jobId.");
       const job = getAsyncSubagentJob(jobId);
       if (!job) return errorResult(`Unknown subagent job: ${jobId}`);
-      if (job.status !== subagentJobStatuses.running && job.status !== subagentJobStatuses.idle) {
+      if (job.status !== SubagentJobStatus.running && job.status !== SubagentJobStatus.idle) {
         return successResult(`Subagent job ${job.id} is already ${job.status}.`, jobDetails(job));
       }
 
@@ -267,7 +267,7 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.subagentCancel, args, theme, context);
+      return renderToolCallInput(ToolName.subagentCancel, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -291,9 +291,9 @@ function subagentParameters(): Record<string, unknown> {
     properties: {
       mode: {
         type: "string",
-        enum: Object.values(subagentRunModes),
+        enum: Object.values(SubagentRunMode),
         description: "Run mode. Defaults to sync.",
-        default: subagentRunModes.sync,
+        default: SubagentRunMode.sync,
       },
       task: {
         type: "string",
@@ -321,7 +321,7 @@ function subagentParameters(): Record<string, unknown> {
       },
       model: {
         type: "string",
-        description: `Optional model profile (${Object.values(agentModelProfiles).join(", ")}) or concrete provider/model id for the subagent.`,
+        description: `Optional model profile (${Object.values(AgentModelProfile).join(", ")}) or concrete provider/model id for the subagent.`,
       },
       systemPrompt: {
         type: "string",
@@ -395,5 +395,5 @@ function errorMessage(error: unknown): string {
 
 export * from "./toolkits";
 export * from "./personas";
-export {agentModelProfiles, isAgentModelProfile, resolveAgentModel, resolveAgentModelProfile} from "./model-profiles";
+export {AgentModelProfile, isAgentModelProfile, resolveAgentModel, resolveAgentModelProfile} from "./model-profiles";
 export {runSubagent, runSyncSubagent} from "./runner";

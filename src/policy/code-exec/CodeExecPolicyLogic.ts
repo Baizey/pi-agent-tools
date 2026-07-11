@@ -9,6 +9,7 @@ import {
   PolicyResolutionSource,
   policyResolutionSourceText,
   PolicyStatus,
+  PolicyWildcard,
 } from "../types";
 
 export type CodeExecPolicyLogicOptions = {
@@ -18,7 +19,7 @@ export type CodeExecPolicyLogicOptions = {
 export class CodeExecPolicyLogic {
   static createPolicy(
     language: string,
-    mode: CodeExecMode | "*",
+    mode: CodeExecMode | PolicyWildcard.ALL,
     status: PolicyStatus,
     lifetime: PolicyLifetime,
     reason: string,
@@ -41,8 +42,8 @@ export class CodeExecPolicyLogic {
       return {
         language: normalizedLanguage,
         mode,
-        matchedLanguage: "*",
-        matchedMode: "*",
+        matchedLanguage: PolicyWildcard.ALL,
+        matchedMode: PolicyWildcard.ALL,
         matchedScope: "(none)",
         matchedLifetime: PolicyLifetime.FOREVER,
         matchedStatus: PolicyStatus.DENIED,
@@ -68,9 +69,9 @@ export class CodeExecPolicyLogic {
     const normalizedLanguage = normalizeLanguage(language);
     const options: CodeExecPolicyScopeOption[] = [
       {label: scopeLabel(normalizedLanguage, mode), language: normalizedLanguage, mode},
-      {label: scopeLabel(normalizedLanguage, "*"), language: normalizedLanguage, mode: "*"},
-      {label: scopeLabel("*", mode), language: "*", mode},
-      {label: scopeLabel("*", "*"), language: "*", mode: "*"},
+      {label: scopeLabel(normalizedLanguage, PolicyWildcard.ALL), language: normalizedLanguage, mode: PolicyWildcard.ALL},
+      {label: scopeLabel(PolicyWildcard.ALL, mode), language: PolicyWildcard.ALL, mode},
+      {label: scopeLabel(PolicyWildcard.ALL, PolicyWildcard.ALL), language: PolicyWildcard.ALL, mode: PolicyWildcard.ALL},
     ];
     return options.filter((option) => !this.findExactPolicy(option.language, option.mode));
   }
@@ -134,14 +135,16 @@ export class CodeExecPolicyLogic {
       .sort((left, right) => specificity(right) - specificity(left))[0];
   }
 
-  private findExactPolicy(language: string, mode: CodeExecMode | "*"): CodeExecPolicy | undefined {
+  private findExactPolicy(language: string, mode: CodeExecMode | PolicyWildcard.ALL): CodeExecPolicy | undefined {
     return this.policies.find((policy) => policy.language === language && policy.mode === mode);
   }
 
   private standardizePolicy(policy: CodeExecPolicy): CodeExecPolicy {
     return {
       language: normalizeLanguage(policy.language),
-      mode: policy.mode === "file" || policy.mode === "inline" ? policy.mode : "*",
+      mode: policy.mode === CodeExecMode.FILE || policy.mode === CodeExecMode.INLINE
+        ? policy.mode
+        : PolicyWildcard.ALL,
       lifetime: policy.lifetime,
       status: policy.status,
       reason: policy.reason.trim(),
@@ -151,24 +154,26 @@ export class CodeExecPolicyLogic {
   private standardizeDeleteRequest(request: CodeExecPolicyDeleteRequest): CodeExecPolicyDeleteRequest {
     return {
       language: normalizeLanguage(request.language),
-      mode: request.mode === "file" || request.mode === "inline" ? request.mode : "*",
+      mode: request.mode === CodeExecMode.FILE || request.mode === CodeExecMode.INLINE
+        ? request.mode
+        : PolicyWildcard.ALL,
     };
   }
 }
 
 function normalizeLanguage(language: string): string {
   const trimmed = language.trim().toLowerCase();
-  return trimmed === "" ? "*" : trimmed;
+  return trimmed === "" ? PolicyWildcard.ALL : trimmed;
 }
 
 function matches(policy: CodeExecPolicy, language: string, mode: CodeExecMode): boolean {
-  return (policy.language === "*" || policy.language === language) && (policy.mode === "*" || policy.mode === mode);
+  return (policy.language === PolicyWildcard.ALL || policy.language === language) && (policy.mode === PolicyWildcard.ALL || policy.mode === mode);
 }
 
 function specificity(policy: CodeExecPolicy): number {
-  return (policy.language === "*" ? 0 : 2) + (policy.mode === "*" ? 0 : 1);
+  return (policy.language === PolicyWildcard.ALL ? 0 : 2) + (policy.mode === PolicyWildcard.ALL ? 0 : 1);
 }
 
-function scopeLabel(language: string, mode: CodeExecMode | "*"): string {
+function scopeLabel(language: string, mode: CodeExecMode | PolicyWildcard.ALL): string {
   return `${language} ${mode}`;
 }

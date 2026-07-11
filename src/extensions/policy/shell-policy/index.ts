@@ -1,7 +1,7 @@
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
-import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
-import {toolNames} from "../../../shared/toolNames";
+import {AgentEnvName, isAgentEnvEnabled} from "../../../shared/env";
+import {ToolName} from "../../../shared/toolNames";
 import {stringValue} from "../../../shared/values";
 import {ensurePathAllowed} from "../path-policy";
 import {ensureShellAllowed} from "./approval";
@@ -14,7 +14,7 @@ export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices)
   registerBashSummaryRenderer(pi);
 
   pi.on("tool_call", async (event, ctx) => {
-    if (event.toolName !== toolNames.bash) return;
+    if (event.toolName !== ToolName.bash) return;
 
     const runtime = services.runtimeFor(ctx.cwd);
     const command = stringValue(event.input.command) ?? "";
@@ -23,7 +23,7 @@ export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices)
       ctx,
       runtime,
       command,
-      isAgentEnvEnabled(agentEnv.shellDenyByDefault),
+      isAgentEnvEnabled(AgentEnvName.shellDenyByDefault),
     );
     if (shellDenyReason) return {block: true, reason: shellDenyReason};
 
@@ -31,7 +31,7 @@ export function registerShellPolicy(pi: PiExtensionApi, services: AgentServices)
       ctx,
       runtime,
       command,
-      isAgentEnvEnabled(agentEnv.pathDenyByDefault),
+      isAgentEnvEnabled(AgentEnvName.pathDenyByDefault),
     );
     if (pathDenyReason) return {block: true, reason: pathDenyReason};
   });

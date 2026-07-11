@@ -1,13 +1,13 @@
-import {subagentNodeStatuses} from "./types";
+import {SubagentRunStatus} from "./types";
 import type {SubagentNode} from "./types";
 
 const statusIcons: Record<SubagentNode["status"], string> = {
-  [subagentNodeStatuses.starting]: "…",
-  [subagentNodeStatuses.running]: "⏳",
-  [subagentNodeStatuses.done]: "✓",
-  [subagentNodeStatuses.failed]: "✗",
-  [subagentNodeStatuses.cancelled]: "⏹",
-  [subagentNodeStatuses.timedOut]: "⌛",
+  [SubagentRunStatus.starting]: "…",
+  [SubagentRunStatus.running]: "⏳",
+  [SubagentRunStatus.done]: "✓",
+  [SubagentRunStatus.failed]: "✗",
+  [SubagentRunStatus.cancelled]: "⏹",
+  [SubagentRunStatus.timedOut]: "⌛",
 };
 
 export type SubagentTreeRenderLimits = {

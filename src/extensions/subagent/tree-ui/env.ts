@@ -1,21 +1,21 @@
-import {agentEnv} from "../../../shared/env";
+import {AgentEnvName} from "../../../shared/env";
 import {SubagentTreeContext} from "./types";
 
 export function readSubagentTreeContext(env: NodeJS.ProcessEnv = process.env): SubagentTreeContext {
   return {
-    rootId: env[agentEnv.subagentRootId],
-    parentId: env[agentEnv.subagentParentId],
-    nodeId: env[agentEnv.subagentNodeId],
-    depth: parseDepth(env[agentEnv.subagentDepth]),
+    rootId: env[AgentEnvName.subagentRootId],
+    parentId: env[AgentEnvName.subagentParentId],
+    nodeId: env[AgentEnvName.subagentNodeId],
+    depth: parseDepth(env[AgentEnvName.subagentDepth]),
   };
 }
 
 export function subagentTreeEnv(input: {rootId: string; parentId?: string; nodeId: string; depth: number}): Record<string, string> {
   return {
-    [agentEnv.subagentRootId]: input.rootId,
-    [agentEnv.subagentParentId]: input.parentId ?? "",
-    [agentEnv.subagentNodeId]: input.nodeId,
-    [agentEnv.subagentDepth]: String(input.depth),
+    [AgentEnvName.subagentRootId]: input.rootId,
+    [AgentEnvName.subagentParentId]: input.parentId ?? "",
+    [AgentEnvName.subagentNodeId]: input.nodeId,
+    [AgentEnvName.subagentDepth]: String(input.depth),
   };
 }
 

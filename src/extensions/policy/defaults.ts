@@ -1,6 +1,6 @@
 import {AutocompleteItem, PiExtensionApi} from "../../pi/types";
 import {FsAccessType, WebAccessType} from "../../policy/types";
-import {AgentEnvName, agentEnv, isAgentEnvEnabled} from "../../shared/env";
+import {AgentEnvName, isAgentEnvEnabled} from "../../shared/env";
 
 export enum PolicyDefaultAction {
   SHOW = "show",
@@ -74,7 +74,7 @@ export type ParsedPolicyDefaultCommand =
 
 export type PolicyDefaultCommandParseResult = ParsedPolicyDefaultCommand | {error: string};
 
-const inherited = parsePolicyDefaultsEnv(process.env[agentEnv.policyDefaults]);
+const inherited = parsePolicyDefaultsEnv(process.env[AgentEnvName.policyDefaults]);
 const state: PolicyDefaultSnapshot = {
   root: cloneOverrides(inherited),
   subagents: cloneOverrides(inherited),
@@ -175,7 +175,7 @@ export function currentWebPolicyDefault(accessType: WebAccessType, denyByDefault
 }
 
 export function policyDefaultsEnvForSubagents(): Partial<Record<AgentEnvName, string>> {
-  return {[agentEnv.policyDefaults]: serializePolicyDefaultOverrides(state.subagents)};
+  return {[AgentEnvName.policyDefaults]: serializePolicyDefaultOverrides(state.subagents)};
 }
 
 export function policyDefaultSnapshot(): PolicyDefaultSnapshot {
@@ -224,7 +224,7 @@ export function resetPolicyDefaultsForTest(): void {
   resetPolicyDefaultState(createEmptyOverrides());
 }
 
-function resetPolicyDefaultState(overrides = parsePolicyDefaultsEnv(process.env[agentEnv.policyDefaults])): void {
+function resetPolicyDefaultState(overrides = parsePolicyDefaultsEnv(process.env[AgentEnvName.policyDefaults])): void {
   state.root = cloneOverrides(overrides);
   state.subagents = cloneOverrides(overrides);
 }
@@ -303,8 +303,8 @@ type PolicyDefaultBase = {
 };
 
 function rootBaseDefaults(): PolicyDefaultBase {
-  const path = basePolicyDefaultMode(isAgentEnvEnabled(agentEnv.pathDenyByDefault));
-  const web = basePolicyDefaultMode(isAgentEnvEnabled(agentEnv.webDenyByDefault));
+  const path = basePolicyDefaultMode(isAgentEnvEnabled(AgentEnvName.pathDenyByDefault));
+  const web = basePolicyDefaultMode(isAgentEnvEnabled(AgentEnvName.webDenyByDefault));
   return {
     path: {
       [FsAccessType.READ]: path,
@@ -313,8 +313,8 @@ function rootBaseDefaults(): PolicyDefaultBase {
       [FsAccessType.DELETE]: path,
       [FsAccessType.EXECUTE]: path,
     },
-    shell: basePolicyDefaultMode(isAgentEnvEnabled(agentEnv.shellDenyByDefault)),
-    code: basePolicyDefaultMode(isAgentEnvEnabled(agentEnv.codeExecDenyByDefault)),
+    shell: basePolicyDefaultMode(isAgentEnvEnabled(AgentEnvName.shellDenyByDefault)),
+    code: basePolicyDefaultMode(isAgentEnvEnabled(AgentEnvName.codeExecDenyByDefault)),
     web: {
       [WebAccessType.READ]: web,
       [WebAccessType.SEARCH]: web,

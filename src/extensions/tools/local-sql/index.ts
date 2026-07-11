@@ -1,6 +1,6 @@
 import {PiExtensionApi} from "../../../pi/types";
 import {database_filename, SqliteDatabase} from "../../../storage";
-import {toolNames} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 import {renderBlockToolCall} from "../../../shared/blockToolRendering";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult, successResult} from "../../../shared/toolResults";
@@ -28,7 +28,7 @@ export function registerLocalSqlTool(
     openDb: () => SqliteDatabase = () => SqliteDatabase.readonly(database_filename),
 ): void {
     pi.registerTool?.({
-        name: toolNames.localSql,
+        name: ToolName.localSql,
         label: "Local SQL",
         description: [
             "Readonly SQL access to the computer-local SQLite database. Use schema first to inspect available tables.",
@@ -95,11 +95,11 @@ export function registerLocalSqlTool(
         },
         renderCall(args, theme, context) {
             const sql = stringValue((args as LocalSqlParams).sql);
-            if (!sql) return renderToolCallInput(toolNames.localSql, args, theme, context);
+            if (!sql) return renderToolCallInput(ToolName.localSql, args, theme, context);
             const input = args as LocalSqlParams;
             const purpose = stringValue(input.purpose);
             return renderBlockToolCall({
-                title: toolNames.localSql,
+                title: ToolName.localSql,
                 fields: [
                     {label: "action", value: stringValue(input.action) ?? "query"},
                     {label: "purpose", value: purpose, omit: !purpose},

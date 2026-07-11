@@ -1,4 +1,4 @@
-import {subagentRunStatuses, type SubagentRunRow} from "../../../storage";
+import {SubagentRunStatus, type SubagentRunRow} from "../../../storage";
 import {defaultSubagentTreeRenderLimits, renderSubagentTree} from "./render";
 import type {SubagentNode} from "./types";
 
@@ -123,12 +123,12 @@ function filterRows(rows: SubagentRunRow[], filter: SubagentTreeFilter): Subagen
 
 function matchesFilter(row: SubagentRunRow, filter: SubagentTreeFilter): boolean {
   if (filter === SubagentTreeFilter.running) {
-    return row.status === subagentRunStatuses.starting || row.status === subagentRunStatuses.running;
+    return row.status === SubagentRunStatus.starting || row.status === SubagentRunStatus.running;
   }
-  return row.status === subagentRunStatuses.done
-    || row.status === subagentRunStatuses.failed
-    || row.status === subagentRunStatuses.cancelled
-    || row.status === subagentRunStatuses.timedOut;
+  return row.status === SubagentRunStatus.done
+    || row.status === SubagentRunStatus.failed
+    || row.status === SubagentRunStatus.cancelled
+    || row.status === SubagentRunStatus.timedOut;
 }
 
 function includeAncestors(

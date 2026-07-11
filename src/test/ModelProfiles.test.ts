@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {ExtensionContext} from "../pi/types";
-import {agentModelProfiles, renderModelProfileConfig, resolvedModelForProfile} from "../extensions/subagent/model-profiles";
+import {AgentModelProfile, renderModelProfileConfig, resolvedModelForProfile} from "../extensions/subagent/model-profiles";
 import {sanitizeModelProfileConfig} from "../extensions/subagent/model-profile-config";
 import {parseModelProfileCommandArgs} from "../extensions/subagent/commands";
 
@@ -19,13 +19,13 @@ const ctx = {
 } satisfies ExtensionContext;
 
 test("model profile auto resolves through the algorithm", async () => {
-  const result = await resolvedModelForProfile(ctx, agentModelProfiles.textLow, {});
+  const result = await resolvedModelForProfile(ctx, AgentModelProfile.textLow, {});
   assert.equal(result.automatic, true);
   assert.equal(result.resolved, "cheap/text");
 });
 
 test("model profile override resolves to configured model", async () => {
-  const result = await resolvedModelForProfile(ctx, agentModelProfiles.textLow, {text_low: "provider/model"});
+  const result = await resolvedModelForProfile(ctx, AgentModelProfile.textLow, {text_low: "provider/model"});
   assert.equal(result.automatic, false);
   assert.equal(result.resolved, "provider/model");
 });
@@ -41,7 +41,7 @@ test("model profile auto treats missing cost as low but not free", async () => {
         ];
       },
     },
-  }, agentModelProfiles.textLow, {});
+  }, AgentModelProfile.textLow, {});
   assert.equal(result.resolved, "unknown/cost");
 });
 

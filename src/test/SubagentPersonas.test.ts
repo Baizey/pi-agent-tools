@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {tempDir} from "./TestHarness";
 import {SqliteDatabase, SubagentPersonaDao, isValidSubagentPersonaName, validateSubagentPersonaName} from "../storage";
-import {SubagentPersonaSource, subagentRunModes, subagentToolkitNames} from "../shared/subagents";
+import {SubagentPersonaSource, SubagentRunMode, SubagentToolkitName} from "../shared/subagents";
 import {parsePersonasCommandArgs, renderSubagentPersonaDetails, renderSubagentPersonaList} from "../extensions/subagent/commands";
 
 function withDao(fn: (dao: SubagentPersonaDao, db: SqliteDatabase) => void) {
@@ -49,14 +49,14 @@ test("subagent persona dao seeds builtin personas with explicit mode and model",
   assert.equal(seeded.length, 4);
   const reviewer = dao.getEnabledPersona("reviewer");
   assert.equal(reviewer?.role, "code reviewer");
-  assert.equal(reviewer?.mode, subagentRunModes.conversation);
+  assert.equal(reviewer?.mode, SubagentRunMode.conversation);
   assert.equal(reviewer?.model, "reasoning_high");
-  assert.deepEqual(reviewer?.toolkits, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
+  assert.deepEqual(reviewer?.toolkits, [SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.executeBash]);
   assert.equal(reviewer?.source, SubagentPersonaSource.builtin);
   assert.equal(reviewer?.enabled, true);
 
   const duck = dao.getEnabledPersona("rubber-duck");
-  assert.equal(duck?.mode, subagentRunModes.conversation);
+  assert.equal(duck?.mode, SubagentRunMode.conversation);
   assert.equal(duck?.model, "reasoning_low");
   assert.deepEqual(duck?.toolkits, []);
 }));
@@ -66,9 +66,9 @@ test("subagent persona dao upserts user personas and preserves createdAt", () =>
     name: "repo-helper",
     role: "repo helper",
     description: "Helps inspect repository state.",
-    mode: subagentRunModes.async,
+    mode: SubagentRunMode.async,
     model: "text_high",
-    toolkits: [subagentToolkitNames.ioRead, subagentToolkitNames.ioRead],
+    toolkits: [SubagentToolkitName.ioRead, SubagentToolkitName.ioRead],
     systemPrompt: "Inspect files and summarize.",
     source: SubagentPersonaSource.user,
     enabled: true,
@@ -84,7 +84,7 @@ test("subagent persona dao upserts user personas and preserves createdAt", () =>
   assert.equal(updated.enabled, false);
   assert.equal(updated.createdAt.getTime(), created.createdAt.getTime());
   assert.ok(updated.updatedAt.getTime() >= created.updatedAt.getTime());
-  assert.deepEqual(updated.toolkits, [subagentToolkitNames.ioRead]);
+  assert.deepEqual(updated.toolkits, [SubagentToolkitName.ioRead]);
   assert.equal(dao.getEnabledPersona("repo-helper"), undefined);
 }));
 
@@ -95,7 +95,7 @@ test("subagent persona dao reserves builtin names from user personas", () => wit
     name: "reviewer",
     role: "custom reviewer",
     description: "Should not replace builtin.",
-    mode: subagentRunModes.async,
+    mode: SubagentRunMode.async,
     model: "text_high",
     toolkits: [],
     systemPrompt: "custom",

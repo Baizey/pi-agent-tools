@@ -1,13 +1,11 @@
 import {ExtensionContext} from "../../pi/types";
 import {autoModelProfileConfig, configuredModelForProfile, ModelProfileConfig, ModelProfileConfigStore} from "./model-profile-config";
-import {AgentModelProfile, agentModelProfiles} from "./model-profile-types";
+import {AgentModelProfile} from "./model-profile-types";
 
-export {AgentModelProfile, agentModelProfiles};
-
-const agentModelProfileValues = new Set<string>(Object.values(agentModelProfiles));
+export {AgentModelProfile};
 
 export function isAgentModelProfile(value: string): value is AgentModelProfile {
-  return agentModelProfileValues.has(value);
+  return Object.values(AgentModelProfile).some((profile) => profile === value);
 }
 
 export async function resolveAgentModelProfile(
@@ -37,7 +35,7 @@ export async function renderModelProfileConfig(
   ctx: ExtensionContext | undefined,
   config: ModelProfileConfig = new ModelProfileConfigStore().load(),
 ): Promise<string[]> {
-  const rows = await Promise.all(Object.values(agentModelProfiles).map(async (profile) => ({
+  const rows = await Promise.all(Object.values(AgentModelProfile).map(async (profile) => ({
     profile,
     ...(await resolvedModelForProfile(ctx, profile, config)),
   })));
@@ -79,11 +77,11 @@ function selectAgentModel(models: AgentModelCandidate[], profile: AgentModelProf
 }
 
 function wantsReasoning(profile: AgentModelProfile): boolean {
-  return profile === agentModelProfiles.reasoningLow || profile === agentModelProfiles.reasoningHigh;
+  return profile === AgentModelProfile.reasoningLow || profile === AgentModelProfile.reasoningHigh;
 }
 
 function wantsLowCost(profile: AgentModelProfile): boolean {
-  return profile === agentModelProfiles.textLow || profile === agentModelProfiles.reasoningLow;
+  return profile === AgentModelProfile.textLow || profile === AgentModelProfile.reasoningLow;
 }
 
 function modelCostScore(model: AgentModelCandidate): number {

@@ -6,16 +6,12 @@ import {
   PathPolicyStatus,
   PolicyLifetime,
   PolicyStatus,
+  PolicyWildcard,
   ShellFlagPolicyStatus,
   ShellPolicy,
   WebAccessType,
   WebPolicy,
 } from "./types";
-
-const policyStatuses = new Set<string>(Object.values(PolicyStatus));
-const policyLifetimes = new Set<string>(Object.values(PolicyLifetime));
-const codeExecModes = new Set<string>(["inline", "file", "*"]);
-const webAccessTypes = new Set<string>(Object.values(WebAccessType));
 
 export function parseJsonObjectFile<T>(read: () => string): T | null {
   try {
@@ -122,17 +118,18 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function isPolicyStatus(value: unknown): value is PolicyStatus {
-  return typeof value === "string" && policyStatuses.has(value);
+  return typeof value === "string" && Object.values(PolicyStatus).some((status) => status === value);
 }
 
 function isPolicyLifetime(value: unknown): value is PolicyLifetime {
-  return typeof value === "string" && policyLifetimes.has(value);
+  return typeof value === "string" && Object.values(PolicyLifetime).some((lifetime) => lifetime === value);
 }
 
-function isCodeExecMode(value: unknown): value is CodeExecMode | "*" {
-  return typeof value === "string" && codeExecModes.has(value);
+function isCodeExecMode(value: unknown): value is CodeExecMode | PolicyWildcard.ALL {
+  return value === PolicyWildcard.ALL
+    || (typeof value === "string" && Object.values(CodeExecMode).some((mode) => mode === value));
 }
 
 function isWebAccessType(value: unknown): value is WebAccessType {
-  return typeof value === "string" && webAccessTypes.has(value);
+  return typeof value === "string" && Object.values(WebAccessType).some((accessType) => accessType === value);
 }

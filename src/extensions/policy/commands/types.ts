@@ -1,4 +1,6 @@
-import {CodeExecMode, FsAccessType, PolicyLifetime, PolicyStatus, WebAccessType} from "../../../policy/types";
+import {FsAccessType, PolicyLifetime, PolicyStatus, PolicyWildcard, WebAccessType} from "../../../policy/types";
+
+export {PolicyWildcard};
 
 export enum PolicyCommandName {
   POLICY = "policy",
@@ -37,12 +39,6 @@ export enum PolicyCommandOption {
 export enum PolicyCommandLifetimeArg {
   SESSION = "session",
   FOREVER = "forever",
-}
-
-export import PolicyCommandCodeMode = CodeExecMode;
-
-export enum PolicyCommandWildcard {
-  ALL = "*",
 }
 
 export enum PolicyCommandMessageKind {

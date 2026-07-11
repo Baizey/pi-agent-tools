@@ -1,5 +1,5 @@
 import {PiExtensionApi} from "../../../pi/types";
-import {toolNames} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 
 export function registerBashPromptGuidance(pi: PiExtensionApi): void {
   pi.on("before_agent_start", (event) => {
@@ -11,7 +11,7 @@ export function registerBashPromptGuidance(pi: PiExtensionApi): void {
 
 function isBashSelected(selectedTools: Array<string | { name?: string }> | undefined): boolean {
   if (!selectedTools) return true;
-  return selectedTools.some((tool) => typeof tool === "string" ? tool === toolNames.bash : tool.name === toolNames.bash);
+  return selectedTools.some((tool) => typeof tool === "string" ? tool === ToolName.bash : tool.name === ToolName.bash);
 }
 
 const bashPolicyGuidanceHeader = "### Bash policy-friendly command formatting";

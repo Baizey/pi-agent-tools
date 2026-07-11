@@ -1,6 +1,6 @@
 import path from "node:path";
 import {BuildSystemPromptOptions, PiExtensionApi} from "../pi/types";
-import {toolNames} from "../shared/toolNames";
+import {ToolName} from "../shared/toolNames";
 
 export const engineeringPrincipleHeader = "### Engineering principle: be human";
 export const agentHelpGuidanceHeader = "### pi-agent-tools help";
@@ -53,14 +53,14 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
     const sections: string[] = [];
 
     if ([
-        toolNames.read,
-        toolNames.write,
-        toolNames.edit,
-        toolNames.copy,
-        toolNames.delete,
-        toolNames.mkdir,
-        toolNames.move,
-        toolNames.stat,
+        ToolName.read,
+        ToolName.write,
+        ToolName.edit,
+        ToolName.copy,
+        ToolName.delete,
+        ToolName.mkdir,
+        ToolName.move,
+        ToolName.stat,
     ].some(hasTool)) {
         sections.push([
             "Filesystem tools:",
@@ -72,7 +72,7 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         ].join("\n"));
     }
 
-    if (hasTool(toolNames.policyInfo)) {
+    if (hasTool(ToolName.policyInfo)) {
         sections.push([
             "Policy tools:",
             "- Use policy_info to inspect active policies or evaluate an exact path, shell command, code scope, or URL before retrying blocked work.",
@@ -81,19 +81,19 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         ].join("\n"));
     }
 
-    if ([toolNames.executeCode, toolNames.executeCodeInfo, toolNames.bash].some(hasTool)) {
+    if ([ToolName.executeCode, ToolName.executeCodeInfo, ToolName.bash].some(hasTool)) {
         sections.push([
             "Code execution tools:",
             "- Use execute_code for short scripts or source-file runs when direct runtime execution is clearer than shell.",
             "- Use execute_code_info first when runtime availability or supported modes are uncertain.",
             "- Always provide a concise purpose; prefer inline mode for small throwaway snippets and file mode for existing source files.",
-            ...(hasTool(toolNames.bash)
+            ...(hasTool(ToolName.bash)
                 ? ["- NEVER use bash for code execution, policies will default at denying you"]
                 : []),
         ].join("\n"));
     }
 
-    if (hasTool(toolNames.webLookup)) {
+    if (hasTool(ToolName.webLookup)) {
         sections.push([
             "Web lookup:",
             "- Use web_lookup with query for discovery, then fetch specific URLs with url when source details matter.",
@@ -101,7 +101,7 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         ].join("\n"));
     }
 
-    if (hasTool(toolNames.localSql)) {
+    if (hasTool(ToolName.localSql)) {
         sections.push([
             "Local SQL:",
             "- Use local_sql action=schema before writing queries against the local session database.",
@@ -112,13 +112,13 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
     }
 
     if ([
-        toolNames.subagentSpawn,
-        toolNames.subagentSpawnPersona,
-        toolNames.availablePersonas,
-        toolNames.subagentStatus,
-        toolNames.subagentAwait,
-        toolNames.subagentMessage,
-        toolNames.subagentCancel,
+        ToolName.subagentSpawn,
+        ToolName.subagentSpawnPersona,
+        ToolName.availablePersonas,
+        ToolName.subagentStatus,
+        ToolName.subagentAwait,
+        ToolName.subagentMessage,
+        ToolName.subagentCancel,
     ].some(hasTool)) {
         sections.push([
             "Subagents:",

@@ -14,13 +14,12 @@ import {
   CommonPolicyCommandOptions,
   defaultPolicyCommandLifetime,
   PolicyCommandAction,
-  PolicyCommandCodeMode,
   PolicyCommandKind,
   PolicyCommandLifetimeArg,
   PolicyCommandMessageKind,
   PolicyCommandOption,
   PolicyCommandResult,
-  PolicyCommandWildcard,
+  PolicyWildcard,
   policyLifetimeForArg,
 } from "./types";
 
@@ -218,9 +217,9 @@ export function parseWebAccessType(token: string): WebAccessType | null {
   return Object.values(WebAccessType).includes(value) ? value : null;
 }
 
-export function parseCodeMode(token: string | undefined): CodeExecMode | PolicyCommandWildcard.ALL | null {
-  if (token === PolicyCommandWildcard.ALL) return PolicyCommandWildcard.ALL;
-  if (token === PolicyCommandCodeMode.INLINE || token === PolicyCommandCodeMode.FILE) return token;
+export function parseCodeMode(token: string | undefined): CodeExecMode | PolicyWildcard.ALL | null {
+  if (token === PolicyWildcard.ALL) return PolicyWildcard.ALL;
+  if (token === CodeExecMode.INLINE || token === CodeExecMode.FILE) return token;
   return null;
 }
 

@@ -4,8 +4,6 @@ export enum SubagentRunMode {
     conversation = "conversation",
 }
 
-export const subagentRunModes = SubagentRunMode;
-
 export enum SubagentToolkitName {
     meta = "meta",
     ioRead = "io_read",
@@ -16,14 +14,8 @@ export enum SubagentToolkitName {
     spawnSubagent = "spawn_subagent",
 }
 
-export const subagentToolkitNames = SubagentToolkitName;
-
-export type SubagentToolkit = SubagentToolkitName;
-
 export enum SubagentPersonaSource {
     builtin = "builtin",
     user = "user",
     agent = "agent",
 }
-
-export const subagentPersonaSources = SubagentPersonaSource;

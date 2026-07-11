@@ -8,7 +8,7 @@ import {
   engineeringPrincipleGuidance,
   engineeringPrincipleHeader,
 } from "../extensions/prompt-guidance";
-import {toolNames} from "../shared/toolNames";
+import {ToolName} from "../shared/toolNames";
 
 test("agent prompt guidance always includes the engineering principle", () => {
   const prompt = appendAgentPromptGuidance("base prompt", {selectedTools: []});
@@ -19,7 +19,7 @@ test("agent prompt guidance always includes the engineering principle", () => {
 });
 
 test("agent prompt guidance links help before tool guidance", () => {
-  const prompt = appendAgentPromptGuidance("base prompt", {selectedTools: [toolNames.read]});
+  const prompt = appendAgentPromptGuidance("base prompt", {selectedTools: [ToolName.read]});
 
   assert.ok(prompt.indexOf(engineeringPrincipleHeader) < prompt.indexOf(agentHelpGuidanceHeader));
   assert.ok(prompt.indexOf(agentHelpGuidanceHeader) < prompt.indexOf(agentToolsGuidanceHeader));
@@ -30,8 +30,8 @@ test("agent prompt guidance links help before tool guidance", () => {
 
 test("agent prompt guidance is independently idempotent by section", () => {
   const existing = `base prompt\n\n${engineeringPrincipleGuidance}`;
-  const prompt = appendAgentPromptGuidance(existing, {selectedTools: [toolNames.read]});
-  const repeated = appendAgentPromptGuidance(prompt, {selectedTools: [toolNames.read]});
+  const prompt = appendAgentPromptGuidance(existing, {selectedTools: [ToolName.read]});
+  const repeated = appendAgentPromptGuidance(prompt, {selectedTools: [ToolName.read]});
 
   assert.equal(prompt.match(new RegExp(engineeringPrincipleHeader, "g"))?.length, 1);
   assert.equal(prompt.match(new RegExp(agentHelpGuidanceHeader, "g"))?.length, 1);

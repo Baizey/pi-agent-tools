@@ -9,6 +9,10 @@ export enum PolicyLifetime {
   FOREVER = "FOREVER",
 }
 
+export enum PolicyWildcard {
+  ALL = "*",
+}
+
 export enum PolicyResolutionSource {
   SYSTEM = "SYSTEM",
   EXISTING_USER_POLICY = "EXISTING_USER_POLICY",
@@ -122,11 +126,10 @@ export enum CodeExecMode {
   INLINE = "inline",
   FILE = "file",
 }
-export type CodeExecPolicyLanguage = string | "*";
-export type CodeExecPolicyMode = CodeExecMode | "*";
+export type CodeExecPolicyMode = CodeExecMode | PolicyWildcard.ALL;
 
 export type CodeExecPolicy = {
-  language: CodeExecPolicyLanguage;
+  language: string;
   mode: CodeExecPolicyMode;
   lifetime: PolicyLifetime;
   status: PolicyStatus;
@@ -134,7 +137,7 @@ export type CodeExecPolicy = {
 };
 
 export type CodeExecPolicyDeleteRequest = {
-  language: CodeExecPolicyLanguage;
+  language: string;
   mode: CodeExecPolicyMode;
 };
 
@@ -145,7 +148,7 @@ export type CodeExecPolicySnapshot = {
 export type CodeExecPolicyResult = {
   language: string;
   mode: CodeExecMode;
-  matchedLanguage: CodeExecPolicyLanguage;
+  matchedLanguage: string;
   matchedMode: CodeExecPolicyMode;
   matchedScope: string;
   matchedLifetime: PolicyLifetime;
@@ -156,7 +159,7 @@ export type CodeExecPolicyResult = {
 
 export type CodeExecPolicyScopeOption = {
   label: string;
-  language: CodeExecPolicyLanguage;
+  language: string;
   mode: CodeExecPolicyMode;
 };
 

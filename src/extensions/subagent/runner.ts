@@ -2,22 +2,21 @@ import {spawn} from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {agentEnv, denyByDefaultEnv} from "../../shared/env";
+import {AgentEnvName, denyByDefaultEnv} from "../../shared/env";
 import {BoundedTextBuffer, truncateText} from "../../shared/boundedText";
-import {toolNames} from "../../shared/toolNames";
+import {ToolName} from "../../shared/toolNames";
 import {policyDefaultsEnvForSubagents} from "../policy/defaults";
 import {
   readSubagentTreeContext,
   renderSubagentRunTree,
-  subagentNodeStatuses,
+  SubagentRunStatus,
   subagentTreeEnv,
   subagentTreeRowLimit,
 } from "./tree-ui";
 import {
   ResolvedSubagentToolkits,
-  SubagentToolkit,
+  SubagentToolkitName,
   SubagentRunMode,
-  subagentRunModes,
   resolveSubagentToolkits,
   serializeSubagentToolkitCeiling,
 } from "./toolkits";
@@ -43,7 +42,7 @@ export type SubagentRequest = {
   task: string;
   role: string;
   persona?: string;
-  toolkits: SubagentToolkit[];
+  toolkits: SubagentToolkitName[];
   cwd: string;
   timeoutSeconds: number;
   model?: string;
@@ -82,7 +81,7 @@ export async function runSyncSubagent(
   signal?: AbortSignal,
   onUpdate?: SubagentUpdate,
 ): Promise<SubagentResult> {
-  return runSubagent({...input, mode: subagentRunModes.sync}, signal, onUpdate);
+  return runSubagent({...input, mode: SubagentRunMode.sync}, signal, onUpdate);
 }
 
 async function runSubagentProcess(
@@ -117,7 +116,7 @@ async function runSubagentProcess(
     details: {rootId: node.rootId, nodeId: node.id},
   });
 
-  subagents.updateRun(node.id, {status: subagentNodeStatuses.running});
+  subagents.updateRun(node.id, {status: SubagentRunStatus.running});
   emitTreeUpdate();
 
   const prompt = buildSubagentPrompt(request, resolvedToolkits);
@@ -128,14 +127,14 @@ async function runSubagentProcess(
     const result = await runPiProcess(args, request, resolvedToolkits, node, subagents, emitTreeUpdate, signal);
     subagents.finishRun(
       node.id,
-      result.timedOut ? subagentNodeStatuses.timedOut : result.exitCode === 0 ? subagentNodeStatuses.done : subagentNodeStatuses.failed,
+      result.timedOut ? SubagentRunStatus.timedOut : result.exitCode === 0 ? SubagentRunStatus.done : SubagentRunStatus.failed,
       {latestLine: shorten(lastLine(result.output), 500), exitCode: result.exitCode, timedOut: result.timedOut, error: result.exitCode === 0 && !result.timedOut ? null : result.stderr || result.output},
     );
     emitTreeUpdate();
     return {...result, tree: renderTree()};
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    subagents.finishRun(node.id, subagentNodeStatuses.failed, {latestLine: message, error: message});
+    subagents.finishRun(node.id, SubagentRunStatus.failed, {latestLine: message, error: message});
     emitTreeUpdate();
     throw error;
   } finally {
@@ -231,7 +230,7 @@ async function runPiProcess(
         ...denyByDefaultEnv(),
         ...policyDefaultsEnvForSubagents(),
         ...subagentTreeEnv({rootId: node.rootId, parentId: node.parentId ?? undefined, nodeId: node.id, depth: node.depth}),
-        [agentEnv.subagentToolkitCeiling]: serializeSubagentToolkitCeiling(toolkits.toolkits),
+        [AgentEnvName.subagentToolkitCeiling]: serializeSubagentToolkitCeiling(toolkits.toolkits),
       },
     });
 
@@ -412,40 +411,40 @@ function recordValue(value: unknown): Record<string, unknown> {
 
 function summarizeToolCall(name: string, args: Record<string, unknown>): string {
   switch (name) {
-    case toolNames.read:
-    case toolNames.stat:
-    case toolNames.write:
-    case toolNames.edit:
-    case toolNames.delete:
-    case toolNames.mkdir:
+    case ToolName.read:
+    case ToolName.stat:
+    case ToolName.write:
+    case ToolName.edit:
+    case ToolName.delete:
+    case ToolName.mkdir:
       return withParts(name, stringArg(args, "path"));
-    case toolNames.copy:
-    case toolNames.move:
+    case ToolName.copy:
+    case ToolName.move:
       return withParts(name, arrow(stringArg(args, "from"), stringArg(args, "to")));
-    case toolNames.bash:
+    case ToolName.bash:
       return withParts(name, stringArg(args, "command"));
-    case toolNames.executeCode:
+    case ToolName.executeCode:
       return withParts(name, stringArg(args, "language"), stringArg(args, "file") ?? stringArg(args, "mode") ?? "inline");
-    case toolNames.executeCodeInfo:
+    case ToolName.executeCodeInfo:
       return withParts(name, stringArg(args, "language"));
-    case toolNames.webLookup:
+    case ToolName.webLookup:
       return withParts(name, stringArg(args, "query") ?? stringArg(args, "url"));
-    case toolNames.localSql:
+    case ToolName.localSql:
       return withParts(name, stringArg(args, "action") ?? "schema", stringArg(args, "purpose") ?? firstLine(stringArg(args, "sql")));
-    case toolNames.policyInfo:
+    case ToolName.policyInfo:
       return withParts(name, stringArg(args, "kind") ?? "overview", stringArg(args, "path") ?? stringArg(args, "command") ?? stringArg(args, "url") ?? stringArg(args, "language"));
-    case toolNames.subagentSpawn:
+    case ToolName.subagentSpawn:
       return withParts(name, stringArg(args, "role"), stringArg(args, "task"));
-    case toolNames.subagentSpawnPersona:
+    case ToolName.subagentSpawnPersona:
       return withParts(name, stringArg(args, "persona"), stringArg(args, "task"));
-    case toolNames.availablePersonas:
+    case ToolName.availablePersonas:
       return withParts(name);
-    case toolNames.subagentStatus:
-    case toolNames.subagentCancel:
+    case ToolName.subagentStatus:
+    case ToolName.subagentCancel:
       return withParts(name, stringArg(args, "jobId"));
-    case toolNames.subagentAwait:
+    case ToolName.subagentAwait:
       return withParts(name, stringArrayArg(args, "jobIds").join(", "));
-    case toolNames.subagentMessage:
+    case ToolName.subagentMessage:
       return withParts(name, stringArg(args, "jobId"), stringArg(args, "task"));
     default:
       return withParts(name, genericArgsSummary(args));

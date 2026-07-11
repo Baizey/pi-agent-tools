@@ -3,8 +3,8 @@ import fs from "node:fs";
 import path from "node:path";
 import {tempDir} from "./TestHarness";
 import type {PiExtensionApi} from "../index";
-import {agentEnv, registerSubagentTool, SqliteDatabase, SubagentPersonaDao, toolNames} from "../index";
-import {SubagentPersonaSource, subagentRunModes, subagentToolkitNames} from "../shared/subagents";
+import {AgentEnvName, registerSubagentTool, SqliteDatabase, SubagentPersonaDao, ToolName} from "../index";
+import {SubagentPersonaSource, SubagentRunMode, SubagentToolkitName} from "../shared/subagents";
 import {
   areSubagentToolkitsAvailable,
   buildSubagentRequestFromPersona,
@@ -25,14 +25,14 @@ function withDb(fn: (db: SqliteDatabase, dao: SubagentPersonaDao) => void): void
 }
 
 function withToolkitCeiling(value: string | undefined, fn: () => void): void {
-  const previous = process.env[agentEnv.subagentToolkitCeiling];
+  const previous = process.env[AgentEnvName.subagentToolkitCeiling];
   try {
-    if (value === undefined) delete process.env[agentEnv.subagentToolkitCeiling];
-    else process.env[agentEnv.subagentToolkitCeiling] = value;
+    if (value === undefined) delete process.env[AgentEnvName.subagentToolkitCeiling];
+    else process.env[AgentEnvName.subagentToolkitCeiling] = value;
     fn();
   } finally {
-    if (previous === undefined) delete process.env[agentEnv.subagentToolkitCeiling];
-    else process.env[agentEnv.subagentToolkitCeiling] = previous;
+    if (previous === undefined) delete process.env[AgentEnvName.subagentToolkitCeiling];
+    else process.env[AgentEnvName.subagentToolkitCeiling] = previous;
   }
 }
 
@@ -42,9 +42,9 @@ test("available_personas seeds builtins and returns summary fields only", () => 
 
   assert.ok(reviewer);
   assert.equal(reviewer.role, "code reviewer");
-  assert.equal(reviewer.mode, subagentRunModes.conversation);
+  assert.equal(reviewer.mode, SubagentRunMode.conversation);
   assert.equal(reviewer.model, "reasoning_high");
-  assert.deepEqual(reviewer.toolkits, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
+  assert.deepEqual(reviewer.toolkits, [SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.executeBash]);
   assert.equal(reviewer.source, SubagentPersonaSource.builtin);
   assert.deepEqual(Object.keys(reviewer).sort(), [
     "description",
@@ -58,7 +58,7 @@ test("available_personas seeds builtins and returns summary fields only", () => 
 }));
 
 test("available_personas reads PI_AGENT_SUBAGENT_TOOLKIT_CEILING by default", () => withDb(db => {
-  withToolkitCeiling(`${subagentToolkitNames.meta},${subagentToolkitNames.webRead}`, () => {
+  withToolkitCeiling(`${SubagentToolkitName.meta},${SubagentToolkitName.webRead}`, () => {
     assert.deepEqual(Array.from(listAvailableSubagentPersonas(db), persona => persona.name), ["researcher", "rubber-duck"]);
   });
 }));
@@ -68,9 +68,9 @@ test("available_personas filters by toolkit ceiling all-or-nothing", () => withD
     name: "repo-writer",
     role: "repository writer",
     description: "Requires both read and write repository access.",
-    mode: subagentRunModes.async,
+    mode: SubagentRunMode.async,
     model: "text_high",
-    toolkits: [subagentToolkitNames.ioRead, subagentToolkitNames.ioWrite],
+    toolkits: [SubagentToolkitName.ioRead, SubagentToolkitName.ioWrite],
     systemPrompt: "Read and edit repository files.",
     source: SubagentPersonaSource.user,
     enabled: true,
@@ -79,7 +79,7 @@ test("available_personas filters by toolkit ceiling all-or-nothing", () => withD
     name: "disabled-duck",
     role: "disabled duck",
     description: "Should not be returned even though it needs no tools.",
-    mode: subagentRunModes.conversation,
+    mode: SubagentRunMode.conversation,
     model: "reasoning_low",
     toolkits: [],
     systemPrompt: "Do not appear.",
@@ -87,14 +87,14 @@ test("available_personas filters by toolkit ceiling all-or-nothing", () => withD
     enabled: false,
   });
 
-  const personas = listAvailableSubagentPersonas(db, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
+  const personas = listAvailableSubagentPersonas(db, [SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.executeBash]);
   const names = Array.from(personas, persona => persona.name);
 
   assert.deepEqual(names, ["planner", "reviewer", "rubber-duck"]);
   assert.equal(names.includes("repo-writer"), false);
   assert.equal(names.includes("researcher"), false);
   assert.equal(names.includes("disabled-duck"), false);
-  assert.equal(areSubagentToolkitsAvailable([subagentToolkitNames.ioRead, subagentToolkitNames.ioWrite], [subagentToolkitNames.ioRead]), false);
+  assert.equal(areSubagentToolkitsAvailable([SubagentToolkitName.ioRead, SubagentToolkitName.ioWrite], [SubagentToolkitName.ioRead]), false);
 }));
 
 test("subagent persona spawn requests are built entirely from persona config plus task", () => withDb((db) => {
@@ -107,9 +107,9 @@ test("subagent persona spawn requests are built entirely from persona config plu
   assert.ok(!("error" in request));
   assert.equal(request.persona, "reviewer");
   assert.equal(request.role, "code reviewer");
-  assert.equal(request.mode, subagentRunModes.conversation);
+  assert.equal(request.mode, SubagentRunMode.conversation);
   assert.equal(request.model, "reasoning_high");
-  assert.deepEqual(request.toolkits, [subagentToolkitNames.meta, subagentToolkitNames.ioRead, subagentToolkitNames.executeBash]);
+  assert.deepEqual(request.toolkits, [SubagentToolkitName.meta, SubagentToolkitName.ioRead, SubagentToolkitName.executeBash]);
   assert.equal(request.systemPrompt, persona.systemPrompt);
   assert.equal(request.timeoutSeconds, 42);
 }));
@@ -124,7 +124,7 @@ test("subagent_spawn_persona tool accepts only persona task and timeout", () => 
 
   registerSubagentTool(pi);
 
-  const tool = tools[toolNames.subagentSpawnPersona];
+  const tool = tools[ToolName.subagentSpawnPersona];
   assert.ok(tool);
   assert.deepEqual(tool.parameters.required, ["persona", "task"]);
   assert.deepEqual(Object.keys(tool.parameters.properties as Record<string, unknown>).sort(), ["persona", "task", "timeoutSeconds"].sort());
@@ -142,14 +142,14 @@ test("available_personas tool is registered with no required parameters", () => 
     throw new Error("not used");
   });
 
-  const tool = tools[toolNames.availablePersonas];
+  const tool = tools[ToolName.availablePersonas];
   assert.ok(tool);
   assert.equal(tool.parameters.type, "object");
   assert.equal("required" in tool.parameters, false);
 });
 
 test("subagent prompt guidance mentions available_personas", () => {
-  const guidance = buildAgentToolsPromptGuidance({selectedTools: [toolNames.availablePersonas]});
+  const guidance = buildAgentToolsPromptGuidance({selectedTools: [ToolName.availablePersonas]});
 
   assert.match(guidance ?? "", /available_personas/);
 });

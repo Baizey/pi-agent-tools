@@ -1,6 +1,6 @@
 import {PiExtensionApi, ExtensionContext} from "../../pi/types";
 import {database_filename, isValidSubagentPersonaName, SqliteDatabase, SubagentDao, SubagentPersonaDao, type SubagentPersonaRow} from "../../storage";
-import {AgentModelProfile, agentModelProfiles, isAgentModelProfile, renderModelProfileConfig} from "./model-profiles";
+import {AgentModelProfile, isAgentModelProfile, renderModelProfileConfig} from "./model-profiles";
 import {autoModelProfileConfig, ModelProfileConfigStore, normalizeConfigValue} from "./model-profile-config";
 import {renderLines} from "../../shared/toolRendering";
 import {renderSubagentRunTree, SubagentTreeFilter, subagentTreeRowLimit} from "./tree-ui";
@@ -297,7 +297,7 @@ export function parseModelProfileCommandArgs(args: string): ModelProfileCommand 
   if (parts[0] === "reset") {
     if (parts.length === 1) return {action: "reset"};
     if (parts.length === 2 && isAgentModelProfile(parts[1])) return {action: "reset", profile: parts[1]};
-    return {action: "error", error: `Usage: /model-profiles reset [${Object.values(agentModelProfiles).join("|")}]`};
+    return {action: "error", error: `Usage: /model-profiles reset [${Object.values(AgentModelProfile).join("|")}]`};
   }
 
   if (!isAgentModelProfile(parts[0])) {
@@ -314,8 +314,8 @@ export function parseModelProfileCommandArgs(args: string): ModelProfileCommand 
 }
 
 function modelProfileCompletionOptions(parts: string[]): string[] {
-  if (parts.length <= 1) return ["reset", ...Object.values(agentModelProfiles)];
-  if (parts[0] === "reset") return Object.values(agentModelProfiles);
+  if (parts.length <= 1) return ["reset", ...Object.values(AgentModelProfile)];
+  if (parts[0] === "reset") return Object.values(AgentModelProfile);
   if (isAgentModelProfile(parts[0]) && parts.length === 2) return [autoModelProfileConfig];
   return [];
 }

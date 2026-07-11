@@ -2,8 +2,8 @@ import os from "node:os";
 import {ExtensionContext, PiExtensionApi} from "../../../pi/types";
 import {AgentServices} from "../../../pi/runtime";
 import {FsAccessType} from "../../../policy/types";
-import {agentEnv, isAgentEnvEnabled} from "../../../shared/env";
-import {toolNames} from "../../../shared/toolNames";
+import {AgentEnvName, isAgentEnvEnabled} from "../../../shared/env";
+import {ToolName} from "../../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {errorResult, successResult} from "../../../shared/toolResults";
 import {stringValue} from "../../../shared/values";
@@ -14,14 +14,14 @@ import {contextForCwd, executeCodeParameters, isLanguage, parseInput} from "./in
 import {runProcess} from "./process";
 import {renderCodeExecCall} from "./rendering";
 import {formatRuntimeInfo, formatRunSummary} from "./resultFormatting";
-import {Adapter, CodeLanguage, ExecutionMode, TempArtifactMode} from "./types";
+import {Adapter, CodeLanguage, CodeExecMode, TempArtifactMode} from "./types";
 
 export async function registerCodeExecutionTool(pi: PiExtensionApi, services: AgentServices): Promise<void> {
   const runtimeInfo = await detectAllRuntimes();
   const availableLanguages = runtimeInfo.filter((result) => result.available).map((result) => result.language);
 
   pi.registerTool?.({
-    name: toolNames.executeCode,
+    name: ToolName.executeCode,
     label: "Execute Code",
     description: "Execute code from an inline snippet or file using a detected language runtime. Uses direct process spawning, not a shell.",
     parameters: executeCodeParameters(availableLanguages),
@@ -31,7 +31,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
 
       const runtime = services.runtimeFor(parsed.cwd);
       const effectiveCtx = contextForCwd(ctx, parsed.cwd);
-      const pathDenyByDefault = isAgentEnvEnabled(agentEnv.pathDenyByDefault);
+      const pathDenyByDefault = isAgentEnvEnabled(AgentEnvName.pathDenyByDefault);
       const cwdReason = await ensurePathAllowed(effectiveCtx, runtime, parsed.cwd, FsAccessType.EXECUTE, pathDenyByDefault);
       if (cwdReason) return errorResult(cwdReason, {blocked: true});
 
@@ -46,7 +46,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
         effectiveCtx,
         runtime,
         parsed,
-        isAgentEnvEnabled(agentEnv.codeExecDenyByDefault),
+        isAgentEnvEnabled(AgentEnvName.codeExecDenyByDefault),
       );
       if (codeExecReason) return errorResult(codeExecReason, {blocked: true});
 
@@ -79,7 +79,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
   });
 
   pi.registerTool?.({
-    name: toolNames.executeCodeInfo,
+    name: ToolName.executeCodeInfo,
     label: "Code Runtimes",
     description: "Show detected code execution runtimes, versions, supported modes, and detection errors.",
     parameters: {
@@ -96,7 +96,7 @@ export async function registerCodeExecutionTool(pi: PiExtensionApi, services: Ag
       return successResult(formatRuntimeInfo(results), {runtimes: results});
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.executeCodeInfo, args, theme, context);
+      return renderToolCallInput(ToolName.executeCodeInfo, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 16});
@@ -108,11 +108,11 @@ async function ensureTempArtifactsAllowed(
   ctx: ExtensionContext,
   runtime: ReturnType<AgentServices["runtimeFor"]>,
   adapter: Adapter,
-  mode: ExecutionMode,
+  mode: CodeExecMode,
   denyByDefault: boolean,
 ): Promise<string | null> {
   const usesTempArtifacts = adapter.tempArtifacts === TempArtifactMode.ALWAYS
-    || (adapter.tempArtifacts === TempArtifactMode.INLINE && mode === ExecutionMode.INLINE);
+    || (adapter.tempArtifacts === TempArtifactMode.INLINE && mode === CodeExecMode.INLINE);
   if (!usesTempArtifacts) return null;
 
   const tempRoot = os.tmpdir();

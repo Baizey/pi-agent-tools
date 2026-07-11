@@ -12,8 +12,6 @@ export enum AgentEnvName {
   subagentDepth = "PI_AGENT_SUBAGENT_DEPTH",
 }
 
-export {AgentEnvName as agentEnv};
-
 export const agentEnvDescriptions = {
   [AgentEnvName.pathDenyByDefault]: "When set to '1', unmatched path policy checks are denied instead of prompting.",
   [AgentEnvName.shellDenyByDefault]: "When set to '1', unmatched shell policy checks are denied instead of prompting.",

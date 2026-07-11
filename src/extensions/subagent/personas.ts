@@ -1,13 +1,13 @@
 import {PiExtensionApi} from "../../pi/types";
-import {agentEnv} from "../../shared/env";
-import {toolNames} from "../../shared/toolNames";
+import {AgentEnvName} from "../../shared/env";
+import {ToolName} from "../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../shared/toolRendering";
 import {stringValue} from "../../shared/values";
 import {database_filename, SqliteDatabase, SubagentPersonaDao, type SubagentPersonaRow} from "../../storage";
-import type {SubagentToolkit} from "../../shared/subagents";
+import type {SubagentToolkitName} from "../../shared/subagents";
 import {errorResult, successResult} from "./responses";
 import type {SubagentRequest} from "./runner";
-import {defaultTimeoutSecondsForMode, parseSubagentToolkitCeiling, subagentRunModes} from "./toolkits";
+import {defaultTimeoutSecondsForMode, parseSubagentToolkitCeiling, SubagentRunMode} from "./toolkits";
 import {normalizeTimeout} from "./request";
 
 export type AvailableSubagentPersona = Pick<
@@ -55,7 +55,7 @@ export function registerAvailablePersonasTool(
   openDb: () => SqliteDatabase = () => SqliteDatabase.readwrite(database_filename),
 ): void {
   pi.registerTool?.({
-    name: toolNames.availablePersonas,
+    name: ToolName.availablePersonas,
     label: "Available Personas",
     description: "List enabled subagent persona presets available in the current toolkit context.",
     parameters: availablePersonasParameters(),
@@ -77,7 +77,7 @@ export function registerAvailablePersonasTool(
       }
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(toolNames.availablePersonas, args, theme, context);
+      return renderToolCallInput(ToolName.availablePersonas, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -95,20 +95,20 @@ export function availablePersonasParameters(): Record<string, unknown> {
 
 export function listAvailableSubagentPersonas(
   db: SqliteDatabase,
-  toolkitCeiling: readonly SubagentToolkit[] | null = currentSubagentToolkitCeiling(),
+  toolkitCeiling: readonly SubagentToolkitName[] | null = currentSubagentToolkitCeiling(),
 ): AvailableSubagentPersona[] {
   const dao = new SubagentPersonaDao(db).initializeSchema();
   dao.seedBuiltinPersonas();
   return availableSubagentPersonaSummaries(dao.listEnabledPersonas(), toolkitCeiling);
 }
 
-export function currentSubagentToolkitCeiling(): SubagentToolkit[] | null {
-  return parseSubagentToolkitCeiling(process.env[agentEnv.subagentToolkitCeiling]);
+export function currentSubagentToolkitCeiling(): SubagentToolkitName[] | null {
+  return parseSubagentToolkitCeiling(process.env[AgentEnvName.subagentToolkitCeiling]);
 }
 
 export function availableSubagentPersonaSummaries(
   personas: readonly SubagentPersonaRow[],
-  toolkitCeiling: readonly SubagentToolkit[] | null,
+  toolkitCeiling: readonly SubagentToolkitName[] | null,
 ): AvailableSubagentPersona[] {
   return personas
     .filter((persona) => areSubagentToolkitsAvailable(persona.toolkits, toolkitCeiling))
@@ -116,18 +116,18 @@ export function availableSubagentPersonaSummaries(
 }
 
 export function areSubagentToolkitsAvailable(
-  requiredToolkits: readonly SubagentToolkit[],
-  toolkitCeiling: readonly SubagentToolkit[] | null,
+  requiredToolkits: readonly SubagentToolkitName[],
+  toolkitCeiling: readonly SubagentToolkitName[] | null,
 ): boolean {
   return missingSubagentPersonaToolkits(requiredToolkits, toolkitCeiling).length === 0;
 }
 
 export function missingSubagentPersonaToolkits(
-  requiredToolkits: readonly SubagentToolkit[],
-  toolkitCeiling: readonly SubagentToolkit[] | null = currentSubagentToolkitCeiling(),
-): SubagentToolkit[] {
+  requiredToolkits: readonly SubagentToolkitName[],
+  toolkitCeiling: readonly SubagentToolkitName[] | null = currentSubagentToolkitCeiling(),
+): SubagentToolkitName[] {
   if (toolkitCeiling === null) return [];
-  const available = new Set<SubagentToolkit>(toolkitCeiling);
+  const available = new Set<SubagentToolkitName>(toolkitCeiling);
   return requiredToolkits.filter((toolkit) => !available.has(toolkit));
 }
 
@@ -156,7 +156,7 @@ export function formatAvailableSubagentPersonas(personas: readonly AvailableSuba
 }
 
 function isSubagentPersonaMode(value: unknown): boolean {
-  return value === subagentRunModes.sync || value === subagentRunModes.async || value === subagentRunModes.conversation;
+  return value === SubagentRunMode.sync || value === SubagentRunMode.async || value === SubagentRunMode.conversation;
 }
 
 function errorMessage(error: unknown): string {

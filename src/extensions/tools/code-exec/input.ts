@@ -1,7 +1,7 @@
 import path from "node:path";
 import {ExtensionContext} from "../../../pi/types";
 import {stringValue} from "../../../shared/values";
-import {CodeLanguage, ExecInput, ExecutionMode, ParsedExecInput} from "./types";
+import {CodeLanguage, ExecInput, CodeExecMode, ParsedExecInput} from "./types";
 
 export function executeCodeParameters(availableLanguages: CodeLanguage[]): Record<string, unknown> {
   return {
@@ -40,7 +40,7 @@ export function parseInput(params: ExecInput, defaultCwd: string): ParsedExecInp
     : 30;
   return {
     language,
-    mode: code ? ExecutionMode.INLINE : ExecutionMode.FILE,
+    mode: code ? CodeExecMode.INLINE : CodeExecMode.FILE,
     source: code ?? file ?? "",
     args,
     stdin: stringValue(params.stdin) ?? undefined,

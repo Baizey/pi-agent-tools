@@ -1,4 +1,4 @@
-import {agentEnv} from "../../shared/env";
+import {AgentEnvName} from "../../shared/env";
 import {stringValue} from "../../shared/values";
 import {
   applySubagentToolkitCeiling,
@@ -6,7 +6,6 @@ import {
   normalizeSubagentToolkits,
   parseSubagentToolkitCeiling,
   SubagentRunMode,
-  subagentRunModes,
 } from "./toolkits";
 import {SubagentRequest} from "./runner";
 
@@ -36,7 +35,7 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
   if (!role) return {error: "Missing required parameter: role."};
 
   const requestedToolkits = normalizeSubagentToolkits(params.toolkits);
-  const ceilingToolkits = parseSubagentToolkitCeiling(process.env[agentEnv.subagentToolkitCeiling]);
+  const ceilingToolkits = parseSubagentToolkitCeiling(process.env[AgentEnvName.subagentToolkitCeiling]);
 
   return {
     mode,
@@ -45,15 +44,15 @@ export function parseSubagentRequest(params: RawSubagentParams, defaultCwd: stri
     toolkits: applySubagentToolkitCeiling(requestedToolkits, ceilingToolkits),
     cwd: stringValue(params.cwd) ?? defaultCwd,
     timeoutSeconds: normalizeTimeout(params.timeoutSeconds, defaultTimeoutSecondsForMode(mode)),
-    model: (stringValue(params.model) ?? process.env[agentEnv.subagentModel]?.trim()) || undefined,
+    model: (stringValue(params.model) ?? process.env[AgentEnvName.subagentModel]?.trim()) || undefined,
     systemPrompt: stringValue(params.systemPrompt) ?? undefined,
     contextPaths: normalizeContextPaths(params.contextPaths),
   };
 }
 
 export function normalizeMode(value: unknown): SubagentRunMode {
-  if (value === subagentRunModes.async || value === subagentRunModes.conversation) return value;
-  return subagentRunModes.sync;
+  if (value === SubagentRunMode.async || value === SubagentRunMode.conversation) return value;
+  return SubagentRunMode.sync;
 }
 
 export function normalizeTimeout(value: unknown, fallback: number): number {

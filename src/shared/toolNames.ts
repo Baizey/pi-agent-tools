@@ -37,5 +37,3 @@ export enum ToolName {
   // web expansion
   webLookup = "web_lookup",
 }
-
-export import toolNames = ToolName;

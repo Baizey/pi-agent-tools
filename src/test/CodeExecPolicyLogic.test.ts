@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {CodeExecPolicyLogic} from "../policy/code-exec/CodeExecPolicyLogic";
-import {CodeExecMode, PolicyLifetime, PolicyStatus} from "../policy/types";
+import {CodeExecMode, PolicyLifetime, PolicyStatus, PolicyWildcard} from "../policy/types";
 
 function assertAllowed(result: ReturnType<CodeExecPolicyLogic["evaluate"]>) {
   assert.equal(result?.matchedStatus, PolicyStatus.ALLOWED);
@@ -30,7 +30,7 @@ test("exact language and mode policy applies", () => {
 
 test("wildcard policies allow full deny code execution", () => {
   const policy = new CodeExecPolicyLogic({
-    policies: [CodeExecPolicyLogic.createPolicy("*", "*", PolicyStatus.DENIED, PolicyLifetime.SESSION, "no code")],
+    policies: [CodeExecPolicyLogic.createPolicy(PolicyWildcard.ALL, PolicyWildcard.ALL, PolicyStatus.DENIED, PolicyLifetime.SESSION, "no code")],
   });
   assertDenied(policy.evaluate("python", CodeExecMode.INLINE));
   assertDenied(policy.evaluate("javascript", CodeExecMode.FILE));
@@ -39,7 +39,7 @@ test("wildcard policies allow full deny code execution", () => {
 test("more specific policy beats wildcard policy", () => {
   const policy = new CodeExecPolicyLogic({
     policies: [
-      CodeExecPolicyLogic.createPolicy("*", CodeExecMode.INLINE, PolicyStatus.DENIED, PolicyLifetime.SESSION, "no inline"),
+      CodeExecPolicyLogic.createPolicy(PolicyWildcard.ALL, CodeExecMode.INLINE, PolicyStatus.DENIED, PolicyLifetime.SESSION, "no inline"),
       CodeExecPolicyLogic.createPolicy("python", CodeExecMode.INLINE, PolicyStatus.ALLOWED, PolicyLifetime.SESSION, "python inline ok"),
     ],
   });

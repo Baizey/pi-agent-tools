@@ -4,7 +4,6 @@ import {
     SubagentPersonaSource,
     SubagentRunMode,
     SubagentToolkitName,
-    type SubagentToolkit,
 } from "../shared/subagents";
 
 export const subagentPersonaNamePattern = /^[a-z0-9][a-z0-9_-]*$/;
@@ -15,7 +14,7 @@ export const subagentPersonas = table("subagent_personas", {
     description: column.text().notNull(),
     mode: column.text().notNull(),
     model: column.text().notNull(),
-    toolkits: column.json<SubagentToolkit[]>().notNull(),
+    toolkits: column.json<SubagentToolkitName[]>().notNull(),
     systemPrompt: column.text().notNull(),
     source: column.text().notNull(),
     enabled: column.boolean().notNull(),
@@ -28,7 +27,7 @@ type StoredSubagentPersonaRow = Row<typeof subagentPersonas>;
 export type SubagentPersonaRow = Omit<StoredSubagentPersonaRow, "mode" | "source" | "toolkits"> & {
     mode: SubagentRunMode;
     source: SubagentPersonaSource;
-    toolkits: SubagentToolkit[];
+    toolkits: SubagentToolkitName[];
 };
 
 export type SubagentPersonaDefinition = Omit<SubagentPersonaRow, "createdAt" | "updatedAt">;
@@ -41,10 +40,6 @@ export type ListSubagentPersonasOptions = {
     enabled?: boolean;
     source?: SubagentPersonaSource;
 };
-
-const runModeValues = new Set<string>(Object.values(SubagentRunMode));
-const personaSourceValues = new Set<string>(Object.values(SubagentPersonaSource));
-const toolkitValues = new Set<string>(Object.values(SubagentToolkitName));
 
 export const builtinSubagentPersonas = [
     {
@@ -317,23 +312,24 @@ function requiredText(value: unknown, field: string): string {
 }
 
 function assertSubagentRunMode(value: unknown): SubagentRunMode {
-    if (typeof value === "string" && runModeValues.has(value)) return value as SubagentRunMode;
+    const mode = Object.values(SubagentRunMode).find((candidate) => candidate === value);
+    if (mode) return mode;
     throw new Error(`Invalid subagent persona mode: ${String(value)}`);
 }
 
 function assertSubagentPersonaSource(value: unknown): SubagentPersonaSource {
-    if (typeof value === "string" && personaSourceValues.has(value)) return value as SubagentPersonaSource;
+    const source = Object.values(SubagentPersonaSource).find((candidate) => candidate === value);
+    if (source) return source;
     throw new Error(`Invalid subagent persona source: ${String(value)}`);
 }
 
-function normalizeToolkits(value: unknown): SubagentToolkit[] {
+function normalizeToolkits(value: unknown): SubagentToolkitName[] {
     if (!Array.isArray(value)) throw new Error("Subagent persona toolkits must be an array.");
-    const toolkits: SubagentToolkit[] = [];
+    const toolkits: SubagentToolkitName[] = [];
     for (const toolkit of value) {
-        if (typeof toolkit !== "string" || !toolkitValues.has(toolkit)) {
-            throw new Error(`Invalid subagent persona toolkit: ${String(toolkit)}`);
-        }
-        if (!toolkits.includes(toolkit as SubagentToolkit)) toolkits.push(toolkit as SubagentToolkit);
+        const normalized = Object.values(SubagentToolkitName).find((candidate) => candidate === toolkit);
+        if (!normalized) throw new Error(`Invalid subagent persona toolkit: ${String(toolkit)}`);
+        if (!toolkits.includes(normalized)) toolkits.push(normalized);
     }
     return toolkits;
 }

@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import {Adapter, CodeLanguage, ExecPlan, ExecutionMode, RuntimeInfo, TempArtifactMode} from "./types";
+import {Adapter, CodeLanguage, ExecPlan, CodeExecMode, RuntimeInfo, TempArtifactMode} from "./types";
 import {firstLine, runProcess} from "./process";
 
 const detectionCache = new Map<CodeLanguage, Promise<RuntimeInfo>>();
@@ -20,13 +20,13 @@ export async function detect(adapter: Adapter): Promise<RuntimeInfo> {
 }
 
 export const adapters: Record<CodeLanguage, Adapter> = {
-  javascript: interpreted(CodeLanguage.JAVASCRIPT, ["node"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
+  javascript: interpreted(CodeLanguage.JAVASCRIPT, ["node"], ["--version"], (exe, source, mode, args) => mode === CodeExecMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
   typescript: tempFileAdapter(CodeLanguage.TYPESCRIPT, ["tsx", "ts-node"], ["--version"], ".ts", (exe, file, args) => [exe, [file, ...args]]),
-  python: interpreted(CodeLanguage.PYTHON, process.platform === "win32" ? ["python", "py", "python3"] : ["python3", "python"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-c", source, ...args]] : [exe, [source, ...args]]),
-  powershell: interpreted(CodeLanguage.POWERSHELL, process.platform === "win32" ? ["pwsh", "powershell"] : ["pwsh"], ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-NoProfile", "-Command", source, ...args]] : [exe, ["-NoProfile", "-File", source, ...args]]),
-  ruby: interpreted(CodeLanguage.RUBY, ["ruby"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
-  php: interpreted(CodeLanguage.PHP, ["php"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-r", source, ...args]] : [exe, [source, ...args]]),
-  perl: interpreted(CodeLanguage.PERL, ["perl"], ["--version"], (exe, source, mode, args) => mode === ExecutionMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
+  python: interpreted(CodeLanguage.PYTHON, process.platform === "win32" ? ["python", "py", "python3"] : ["python3", "python"], ["--version"], (exe, source, mode, args) => mode === CodeExecMode.INLINE ? [exe, ["-c", source, ...args]] : [exe, [source, ...args]]),
+  powershell: interpreted(CodeLanguage.POWERSHELL, process.platform === "win32" ? ["pwsh", "powershell"] : ["pwsh"], ["-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()"], (exe, source, mode, args) => mode === CodeExecMode.INLINE ? [exe, ["-NoProfile", "-Command", source, ...args]] : [exe, ["-NoProfile", "-File", source, ...args]]),
+  ruby: interpreted(CodeLanguage.RUBY, ["ruby"], ["--version"], (exe, source, mode, args) => mode === CodeExecMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
+  php: interpreted(CodeLanguage.PHP, ["php"], ["--version"], (exe, source, mode, args) => mode === CodeExecMode.INLINE ? [exe, ["-r", source, ...args]] : [exe, [source, ...args]]),
+  perl: interpreted(CodeLanguage.PERL, ["perl"], ["--version"], (exe, source, mode, args) => mode === CodeExecMode.INLINE ? [exe, ["-e", source, ...args]] : [exe, [source, ...args]]),
   go: tempFileAdapter(CodeLanguage.GO, ["go"], ["version"], ".go", (exe, file, args) => [exe, ["run", file, ...args]]),
   java: tempFileAdapter(CodeLanguage.JAVA, ["java"], ["-version"], ".java", (exe, file, args) => [exe, [file, ...args]], ["Uses Java source-file execution; requires Java 11+."], "Main.java"),
   dotnet: tempFileAdapter(CodeLanguage.DOTNET, ["dotnet-script", "csi"], ["--version"], ".csx", (exe, file, args) => exe === "csi" ? [exe, [file, ...args]] : [exe, [file, "--", ...args]], ["Requires dotnet-script or csi for script execution."]),
@@ -39,12 +39,12 @@ function interpreted(
   language: CodeLanguage,
   executables: string[],
   versionArgs: string[],
-  build: (exe: string, source: string, mode: ExecutionMode, args: string[]) => [string, string[]],
+  build: (exe: string, source: string, mode: CodeExecMode, args: string[]) => [string, string[]],
 ): Adapter {
   return {
     language,
-    modes: [ExecutionMode.INLINE, ExecutionMode.FILE],
-    async detect() { return detectExecutable(language, executables, versionArgs, [ExecutionMode.INLINE, ExecutionMode.FILE]); },
+    modes: [CodeExecMode.INLINE, CodeExecMode.FILE],
+    async detect() { return detectExecutable(language, executables, versionArgs, [CodeExecMode.INLINE, CodeExecMode.FILE]); },
     async plan(input) {
       const info = await detect(adapters[language]);
       const [command, args] = build(info.executable!, input.source, input.mode, input.args);
@@ -64,14 +64,14 @@ function tempFileAdapter(
 ): Adapter {
   return {
     language,
-    modes: [ExecutionMode.INLINE, ExecutionMode.FILE],
+    modes: [CodeExecMode.INLINE, CodeExecMode.FILE],
     tempArtifacts: TempArtifactMode.INLINE,
-    async detect() { return detectExecutable(language, executables, versionArgs, [ExecutionMode.INLINE, ExecutionMode.FILE], notes); },
+    async detect() { return detectExecutable(language, executables, versionArgs, [CodeExecMode.INLINE, CodeExecMode.FILE], notes); },
     async plan(input) {
       const info = await detect(adapters[language]);
       let cleanup: (() => Promise<void>) | undefined;
       let file = input.source;
-      if (input.mode === ExecutionMode.INLINE) {
+      if (input.mode === CodeExecMode.INLINE) {
         const temp = await fs.mkdtemp(path.join(os.tmpdir(), `pi-code-${language}-`));
         file = path.join(temp, inlineFileName ?? `main${extension}`);
         await fs.writeFile(file, input.source, "utf8");
@@ -91,20 +91,20 @@ function compiledAdapter(
 ): Adapter {
   return {
     language,
-    modes: [ExecutionMode.INLINE, ExecutionMode.FILE],
+    modes: [CodeExecMode.INLINE, CodeExecMode.FILE],
     tempArtifacts: TempArtifactMode.ALWAYS,
     async detect() {
       for (const [exe, versionArgs] of compilers) {
-        const info = await detectExecutable(language, [exe], versionArgs, [ExecutionMode.INLINE, ExecutionMode.FILE], ["Compiles to a temporary executable before running."]);
+        const info = await detectExecutable(language, [exe], versionArgs, [CodeExecMode.INLINE, CodeExecMode.FILE], ["Compiles to a temporary executable before running."]);
         if (info.available) return info;
       }
-      return {language, available: false, modes: [ExecutionMode.INLINE, ExecutionMode.FILE], error: `No compiler found: ${compilers.map(([it]) => it).join(", ")}`};
+      return {language, available: false, modes: [CodeExecMode.INLINE, CodeExecMode.FILE], error: `No compiler found: ${compilers.map(([it]) => it).join(", ")}`};
     },
     async plan(input) {
       const info = await detect(adapters[language]);
       const temp = await fs.mkdtemp(path.join(os.tmpdir(), `pi-code-${language}-`));
-      const source = input.mode === ExecutionMode.INLINE ? path.join(temp, `main${extension}`) : input.source;
-      if (input.mode === ExecutionMode.INLINE) await fs.writeFile(source, input.source, "utf8");
+      const source = input.mode === CodeExecMode.INLINE ? path.join(temp, `main${extension}`) : input.source;
+      if (input.mode === CodeExecMode.INLINE) await fs.writeFile(source, input.source, "utf8");
       const output = path.join(temp, process.platform === "win32" ? "program.exe" : "program");
       const [compileCommand, compileArgs] = buildCompile(info.executable!, source, output);
       return {
@@ -119,7 +119,7 @@ function compiledAdapter(
   };
 }
 
-async function detectExecutable(language: CodeLanguage, executables: string[], versionArgs: string[], modes: ExecutionMode[], notes?: string[]): Promise<RuntimeInfo> {
+async function detectExecutable(language: CodeLanguage, executables: string[], versionArgs: string[], modes: CodeExecMode[], notes?: string[]): Promise<RuntimeInfo> {
   const errors: string[] = [];
   for (const executable of executables) {
     const result = await runProcess({command: executable, args: versionArgs, cwd: process.cwd()}, undefined, 5);

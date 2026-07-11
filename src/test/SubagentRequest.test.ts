@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import {agentEnv} from "../shared/env";
+import {AgentEnvName} from "../shared/env";
 import {parseSubagentRequest} from "../extensions/subagent/request";
-import {subagentRunModes} from "../extensions/subagent";
+import {SubagentRunMode} from "../extensions/subagent";
 
 function withSubagentModel(value: string | undefined, fn: () => void): void {
-  const previous = process.env[agentEnv.subagentModel];
+  const previous = process.env[AgentEnvName.subagentModel];
   try {
-    if (value === undefined) delete process.env[agentEnv.subagentModel];
-    else process.env[agentEnv.subagentModel] = value;
+    if (value === undefined) delete process.env[AgentEnvName.subagentModel];
+    else process.env[AgentEnvName.subagentModel] = value;
     fn();
   } finally {
-    if (previous === undefined) delete process.env[agentEnv.subagentModel];
-    else process.env[agentEnv.subagentModel] = previous;
+    if (previous === undefined) delete process.env[AgentEnvName.subagentModel];
+    else process.env[AgentEnvName.subagentModel] = previous;
   }
 }
 
@@ -37,7 +37,7 @@ test("subagent request model parameter overrides PI_AGENT_SUBAGENT_MODEL", () =>
 });
 
 test("subagent request defaults all run modes to fifteen minute timeouts", () => {
-  for (const mode of Object.values(subagentRunModes)) {
+  for (const mode of Object.values(SubagentRunMode)) {
     const request = parseSubagentRequest({task: "do it", role: "tester", mode}, process.cwd());
     assert.ok(!("error" in request));
     assert.equal(request.timeoutSeconds, 15 * 60);

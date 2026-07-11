@@ -5,7 +5,7 @@ import {
   thinkingCommandCompletions,
   ThinkingMode,
 } from "../extensions/tools/thinking";
-import {toolNames} from "../shared/toolNames";
+import {ToolName} from "../shared/toolNames";
 
 test("thinking tool accepts thoughts without echoing them and explicitly guides the agent", async () => {
   let tool: ToolDefinition | undefined;
@@ -17,7 +17,7 @@ test("thinking tool accepts thoughts without echoing them and explicitly guides 
 
   registerThinkingTool(pi);
 
-  assert.equal(tool?.name, toolNames.thinking);
+  assert.equal(tool?.name, ToolName.thinking);
   const guidance = tool?.promptGuidelines?.join("\n") ?? "";
   assert.match(guidance, /always call thinking before any answer or other tool/);
   assert.match(guidance, /closest precise account/);
@@ -52,7 +52,7 @@ test("thinking tool folds calls from the tail", () => {
 
 test("thinking command turns only the thinking tool on and off", () => {
   let command: CommandDefinition | undefined;
-  let activeTools = ["read", toolNames.thinking];
+  let activeTools = ["read", ToolName.thinking];
   const notifications: string[] = [];
   const pi = {
     on() {},
@@ -67,13 +67,13 @@ test("thinking command turns only the thinking tool on and off", () => {
   command?.handler("", ctx);
   assert.deepEqual(activeTools, ["read"]);
   command?.handler("", ctx);
-  assert.deepEqual(activeTools, ["read", toolNames.thinking]);
+  assert.deepEqual(activeTools, ["read", ToolName.thinking]);
 
   command?.handler(ThinkingMode.OFF, ctx);
   assert.deepEqual(activeTools, ["read"]);
   command?.handler(ThinkingMode.ON, ctx);
   command?.handler(ThinkingMode.ON, ctx);
-  assert.deepEqual(activeTools, ["read", toolNames.thinking]);
+  assert.deepEqual(activeTools, ["read", ToolName.thinking]);
   assert.deepEqual(notifications, [
     "Thinking tool: off",
     "Thinking tool: on",

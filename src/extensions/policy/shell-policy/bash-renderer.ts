@@ -1,6 +1,6 @@
 import type {ExtensionContext, PiExtensionApi, Theme} from "../../../pi/types";
 import {renderBlockToolCall} from "../../../shared/blockToolRendering";
-import {toolNames} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 import {renderToolCallInput} from "../../../shared/toolRendering";
 import {stringValue} from "../../../shared/values";
 import type {ExpansionContext} from "../../../shared/rendering/types";
@@ -29,7 +29,7 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
 
   const nativePurpose = hasPurposeParameter(bash.parameters);
   pi.registerTool({
-    name: toolNames.bash,
+    name: ToolName.bash,
     label: "bash",
     description: bash.description,
     parameters: nativePurpose ? bash.parameters : withPurposeParameter(bash.parameters),
@@ -47,12 +47,12 @@ export function registerBashSummaryRenderer(pi: PiExtensionApi): void {
 export function renderBashCall(args: Record<string, unknown>, theme?: Theme, context?: ExpansionContext) {
   const command = stringValue(args.command);
   if (!command) {
-    return renderToolCallInput(toolNames.bash, args, theme, context);
+    return renderToolCallInput(ToolName.bash, args, theme, context);
   }
 
   const purpose = stringValue(args.purpose);
   return renderBlockToolCall({
-    title: toolNames.bash,
+    title: ToolName.bash,
     fields: [
       {label: "purpose", value: purpose, omit: !purpose},
       {label: "timeout", value: args.timeout, omit: typeof args.timeout !== "number"},

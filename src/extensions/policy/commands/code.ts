@@ -1,6 +1,6 @@
 import {AutocompleteItem, PiExtensionApi} from "../../../pi/types";
 import {AgentRuntime, AgentServices} from "../../../pi/runtime";
-import {CodeExecPolicyLanguage, CodeExecPolicyMode, PolicyLifetime} from "../../../policy/types";
+import {CodeExecPolicyMode, PolicyLifetime} from "../../../policy/types";
 import {
   clearOptionsError,
   commonCompletions,
@@ -15,7 +15,7 @@ import {
   tokenizePolicyCommandArgs,
 } from "./shared";
 import {formatCodeEvaluation, formatCodePoliciesList} from "./display";
-import {PolicyCommandAction, PolicyCommandKind, PolicyCommandName, PolicyCommandWildcard, policyStatusForAction} from "./types";
+import {PolicyCommandAction, PolicyCommandKind, PolicyCommandName, PolicyWildcard, policyStatusForAction} from "./types";
 
 export function registerPolicyCodeCommand(pi: PiExtensionApi, services: AgentServices): void {
   pi.registerCommand?.(PolicyCommandName.CODE, {
@@ -89,7 +89,7 @@ function evalCodePolicy(runtime: AgentRuntime, tokens: string[]) {
   if (!language) return err(PolicyCommandText.MISSING_LANGUAGE);
   if (!rawMode) return err(PolicyCommandText.MISSING_MODE);
   const mode = parseCodeMode(rawMode);
-  if (!mode || mode === PolicyCommandWildcard.ALL) return err(`Invalid eval code execution mode: ${rawMode}`);
+  if (!mode || mode === PolicyWildcard.ALL) return err(`Invalid eval code execution mode: ${rawMode}`);
 
   const result = runtime.codeExecPolicy.evaluate(language, mode, false);
   return ok(formatCodeEvaluation(language, mode, result));
@@ -104,7 +104,7 @@ function removeCodePolicy(runtime: AgentRuntime, tokens: string[]) {
   const mode = parseCodeMode(rawMode);
   if (!mode) return err(`Invalid code execution mode: ${rawMode}`);
 
-  runtime.codeExecPolicy.removePolicies([{language: language as CodeExecPolicyLanguage, mode: mode as CodeExecPolicyMode}]);
+  runtime.codeExecPolicy.removePolicies([{language, mode}]);
   runtime.codeExecPolicyStore.save(runtime.codeExecPolicy);
   return ok(formatCodePolicies(runtime));
 }
@@ -136,7 +136,7 @@ function sessionWouldShadowForeverCode(runtime: AgentRuntime, language: string, 
 
 function normalizeCodeLanguage(language: string): string {
   const trimmed = language.trim().toLowerCase();
-  return trimmed.length > 0 ? trimmed : PolicyCommandWildcard.ALL;
+  return trimmed.length > 0 ? trimmed : PolicyWildcard.ALL;
 }
 
 export function formatCodePolicies(runtime: AgentRuntime): string {

@@ -1,5 +1,5 @@
 import {ExtensionContext} from "../../../pi/types";
-import {agentModelProfiles, resolveAgentModelProfile, runSyncSubagent, subagentToolkitNames} from "../../subagent";
+import {AgentModelProfile, resolveAgentModelProfile, runSyncSubagent, SubagentToolkitName} from "../../subagent";
 
 export type UIAiHelpOptionInfo = {
     task: string
@@ -37,11 +37,11 @@ export class UIAiHelpWrap {
         this.loaded = true
 
         try {
-            const model = await resolveAgentModelProfile(ctx, agentModelProfiles.textLow)
+            const model = await resolveAgentModelProfile(ctx, AgentModelProfile.textLow)
             const result = await runSyncSubagent({
                 task: this.prompt(),
                 role: "decision helper",
-                toolkits: [subagentToolkitNames.ioRead, subagentToolkitNames.webRead],
+                toolkits: [SubagentToolkitName.ioRead, SubagentToolkitName.webRead],
                 cwd: ctx.cwd,
                 timeoutSeconds: this.info.timeoutSeconds ?? 30,
                 model,

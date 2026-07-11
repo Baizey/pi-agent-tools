@@ -1,5 +1,5 @@
 import {PiExtensionApi} from "../../../pi/types";
-import {toolNames, ToolName} from "../../../shared/toolNames";
+import {ToolName} from "../../../shared/toolNames";
 import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../../shared/toolRendering";
 import {booleanParam, objectSchema, stringParam} from "./common";
 import {copyPath, deletePath, makeDirectory, movePath, statPath} from "./operations";
@@ -37,7 +37,7 @@ function registerFileTool(pi: PiExtensionApi, tool: FileToolRegistration): void 
 function fileTools(): FileToolRegistration[] {
   return [
     {
-      name: toolNames.delete,
+      name: ToolName.delete,
       label: "Delete",
       description: "Delete a file or empty directory. Set recursive to true to delete a directory and its contents.",
       parameters: objectSchema({
@@ -47,7 +47,7 @@ function fileTools(): FileToolRegistration[] {
       execute: deletePath,
     },
     {
-      name: toolNames.copy,
+      name: ToolName.copy,
       label: "Copy",
       description: "Copy a file or directory. Set recursive to true to copy directories.",
       parameters: objectSchema({
@@ -59,7 +59,7 @@ function fileTools(): FileToolRegistration[] {
       execute: copyPath,
     },
     {
-      name: toolNames.move,
+      name: ToolName.move,
       label: "Move",
       description: "Move or rename a file or directory.",
       parameters: objectSchema({
@@ -70,7 +70,7 @@ function fileTools(): FileToolRegistration[] {
       execute: movePath,
     },
     {
-      name: toolNames.mkdir,
+      name: ToolName.mkdir,
       label: "Make Directory",
       description: "Create a directory.",
       parameters: objectSchema({
@@ -80,7 +80,7 @@ function fileTools(): FileToolRegistration[] {
       execute: makeDirectory,
     },
     {
-      name: toolNames.stat,
+      name: ToolName.stat,
       label: "Stat",
       description: "Get metadata for a file or directory.",
       parameters: objectSchema({
