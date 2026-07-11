@@ -22,6 +22,7 @@ export * from "./extensions/policy/defaults";
 export * from "./extensions/policy/path-policy";
 export * from "./extensions/tools/policy-info";
 export * from "./extensions/tools/local-sql";
+export * from "./extensions/tools/thinking";
 export * from "./extensions/prompt-guidance";
 export * from "./extensions/shared/policy-approval";
 export * from "./extensions/policy/shell-policy";

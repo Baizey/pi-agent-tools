@@ -10,6 +10,7 @@ import {registerShellPolicy} from "./extensions/policy/shell-policy";
 import {registerSubagentTool} from "./extensions/subagent";
 import {registerWebLookupTool} from "./extensions/tools/web";
 import {registerLocalSqlTool} from "./extensions/tools/local-sql";
+import {registerThinkingTool} from "./extensions/tools/thinking";
 import {registerAgentPromptGuidance} from "./extensions/prompt-guidance";
 import {registerToolRenderingControls} from "./extensions/tool-rendering-controls";
 import {registerMcpExtension} from "./extensions/mcp";
@@ -30,6 +31,7 @@ export default async function agentToolsExtension(pi: PiExtensionApi): Promise<v
     registerPolicyDefaultCommand(pi);
     registerPolicyCommands(pi, services);
     registerFileTools(pi);
+    registerThinkingTool(pi);
 
     registerSubagentTool(pi);
     registerWebLookupTool(pi, services);

@@ -1,0 +1,70 @@
+import assert from "node:assert/strict";
+import {CommandDefinition, PiExtensionApi, ToolDefinition} from "../pi/types";
+import {
+  registerThinkingTool,
+  thinkingCommandCompletions,
+  ThinkingMode,
+} from "../extensions/tools/thinking";
+import {toolNames} from "../shared/toolNames";
+
+test("thinking tool shares thoughts and explicitly guides the agent", async () => {
+  let tool: ToolDefinition | undefined;
+  const pi = {
+    on() {},
+    registerTool(definition: ToolDefinition) { tool = definition; },
+    registerCommand() {},
+  } as PiExtensionApi;
+
+  registerThinkingTool(pi);
+
+  assert.equal(tool?.name, toolNames.thinking);
+  assert.match(tool?.promptGuidelines?.join("\n") ?? "", /output your thoughts through thinking/);
+  const result = await tool?.execute("thinking-1", {thoughts: "Check the invariant first."});
+  assert.equal(result?.content[0]?.type, "text");
+  assert.equal((result?.content[0] as {text?: string})?.text, "Check the invariant first.");
+});
+
+test("thinking command turns only the thinking tool on and off", () => {
+  let command: CommandDefinition | undefined;
+  let activeTools = ["read", toolNames.thinking];
+  const notifications: string[] = [];
+  const pi = {
+    on() {},
+    registerTool() {},
+    registerCommand(_name: string, definition: CommandDefinition) { command = definition; },
+    getActiveTools: () => activeTools,
+    setActiveTools: (names: string[]) => { activeTools = names; },
+  } as PiExtensionApi;
+  const ctx = {cwd: process.cwd(), ui: {notify: (message: string) => notifications.push(message)}} as never;
+
+  registerThinkingTool(pi);
+  command?.handler(ThinkingMode.OFF, ctx);
+  assert.deepEqual(activeTools, ["read"]);
+
+  command?.handler(ThinkingMode.ON, ctx);
+  command?.handler(ThinkingMode.ON, ctx);
+  assert.deepEqual(activeTools, ["read", toolNames.thinking]);
+  assert.deepEqual(notifications, ["Thinking tool: off", "Thinking tool: on", "Thinking tool: on"]);
+});
+
+test("thinking command rejects unsupported modes and completes enum values", () => {
+  let command: CommandDefinition | undefined;
+  let changed = false;
+  const notifications: string[] = [];
+  const pi = {
+    on() {},
+    registerTool() {},
+    registerCommand(_name: string, definition: CommandDefinition) { command = definition; },
+    getActiveTools: () => ["read"],
+    setActiveTools: () => { changed = true; },
+  } as PiExtensionApi;
+  const ctx = {cwd: process.cwd(), ui: {notify: (message: string) => notifications.push(message)}} as never;
+
+  registerThinkingTool(pi);
+  command?.handler("maybe", ctx);
+
+  assert.equal(changed, false);
+  assert.deepEqual(notifications, ["Usage: /thinking <on|off>"]);
+  assert.deepEqual(thinkingCommandCompletions("o")?.map((item) => item.value), [ThinkingMode.ON, ThinkingMode.OFF]);
+  assert.equal(thinkingCommandCompletions("x"), null);
+});

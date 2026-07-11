@@ -18,6 +18,9 @@ export const toolNames = {
     // local data expansion
     localSql: "local_sql",
 
+    // agent reasoning
+    thinking: "thinking",
+
     // subagent expansion
     subagentSpawn: "subagent_spawn",
     subagentSpawnPersona: "subagent_spawn_persona",

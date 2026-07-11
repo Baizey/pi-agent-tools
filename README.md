@@ -66,6 +66,14 @@ Supported language adapters: `javascript`, `typescript`, `python`, `powershell`,
 | --- | --- |
 | `web_lookup` | Search DuckDuckGo HTML results with `query`, or fetch/read an `http(s)` URL. |
 
+### Thinking tool
+
+| Tool | Purpose |
+| --- | --- |
+| `thinking` | Share concise thoughts or reasoning before continuing. |
+
+The tool is active by default and adds explicit system-prompt guidance while active. Use `/thinking on` or `/thinking off` to change its state without affecting other tools.
+
 ### MCP tools
 
 MCP servers are configured in `~/.pi/agent/mcp.json`. Only tools exposed by this extension are registered as Pi tools; exposure defaults to none. Use `tools.expose` to allow specific MCP tool names, or `"*"` to expose all currently discovered tools except entries in `tools.hide`.

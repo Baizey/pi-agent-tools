@@ -177,6 +177,19 @@ Use `available_personas` before spawning a persona. Use `/personas show <name>` 
 
 Use `/model-profiles` without arguments to inspect current resolution. Prefer `auto` unless the user wants a concrete provider/model mapping.
 
+## Thinking tool
+
+The `thinking` tool lets the agent share concise thoughts or reasoning before it continues. It is active by default and, while active, adds explicit system-prompt guidance telling the agent to output thoughts through the tool.
+
+The user controls it with:
+
+```text
+/thinking on
+/thinking off
+```
+
+`/thinking` is a user-invoked slash command; the agent cannot invoke it as a tool. Toggling it preserves the state of every other active tool.
+
 ## Other extension capabilities
 
 - `execute_code` runs supported languages through direct process spawning rather than a shell and is subject to path and code-execution policy.
