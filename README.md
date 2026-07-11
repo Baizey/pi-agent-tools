@@ -125,8 +125,7 @@ Because Pi currently has no public tool unregister API, hiding an already regist
 | `subagent_spawn` | Start a scoped subagent in `sync`, `async`, or `conversation` mode. |
 | `available_personas` | List enabled persona presets available in the current toolkit context. |
 | `subagent_spawn_persona` | Spawn a subagent from a registered persona preset. |
-| `subagent_status` | Inspect an async/conversation job. |
-| `subagent_await` | Wait for one or more async jobs. |
+| `subagent_status` | Inspect one or more async/conversation jobs immediately, or wait with an optional timeout. |
 | `subagent_message` | Send a follow-up task to an idle conversation subagent. |
 | `subagent_cancel` | Cancel a running or idle async/conversation job. |
 
@@ -269,7 +268,7 @@ Raw `subagent_spawn` settings:
 - `role`: required concise title/role for the spawned agent
 - `model`: one of the package model profiles, such as `text_low`, `text_high`, `reasoning_low`, or `reasoning_high`
 - `cwd`: working directory
-- `timeoutSeconds`: timeout for a subagent run; defaults to 900 seconds (15 minutes). `subagent_await` defaults to waiting 30 seconds and reports current job statuses on timeout.
+- `timeoutSeconds`: timeout for a subagent run; defaults to 900 seconds (15 minutes). On `subagent_status`, providing it waits up to that many seconds; omitting it returns immediately.
 - `systemPrompt`: additional system instructions
 - `contextPaths`: files/directories suggested as context
 

@@ -72,6 +72,14 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         ].join("\n"));
     }
 
+    if([ToolName.bash].some(hasTool)){
+        sections.push([
+            "Bash tool:",
+            "- Tools such as ./gradlew, npm or yarn are allowed to be used via bash",
+            "- when using a tool via path like ./gradlew, always prefer to do 'cd /path/to/cwd && ./gradlew' over '/path/to/cwd/gradlew'"
+        ].join("\n"))
+    }
+
     if (hasTool(ToolName.policyInfo)) {
         sections.push([
             "Policy tools:",
@@ -87,8 +95,11 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
             "- Use execute_code for short scripts or source-file runs when direct runtime execution is clearer than shell.",
             "- Use execute_code_info first when runtime availability or supported modes are uncertain.",
             "- Always provide a concise purpose; prefer inline mode for small throwaway snippets and file mode for existing source files.",
+            "- This tool is intended to provide a stable place for running small scripts or running specific language files",
             ...(hasTool(ToolName.bash)
-                ? ["- NEVER use bash for code execution, policies will default at denying you"]
+                ? [
+                    "- NEVER use bash for code execution, policies will default at denying you",
+                ]
                 : []),
         ].join("\n"));
     }
@@ -116,9 +127,8 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
         ToolName.subagentSpawnPersona,
         ToolName.availablePersonas,
         ToolName.subagentStatus,
-        ToolName.subagentAwait,
         ToolName.subagentMessage,
-        ToolName.subagentCancel,
+        ToolName.subagentStop,
     ].some(hasTool)) {
         sections.push([
             "Subagents:",
@@ -130,8 +140,8 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
             "- Omit toolkits or pass an empty list for no tools; there is no 'none' toolkit.",
             "- Use the 'meta' toolkit for harness introspection tools like policy_info and local_sql.",
             "- Use async mode for parallel work, conversation mode for an iterative delegated thread, and sync mode for one-shot delegation.",
-            "- Use subagent_status/subagent_await to collect async results, subagent_message to continue idle conversations, and subagent_cancel when done or obsolete.",
-            "- subagent_await waits 30 seconds by default; if jobs are still running, use the returned status lines to decide whether to await again or continue.",
+            "- Use subagent_status to inspect one or more jobs immediately, or provide timeoutSeconds to wait for running jobs.",
+            "- Use subagent_message to continue idle conversations, and subagent_cancel when done or obsolete.",
             "- Pass cwd, contextPaths, and systemPrompt when they help constrain the delegated task.",
             "- Prefer over-utilizing subagents; for any substantial search or research task it can be recommended to use subagents",
             "- Prefer using conversation mode, outside of known '1-shot' tasks it is always better for you in the long run",

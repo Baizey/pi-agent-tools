@@ -25,8 +25,7 @@ export enum ToolName {
   subagentSpawn = "subagent_spawn",
   subagentSpawnPersona = "subagent_spawn_persona",
   availablePersonas = "available_personas",
-  subagentAwait = "subagent_await",
-  subagentCancel = "subagent_cancel",
+  subagentStop = "subagent_cancel",
   subagentMessage = "subagent_message",
   subagentStatus = "subagent_status",
 

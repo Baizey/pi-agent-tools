@@ -5,20 +5,19 @@ import {FoldDirection, renderToolCallInput, renderToolResultOutput} from "../../
 import {stringValue} from "../../shared/values";
 import {
   cancelAsyncSubagentJob,
-  defaultSubagentAwaitTimeoutSeconds,
-  formatAwaitedJob,
-  formatTimedOutJobs,
+  formatSubagentJobs,
   getAsyncSubagentJob,
   getAsyncSubagentJobs,
   jobDetails,
   sendConversationMessage,
   SubagentJobStatus,
+  SubagentWaitOutcome,
   startAsyncSubagentJob,
   waitForJobs,
 } from "./jobs";
 import {AgentModelProfile, resolveAgentModelProfile} from "./model-profiles";
 import {defaultSubagentTimeoutSeconds, SubagentRunMode, subagentToolkits} from "./toolkits";
-import {normalizeJobIds, normalizeTimeout, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
+import {normalizeJobIds, parseSubagentRequest, RawJobParams, RawSubagentParams} from "./request";
 import {errorResult, subagentResultResponse, successResult} from "./responses";
 import {registerSubagentCommands, updateSubagentWidget} from "./commands";
 import {
@@ -36,7 +35,6 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
   registerSubagent(pi);
   registerSubagentPersona(pi);
   registerSubagentStatus(pi);
-  registerSubagentAwait(pi);
   registerSubagentMessage(pi);
   registerSubagentCancel(pi);
 }
@@ -126,7 +124,7 @@ async function executeSubagentRequest(
     const job = startAsyncSubagentJob(request, treeUpdate);
     return successResult(
       request.mode === SubagentRunMode.conversation
-        ? `Started conversation subagent ${job.id}. Use ${ToolName.subagentMessage} to continue or ${ToolName.subagentCancel} when done.`
+        ? `Started conversation subagent ${job.id}. Use ${ToolName.subagentMessage} to continue or ${ToolName.subagentStop} when done.`
         : `Started async subagent job ${job.id}. Use ${ToolName.subagentStatus} to check progress.`,
       jobDetails(job),
     );
@@ -148,61 +146,35 @@ function registerSubagentStatus(pi: PiExtensionApi): void {
   pi.registerTool?.({
     name: ToolName.subagentStatus,
     label: "Subagent Status",
-    description: "Check the status and result of an async subagent job.",
-    parameters: singleJobParameters(),
-    async execute(_toolCallId, params) {
-      const jobId = stringValue((params as RawJobParams).jobId);
-      if (!jobId) return errorResult("Missing required parameter: jobId.");
-      const job = getAsyncSubagentJob(jobId);
-      if (!job) return errorResult(`Unknown subagent job: ${jobId}`);
-
-      if (job.result) return subagentResultResponse(job.request, job.result, jobDetails(job));
-      return successResult(`Subagent job ${job.id} is ${job.status}.`, jobDetails(job));
-    },
-    renderCall(args, theme, context) {
-      return renderToolCallInput(ToolName.subagentStatus, args, theme, context);
-    },
-    renderResult(result, _options, theme, context) {
-      return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
-    },
-  });
-}
-
-function registerSubagentAwait(pi: PiExtensionApi): void {
-  pi.registerTool?.({
-    name: ToolName.subagentAwait,
-    label: "Await Subagent",
-    description: "Wait for one or more async subagent jobs to finish and return their results.",
-    parameters: awaitJobParameters(),
+    description: "Report one or more subagent jobs, optionally waiting for running jobs first.",
+    parameters: statusJobParameters(),
     async execute(_toolCallId, params, signal) {
-      const jobIds = normalizeJobIds((params as RawJobParams).jobIds);
+      const input = params as RawJobParams;
+      const jobIds = normalizeJobIds(input.jobIds);
       if (jobIds.length === 0) return errorResult("Missing required parameter: jobIds.");
 
       const {jobs, missing} = getAsyncSubagentJobs(jobIds);
       if (missing.length > 0) return errorResult(`Unknown subagent job(s): ${missing.join(", ")}`);
 
-      const timeoutSeconds = normalizeTimeout((params as RawJobParams).timeoutSeconds, defaultSubagentAwaitTimeoutSeconds);
-      const timedOut = !(await waitForJobs(jobs, timeoutSeconds, signal));
-      const details = {jobs: jobs.map(jobDetails), timedOut, timeoutSeconds};
+      const timeoutSeconds = statusWaitTimeout(input.timeoutSeconds);
+      if ("error" in timeoutSeconds) return errorResult(timeoutSeconds.error);
+      const waitOutcome = timeoutSeconds.value === undefined
+        ? SubagentWaitOutcome.settled
+        : await waitForJobs(jobs, timeoutSeconds.value, signal);
 
-      if (timedOut) {
-        return {
-          content: [{type: "text" as const, text: formatTimedOutJobs(jobs, timeoutSeconds)}],
-          details,
-          isError: true,
-        };
-      }
-
-      const text = jobs.map(formatAwaitedJob).join("\n\n---\n\n");
-      const hasFailed = jobs.some((job) => job.status === SubagentJobStatus.failed || job.status === SubagentJobStatus.cancelled);
       return {
-        content: [{type: "text" as const, text}],
-        details,
-        isError: hasFailed,
+        content: [{type: "text" as const, text: formatSubagentJobs(jobs)}],
+        details: {
+          jobs: jobs.map(jobDetails),
+          timedOut: waitOutcome === SubagentWaitOutcome.timedOut,
+          aborted: waitOutcome === SubagentWaitOutcome.aborted,
+          timeoutSeconds: timeoutSeconds.value,
+        },
+        isError: jobs.some((job) => job.status === SubagentJobStatus.failed),
       };
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(ToolName.subagentAwait, args, theme, context);
+      return renderToolCallInput(ToolName.subagentStatus, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -249,7 +221,7 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
 
 function registerSubagentCancel(pi: PiExtensionApi): void {
   pi.registerTool?.({
-    name: ToolName.subagentCancel,
+    name: ToolName.subagentStop,
     label: "Cancel Subagent",
     description: "Cancel a running async subagent job.",
     parameters: singleJobParameters(),
@@ -267,7 +239,7 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
       return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));
     },
     renderCall(args, theme, context) {
-      return renderToolCallInput(ToolName.subagentCancel, args, theme, context);
+      return renderToolCallInput(ToolName.subagentStop, args, theme, context);
     },
     renderResult(result, _options, theme, context) {
       return renderToolResultOutput(result, theme, context, {direction: FoldDirection.HEAD, previewLines: 12});
@@ -369,7 +341,7 @@ function singleJobParameters(): Record<string, unknown> {
   };
 }
 
-function awaitJobParameters(): Record<string, unknown> {
+function statusJobParameters(): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
@@ -378,15 +350,24 @@ function awaitJobParameters(): Record<string, unknown> {
       jobIds: {
         type: "array",
         items: {type: "string"},
-        description: "Async subagent job ids returned by subagent.",
+        description: "Subagent job ids to report.",
       },
       timeoutSeconds: {
         type: "number",
-        description: `Maximum time to wait. Defaults to ${defaultSubagentAwaitTimeoutSeconds} seconds.`,
-        default: defaultSubagentAwaitTimeoutSeconds,
+        description: "Optional maximum time to wait for running jobs. Omit to return immediately.",
+        minimum: 1,
+        maximum: 3600,
       },
     },
   };
+}
+
+function statusWaitTimeout(value: unknown): {value?: number} | {error: string} {
+  if (value === undefined) return {value: undefined};
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return {error: "timeoutSeconds must be a positive number."};
+  }
+  return {value: Math.min(value, 3600)};
 }
 
 function errorMessage(error: unknown): string {

@@ -68,7 +68,6 @@ test("spawn_subagent toolkit grants delegation and persona tooling", () => {
     "subagent_spawn_persona",
     "available_personas",
     "subagent_status",
-    "subagent_await",
     "subagent_message",
     "subagent_cancel",
   ]);

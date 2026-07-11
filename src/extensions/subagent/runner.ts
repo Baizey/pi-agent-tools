@@ -440,10 +440,9 @@ function summarizeToolCall(name: string, args: Record<string, unknown>): string 
     case ToolName.availablePersonas:
       return withParts(name);
     case ToolName.subagentStatus:
-    case ToolName.subagentCancel:
-      return withParts(name, stringArg(args, "jobId"));
-    case ToolName.subagentAwait:
       return withParts(name, stringArrayArg(args, "jobIds").join(", "));
+    case ToolName.subagentStop:
+      return withParts(name, stringArg(args, "jobId"));
     case ToolName.subagentMessage:
       return withParts(name, stringArg(args, "jobId"), stringArg(args, "task"));
     default:

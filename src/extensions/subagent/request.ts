@@ -66,7 +66,10 @@ export function normalizeContextPaths(value: unknown): string[] | undefined {
 }
 
 export function normalizeJobIds(value: unknown): string[] {
-  if (typeof value === "string" && value.trim()) return [value];
-  if (!Array.isArray(value)) return [];
-  return value.filter((it): it is string => typeof it === "string" && it.trim().length > 0);
+  const ids = typeof value === "string"
+    ? value.trim() ? [value.trim()] : []
+    : Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)
+      : [];
+  return [...new Set(ids)];
 }

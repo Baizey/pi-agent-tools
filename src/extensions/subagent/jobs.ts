@@ -23,10 +23,15 @@ export type AsyncSubagentJob = {
   error?: string;
   latestUpdateText?: string;
   latestUpdateDetails?: Record<string, unknown>;
+  statusUpdates: string[];
   history: Array<{task: string; output: string}>;
 };
 
-export const defaultSubagentAwaitTimeoutSeconds = 30;
+export enum SubagentWaitOutcome {
+  settled = "settled",
+  timedOut = "timed_out",
+  aborted = "aborted",
+}
 
 const asyncJobs = new Map<string, AsyncSubagentJob>();
 
@@ -44,6 +49,7 @@ export function startAsyncSubagentJob(request: SubagentRequest, onUpdate?: Subag
     status: SubagentJobStatus.running,
     startedAt: Date.now(),
     controller,
+    statusUpdates: [],
     history: [],
   };
   asyncJobs.set(identity.id, job);
@@ -75,6 +81,7 @@ export function sendConversationMessage(job: AsyncSubagentJob, task: string, onU
   job.finishedAt = undefined;
   job.result = undefined;
   job.error = undefined;
+  job.statusUpdates = [];
   job.controller = new AbortController();
   const request: SubagentRequest = {
     ...job.request,
@@ -101,46 +108,46 @@ export async function waitForJobs(
   jobs: AsyncSubagentJob[],
   timeoutSeconds: number,
   signal?: AbortSignal,
-): Promise<boolean> {
-  const deadline = Date.now() + Math.max(1, timeoutSeconds) * 1000;
+): Promise<SubagentWaitOutcome> {
+  const deadline = Date.now() + timeoutSeconds * 1000;
 
   while (jobs.some((job) => job.status === SubagentJobStatus.running)) {
-    if (signal?.aborted || Date.now() >= deadline) return false;
+    if (signal?.aborted) return SubagentWaitOutcome.aborted;
+    if (Date.now() >= deadline) return SubagentWaitOutcome.timedOut;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  return true;
+  return SubagentWaitOutcome.settled;
 }
 
-export function unfinishedJobIds(jobs: AsyncSubagentJob[]): string[] {
-  return jobs.filter((job) => job.status === SubagentJobStatus.running).map((job) => job.id);
+export function formatSubagentJobs(jobs: AsyncSubagentJob[]): string {
+  return jobs.map(formatSubagentJob).join("\n\n");
 }
 
-export function formatAwaitedJob(job: AsyncSubagentJob): string {
-  if (job.result) return `### ${job.id} (${job.status})\n\n${job.result.output}`;
-  return `### ${job.id} (${job.status})\n\n${job.error ?? "(no output)"}`;
-}
+export function formatSubagentJob(job: AsyncSubagentJob): string {
+  const heading = `## Subagent ${job.request.role} (${job.id})\n### Status: ${job.status}`;
 
-export function formatTimedOutJobs(jobs: AsyncSubagentJob[], timeoutSeconds: number): string {
-  const unfinished = unfinishedJobIds(jobs);
-  return [
-    `Timed out after ${timeoutSeconds}s waiting for subagent job(s): ${unfinished.length > 0 ? unfinished.join(", ") : "(none still running)"}`,
-    "",
-    "Current subagent statuses:",
-    ...jobs.map(formatJobStatus),
-  ].join("\n");
-}
-
-export function formatJobStatus(job: AsyncSubagentJob): string {
-  const elapsedSeconds = Math.max(0, Math.floor(((job.finishedAt ?? Date.now()) - job.startedAt) / 1000));
-  const latest = latestStatusText(job);
-  return [
-    `- ${job.id}: ${job.status}`,
-    `role: ${shorten(job.request.role, 60)}`,
-    `task: ${shorten(job.request.task, 100)}`,
-    `elapsed: ${elapsedSeconds}s`,
-    latest ? `latest: ${shorten(latest, 140)}` : undefined,
-  ].filter(Boolean).join("; ");
+  switch (job.status) {
+    case SubagentJobStatus.running:
+      return `${heading}\n${formatRecentUpdates(job)}`;
+    case SubagentJobStatus.idle:
+      return [
+        heading,
+        job.result?.output ?? "(no response was returned)",
+        "This agent is currently idle and awaiting further instructions or cancellation.",
+      ].join("\n\n");
+    case SubagentJobStatus.completed:
+      return [heading, job.result?.output ?? "(no response was returned)"].join("\n\n");
+    case SubagentJobStatus.failed: {
+      const error = failedJobError(job);
+      return [
+        `${heading}\n${formatRecentUpdates(job)}`,
+        error ? `Error:\n\n${error}` : "No additional error information was reported.",
+      ].join("\n\n");
+    }
+    case SubagentJobStatus.cancelled:
+      return [heading, "The subagent was successfully cancelled."].join("\n\n");
+  }
 }
 
 export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
@@ -159,6 +166,7 @@ export function jobDetails(job: AsyncSubagentJob): Record<string, unknown> {
     error: job.error,
     latestUpdateText: job.latestUpdateText,
     latestUpdateDetails: job.latestUpdateDetails,
+    statusUpdates: job.statusUpdates,
     historyLength: job.history.length,
   };
 }
@@ -216,7 +224,10 @@ function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, o
       .map((part) => part.text)
       .join("\n")
       .trim();
-    if (text) job.latestUpdateText = text;
+    if (text) {
+      job.latestUpdateText = text;
+      recordStatusUpdate(job, text);
+    }
     job.latestUpdateDetails = partial.details;
     onUpdate?.(partial);
   };
@@ -240,19 +251,36 @@ function runJob(job: AsyncSubagentJob, request: SubagentRequest, task: string, o
     });
 }
 
-function latestStatusText(job: AsyncSubagentJob): string | undefined {
-  if (job.latestUpdateText) return lastMeaningfulLine(job.latestUpdateText);
+function recordStatusUpdate(job: AsyncSubagentJob, text: string): void {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const ownLine = lines.find((line) => line.includes(`(${job.id})`));
+  const update = ownLine ?? lines[lines.length - 1];
+  if (!update || job.statusUpdates[job.statusUpdates.length - 1] === update) return;
+  job.statusUpdates.push(update);
+  if (job.statusUpdates.length > 5) job.statusUpdates.splice(0, job.statusUpdates.length - 5);
+}
+
+function formatRecentUpdates(job: AsyncSubagentJob): string {
+  const updates = job.statusUpdates.length > 0
+    ? job.statusUpdates.slice(-5)
+    : job.latestUpdateText
+      ? [lastMeaningfulLine(job.latestUpdateText)]
+      : [];
+  if (updates.length === 0) return "No status updates have been reported yet.";
+  return ["Recent updates:", ...updates.map((update) => `- ${update}`)].join("\n");
+}
+
+function failedJobError(job: AsyncSubagentJob): string | undefined {
   if (job.error) return job.error;
-  if (job.result?.output) return lastMeaningfulLine(job.result.output);
-  return undefined;
+  if (!job.result) return undefined;
+  if (job.result.timedOut) {
+    const details = job.result.stderr.trim() || job.result.output.trim();
+    return details ? `Subagent timed out.\n${details}` : "Subagent timed out.";
+  }
+  return job.result.stderr.trim() || job.result.output.trim() || undefined;
 }
 
 function lastMeaningfulLine(text: string): string {
   const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
   return lines[lines.length - 1] ?? text.trim();
-}
-
-function shorten(value: string, maxLength: number): string {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  return normalized.length > maxLength ? `${normalized.slice(0, maxLength - 1)}…` : normalized;
 }
