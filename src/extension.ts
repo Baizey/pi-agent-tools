@@ -35,7 +35,7 @@ export default async function agentToolsExtension(pi: PiExtensionApi): Promise<v
 
     registerSubagentTool(pi);
     registerWebLookupTool(pi, services);
-    await registerCodeExecutionTool(pi, services);
+    registerCodeExecutionTool(pi, services);
 
     registerPolicyInfoTool(pi, services);
     registerLocalSqlTool(pi);
