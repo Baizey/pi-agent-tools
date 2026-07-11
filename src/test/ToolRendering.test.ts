@@ -32,8 +32,8 @@ test("tool call renderer folds arguments and preserves styling", () => {
 
 test("tool call renderer omits the label for one visible argument", () => {
   assert.deepEqual(
-    renderToolCallInput("subagent_cancel", {jobId: "job-123"}).render(120),
-    ["subagent_cancel", "  \"job-123\""],
+    renderToolCallInput("subagent_stop", {jobId: "job-123"}).render(120),
+    ["subagent_stop", "  \"job-123\""],
   );
 });
 

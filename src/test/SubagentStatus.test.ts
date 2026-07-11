@@ -54,7 +54,9 @@ test("subagent status replaces await and only waits when a timeout is supplied",
 
   const statusTool = tools[ToolName.subagentStatus];
   assert.ok(statusTool);
+  assert.ok(tools[ToolName.subagentStop]);
   assert.equal(tools["subagent_await"], undefined);
+  assert.equal(tools["subagent_cancel"], undefined);
   assert.deepEqual(statusTool.parameters.required, ["jobIds"]);
   const timeoutParam = (((statusTool.parameters.properties as Record<string, unknown>).timeoutSeconds) as {default?: number; description?: string});
   assert.equal(timeoutParam.default, undefined);
@@ -90,7 +92,7 @@ test("idle statuses preserve the response and explain that the conversation is a
 
   assert.match(text, /^## Subagent implementation planner \(job-1\)\n### Status: idle/m);
   assert.match(text, /Here is the proposed plan\./);
-  assert.match(text, /idle and awaiting further instructions or cancellation/);
+  assert.match(text, /idle and awaiting further instructions or a stop request/);
 });
 
 test("completed and cancelled statuses have status-specific messages", () => {

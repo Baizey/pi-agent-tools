@@ -36,7 +36,7 @@ export function registerSubagentTool(pi: PiExtensionApi): void {
   registerSubagentPersona(pi);
   registerSubagentStatus(pi);
   registerSubagentMessage(pi);
-  registerSubagentCancel(pi);
+  registerSubagentStop(pi);
 }
 
 function registerSubagent(pi: PiExtensionApi): void {
@@ -219,11 +219,11 @@ function registerSubagentMessage(pi: PiExtensionApi): void {
   });
 }
 
-function registerSubagentCancel(pi: PiExtensionApi): void {
+function registerSubagentStop(pi: PiExtensionApi): void {
   pi.registerTool?.({
     name: ToolName.subagentStop,
-    label: "Cancel Subagent",
-    description: "Cancel a running async subagent job.",
+    label: "Stop Subagent",
+    description: "Stop a running or idle subagent job.",
     parameters: singleJobParameters(),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const jobId = stringValue((params as RawJobParams).jobId);
@@ -236,7 +236,7 @@ function registerSubagentCancel(pi: PiExtensionApi): void {
 
       cancelAsyncSubagentJob(job);
       updateSubagentWidget(ctx, job.request.treeRootId);
-      return successResult(`Cancelled subagent job ${job.id}.`, jobDetails(job));
+      return successResult(`Stopped subagent job ${job.id}.`, jobDetails(job));
     },
     renderCall(args, theme, context) {
       return renderToolCallInput(ToolName.subagentStop, args, theme, context);

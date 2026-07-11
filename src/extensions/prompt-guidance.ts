@@ -141,7 +141,7 @@ export function buildAgentToolsPromptGuidance(options: BuildSystemPromptOptions 
             "- Use the 'meta' toolkit for harness introspection tools like policy_info and local_sql.",
             "- Use async mode for parallel work, conversation mode for an iterative delegated thread, and sync mode for one-shot delegation.",
             "- Use subagent_status to inspect one or more jobs immediately, or provide timeoutSeconds to wait for running jobs.",
-            "- Use subagent_message to continue idle conversations, and subagent_cancel when done or obsolete.",
+            "- Use subagent_message to continue idle conversations, and subagent_stop when done or obsolete.",
             "- Pass cwd, contextPaths, and systemPrompt when they help constrain the delegated task.",
             "- Prefer over-utilizing subagents; for any substantial search or research task it can be recommended to use subagents",
             "- Prefer using conversation mode, outside of known '1-shot' tasks it is always better for you in the long run",

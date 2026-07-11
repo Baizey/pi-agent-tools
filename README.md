@@ -127,7 +127,7 @@ Because Pi currently has no public tool unregister API, hiding an already regist
 | `subagent_spawn_persona` | Spawn a subagent from a registered persona preset. |
 | `subagent_status` | Inspect one or more async/conversation jobs immediately, or wait with an optional timeout. |
 | `subagent_message` | Send a follow-up task to an idle conversation subagent. |
-| `subagent_cancel` | Cancel a running or idle async/conversation job. |
+| `subagent_stop` | Stop a running or idle async/conversation job. |
 
 ### Theme
 

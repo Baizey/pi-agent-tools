@@ -134,7 +134,7 @@ export function formatSubagentJob(job: AsyncSubagentJob): string {
       return [
         heading,
         job.result?.output ?? "(no response was returned)",
-        "This agent is currently idle and awaiting further instructions or cancellation.",
+        "This agent is currently idle and awaiting further instructions or a stop request.",
       ].join("\n\n");
     case SubagentJobStatus.completed:
       return [heading, job.result?.output ?? "(no response was returned)"].join("\n\n");

@@ -25,7 +25,7 @@ Important agent-callable capabilities include:
 - Direct code execution: `execute_code` and `execute_code_info`.
 - Web search and reading: `web_lookup`.
 - Historical local session queries: `local_sql`.
-- Scoped delegation: `available_personas`, `subagent_spawn`, `subagent_spawn_persona`, `subagent_status`, `subagent_message`, and `subagent_cancel`.
+- Scoped delegation: `available_personas`, `subagent_spawn`, `subagent_spawn_persona`, `subagent_status`, `subagent_message`, and `subagent_stop`.
 - Exposed MCP tools, registered with names based on `mcp_<server>_<tool>`.
 
 Use the tools for work the agent can perform directly. Recommend slash commands when the user needs to change interactive configuration, inspect UI-managed state, or make a policy decision.
