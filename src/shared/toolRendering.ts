@@ -141,16 +141,20 @@ function collectResultText(
 }
 
 function formatArgLines(args: Record<string, unknown>, theme: RenderTheme | undefined): string[] {
+  const entries = Object.entries(args).filter(([, value]) => value !== undefined);
+  if (entries.length === 1) {
+    return [color(theme, "dim", `  ${formatValue(entries[0][1])}`)];
+  }
+
   const lines: string[] = [];
   let omitted = false;
 
-  for (const key in args) {
-    if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined) continue;
+  for (const [key, value] of entries) {
     if (lines.length >= maxToolCallArgumentLines - 1) {
       omitted = true;
       break;
     }
-    lines.push(color(theme, "dim", `  ${key}: ${formatValue(args[key])}`));
+    lines.push(color(theme, "dim", `  ${key}: ${formatValue(value)}`));
   }
 
   if (omitted) lines.push(color(theme, "dim", "  ... additional arguments omitted"));

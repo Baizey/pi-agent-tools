@@ -30,6 +30,20 @@ test("tool call renderer folds arguments and preserves styling", () => {
   assert.match(stripAnsi(lines[3]), new RegExp(expandHint.replace("+", "\\+")));
 });
 
+test("tool call renderer omits the label for one visible argument", () => {
+  assert.deepEqual(
+    renderToolCallInput("subagent_cancel", {jobId: "job-123"}).render(120),
+    ["subagent_cancel", "  \"job-123\""],
+  );
+});
+
+test("tool call renderer retains labels for multiple visible arguments", () => {
+  assert.deepEqual(
+    renderToolCallInput("delete", {path: "file.txt", recursive: false}).render(120),
+    ["delete", "  path: \"file.txt\"", "  recursive: false"],
+  );
+});
+
 test("tool result renderer folds head and tail previews", () => {
   const result = {content: [{type: "text" as const, text: "one\ntwo\nthree"}]};
 

@@ -38,7 +38,7 @@ export function renderBlockToolCall(
     const title = color(theme, "toolTitle", bold(theme, call.title));
     const fields = formatFields(call.fields ?? [], theme);
     const blockLineBudget = maxBlockToolLines - 1 - fields.length;
-    const blockLines = formatBlock(call.block, context, call.fold ?? {}, blockLineBudget);
+    const blockLines = formatBlock(call.block, context, call.fold ?? {}, blockLineBudget, fields.length === 0);
     return [title, ...fields, ...blockLines];
   });
 }
@@ -65,11 +65,12 @@ function formatBlock(
   context: ExpansionContext | undefined,
   fold: NonNullable<BlockToolCall["fold"]>,
   maxLines: number,
+  omitLabel: boolean,
 ): string[] {
   const direction = fold.direction ?? FoldDirection.HEAD;
   const bounded = selectTextWindow(block.text, maxBlockDisplayCharacters, direction);
   const allLines = bounded.text.split(/\r\n|\n|\r/);
-  const contentLineBudget = Math.max(1, maxLines - 1);
+  const contentLineBudget = Math.max(1, maxLines - (omitLabel ? 0 : 1));
   const selectedLines = context?.expanded === false
     ? foldLines(allLines, context, {
       ...fold,
@@ -80,6 +81,7 @@ function formatBlock(
     ? addBoundaryNotice(selectedLines, blockTruncatedNotice, direction)
     : selectedLines;
 
+  if (omitLabel) return visibleLines.map(line => `  ${line}`);
   if (visibleLines.length === 1) return [`  ${block.label}: ${visibleLines[0] ?? ""}`];
   return [`  ${block.label}:`, ...visibleLines.map(line => `    ${line}`)];
 }

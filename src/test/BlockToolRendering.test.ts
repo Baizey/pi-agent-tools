@@ -28,14 +28,14 @@ test("block tool renderer folds head and tail previews", () => {
       block: {label: "code", text: block},
       fold: {direction: FoldDirection.TAIL, previewLines: 2},
     }, undefined, {expanded: false}).render(120),
-    ["execute_code", "  code:", `    ... (1 earlier line, ${expandHint})`, "    second", "    third"],
+    ["execute_code", `  ... (1 earlier line, ${expandHint})`, "  second", "  third"],
   );
 });
 
-test("block tool renderer shows expanded content", () => {
+test("block tool renderer omits the label and dedents a sole block argument", () => {
   assert.deepEqual(
-    renderBlockToolCall({title: "bash", block: {label: "command", text: "first\nsecond"}}, undefined, {expanded: true}).render(120),
-    ["bash", "  command:", "    first", "    second"],
+    renderBlockToolCall({title: "thinking", block: {label: "thoughts", text: "first\nsecond"}}, undefined, {expanded: true}).render(120),
+    ["thinking", "  first", "  second"],
   );
 });
 
@@ -43,10 +43,10 @@ test("block tool renderer bounds rows, characters, and line width", () => {
   const manyLines = Array.from({length: 2_500}, (_, index) => `line ${index}`).join("\n");
   const renderedLines = renderBlockToolCall({title: "execute_code", block: {label: "code", text: manyLines}}, undefined, {expanded: true}).render(120);
   assert.equal(renderedLines.length, 2_000);
-  assert.equal(renderedLines[renderedLines.length - 1], "    ... (503 lines omitted from display)");
+  assert.equal(renderedLines[renderedLines.length - 1], "  ... (502 lines omitted from display)");
 
   const longLine = renderBlockToolCall({title: "execute_code", block: {label: "code", text: "x".repeat(250_000)}}, undefined, {expanded: true}).render(80);
-  assert.equal(longLine[longLine.length - 1], "    [block display truncated]");
+  assert.equal(longLine[longLine.length - 1], "  [block display truncated]");
   assert.ok(longLine.every(line => line.length <= 80));
 });
 
@@ -69,7 +69,7 @@ test("collapsed block output keeps character truncation visible", () => {
     block: {label: "code", text: largeBlock},
   }, undefined, {expanded: false}).render(120);
 
-  assert.equal(lines[lines.length - 1], "    [block display truncated]");
+  assert.equal(lines[lines.length - 1], "  [block display truncated]");
 });
 
 test("bash call renderer shows purpose and command", () => {
