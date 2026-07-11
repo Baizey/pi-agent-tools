@@ -179,16 +179,17 @@ Use `/model-profiles` without arguments to inspect current resolution. Prefer `a
 
 ## Thinking tool
 
-The `thinking` tool lets the agent share concise thoughts or reasoning before it continues. It is active by default and, while active, adds explicit system-prompt guidance telling the agent to output thoughts through the tool.
+The `thinking` tool lets the agent share concise thoughts or reasoning before it continues. It is active by default and, while active, tells the agent to call it after internal reasoning and before an answer or any other tool. The agent should provide the closest precise account it can share, paraphrasing or summarizing when instructions limit disclosure while preserving key considerations and decisions. Thoughts should use multiple short lines, stay within the TUI width, and wrap at roughly 160 characters when that width is unknown.
 
 The user controls it with:
 
 ```text
+/thinking
 /thinking on
 /thinking off
 ```
 
-`/thinking` is a user-invoked slash command; the agent cannot invoke it as a tool. Toggling it preserves the state of every other active tool.
+With no argument, `/thinking` flips the current state. It is a user-invoked slash command; the agent cannot invoke it as a tool. Toggling it preserves the state of every other active tool.
 
 ## Other extension capabilities
 
