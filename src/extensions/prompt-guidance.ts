@@ -17,7 +17,9 @@ When writing or refactoring software, structure the code to make the best use of
 - Make guarantees explicit through names, types, interfaces, invariants, and focused tests rather than relying on memory or convention.
 - Avoid clever compression and abstraction for its own sake. If an abstraction adds concepts without removing reasoning burden, do not add it.
 - Code should be testable, behavior should be understandable and verifiable through testing. Error handling should be explicit and also verifiable.
-- Aim for code that can be understood, modified, and partially forgotten without losing correctness.`;
+- Aim for code that can be understood, modified, and partially forgotten without losing correctness.
+- Explore and understand the code structure when you're extending on a feature or otherwise modifying existing code. Coherency is key.
+`;
 
 export const agentHelpGuidance = `${agentHelpGuidanceHeader}
 
