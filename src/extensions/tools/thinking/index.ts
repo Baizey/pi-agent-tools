@@ -9,14 +9,17 @@ export enum ThinkingMode {
   OFF = "off",
 }
 
+const THINKING_REMINDER_TYPE = "thinking-reminder";
+const THINKING_REMINDER = "You completed internal reasoning without calling the thinking tool. Before continuing, call thinking with those internal thoughts verbatim when available and permitted. Paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure, preserving the key considerations and decisions.";
+
 export function registerThinkingTool(pi: PiExtensionApi): void {
   pi.registerTool?.({
     name: ToolName.thinking,
     label: "Thinking",
-    description: "Share concise thoughts or reasoning before continuing with the task.",
-    promptSnippet: "Share concise thoughts or reasoning",
+    description: "Share thoughts or reasoning before continuing with the task.",
+    promptSnippet: "Share thoughts or reasoning",
     promptGuidelines: [
-      "After reasoning internally, always call thinking before any answer or other tool. Share the closest precise account of that reasoning you can provide; if instructions limit disclosure, paraphrase or summarize while preserving the key considerations and decisions.",
+      "After reasoning internally, always call thinking before any answer or other tool. Share those internal thoughts verbatim when available and permitted. Paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure, preserving the key considerations and decisions.",
       "Format thinking as multiple short lines rather than one long paragraph. Keep each line within the TUI width; when that width is unknown, wrap at roughly 160 characters.",
     ],
     parameters: {
@@ -26,7 +29,7 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
       properties: {
         thoughts: {
           type: "string",
-          description: "The concise thoughts or reasoning to share.",
+          description: "The thoughts or reasoning to share.",
         },
       },
     },
@@ -48,6 +51,7 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
   pi.on("session_start", (_event, ctx) => {
     setThinkingToolEnabled(pi, ctx.model?.provider === "openai-codex");
   });
+  registerThinkingReminder(pi);
 
   pi.registerCommand?.("thinking", {
     description: "Toggle the thinking tool, or explicitly turn it on or off: /thinking [on|off]",
@@ -76,6 +80,55 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
       ctx.ui?.notify?.(`Thinking tool: ${enabled ? ThinkingMode.ON : ThinkingMode.OFF}`, "info");
     },
   });
+}
+
+function registerThinkingReminder(pi: PiExtensionApi): void {
+  let thinkingCompletedThisTurn = false;
+  let reminderSentThisRun = false;
+
+  pi.on("agent_start", () => {
+    thinkingCompletedThisTurn = false;
+    reminderSentThisRun = false;
+  });
+  pi.on("turn_start", () => {
+    thinkingCompletedThisTurn = false;
+  });
+  pi.on("message_update", (event) => {
+    if (isThinkingEndEvent(event.assistantMessageEvent)) thinkingCompletedThisTurn = true;
+  });
+  pi.on("turn_end", (event) => {
+    const shouldConsiderReminder = thinkingCompletedThisTurn;
+    thinkingCompletedThisTurn = false;
+    if (
+      !shouldConsiderReminder
+      || reminderSentThisRun
+      || isThinkingToolEnabled(pi) !== true
+      || messageCallsThinkingTool(event.message)
+      || !pi.sendMessage
+    ) return;
+
+    reminderSentThisRun = true;
+    pi.sendMessage({
+      customType: THINKING_REMINDER_TYPE,
+      content: THINKING_REMINDER,
+      display: false,
+    }, {deliverAs: "steer", triggerTurn: true});
+  });
+}
+
+function isThinkingEndEvent(event: unknown): boolean {
+  return typeof event === "object" && event !== null && "type" in event && event.type === "thinking_end";
+}
+
+function messageCallsThinkingTool(message: {content?: unknown}): boolean {
+  return Array.isArray(message.content) && message.content.some((part) => (
+    typeof part === "object"
+    && part !== null
+    && "type" in part
+    && part.type === "toolCall"
+    && "name" in part
+    && part.name === ToolName.thinking
+  ));
 }
 
 export function isThinkingToolEnabled(pi: PiExtensionApi): boolean | undefined {

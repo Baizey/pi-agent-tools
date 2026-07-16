@@ -26,8 +26,9 @@ test("thinking tool accepts thoughts without echoing them and explicitly guides 
   assert.equal(tool?.name, ToolName.thinking);
   const guidance = tool?.promptGuidelines?.join("\n") ?? "";
   assert.match(guidance, /always call thinking before any answer or other tool/);
-  assert.match(guidance, /closest precise account/);
-  assert.match(guidance, /paraphrase or summarize while preserving the key considerations and decisions/);
+  assert.match(guidance, /internal thoughts verbatim when available and permitted/);
+  assert.match(guidance, /Paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure/);
+  assert.match(guidance, /preserving the key considerations and decisions/);
   assert.match(guidance, /multiple short lines rather than one long paragraph/);
   assert.match(guidance, /within the TUI width/);
   assert.match(guidance, /roughly 160 characters/);
@@ -84,6 +85,67 @@ test("thinking tool defaults on only when the session starts with an OpenAI Code
     {cwd: process.cwd(), model: {provider: "openai-codex", id: "gpt-codex"}},
   );
   assert.deepEqual(activeTools, ["read", ToolName.thinking]);
+});
+
+test("thinking tool steers once after internal thinking when the model omitted its tool call", () => {
+  type EventHandler = (event: Record<string, unknown>, ctx: ExtensionContext) => void;
+
+  const handlers = new Map<string, EventHandler>();
+  const sentMessages: Array<{message: Record<string, unknown>; options?: Record<string, unknown>}> = [];
+  let activeTools = ["read", ToolName.thinking];
+  const pi = {
+    on(event: string, handler: unknown) { handlers.set(event, handler as EventHandler); },
+    registerTool() {},
+    registerCommand() {},
+    getActiveTools: () => activeTools,
+    setActiveTools: (names: string[]) => { activeTools = names; },
+    sendMessage(message: Record<string, unknown>, options?: Record<string, unknown>) {
+      sentMessages.push({message, options});
+    },
+  } as unknown as PiExtensionApi;
+  const ctx = {cwd: process.cwd()};
+  const emit = (name: string, event: Record<string, unknown>) => handlers.get(name)?.(event, ctx);
+
+  const completeThinkingTurn = (turnIndex: number, content: Array<Record<string, unknown>>) => {
+    emit("turn_start", {type: "turn_start", turnIndex, timestamp: Date.now()});
+    emit("message_update", {
+      type: "message_update",
+      message: {role: "assistant", content: []},
+      assistantMessageEvent: {type: "thinking_end"},
+    });
+    emit("turn_end", {
+      type: "turn_end",
+      turnIndex,
+      message: {role: "assistant", content},
+      toolResults: [],
+    });
+  };
+
+  registerThinkingTool(pi);
+  emit("agent_start", {type: "agent_start"});
+  completeThinkingTurn(0, [{
+    type: "toolCall",
+    id: "thinking-1",
+    name: ToolName.thinking,
+    arguments: {thoughts: "Summary"},
+  }]);
+  assert.equal(sentMessages.length, 0);
+
+  emit("agent_start", {type: "agent_start"});
+  completeThinkingTurn(0, [{type: "text", text: "Done"}]);
+  assert.equal(sentMessages.length, 1);
+  assert.deepEqual(sentMessages[0].options, {deliverAs: "steer", triggerTurn: true});
+  assert.equal(sentMessages[0].message.display, false);
+  assert.match(String(sentMessages[0].message.content), /internal thoughts verbatim when available and permitted/);
+  assert.match(String(sentMessages[0].message.content), /Paraphrase or summarize only/);
+
+  completeThinkingTurn(1, [{type: "text", text: "Still done"}]);
+  assert.equal(sentMessages.length, 1);
+
+  activeTools = ["read"];
+  emit("agent_start", {type: "agent_start"});
+  completeThinkingTurn(0, [{type: "text", text: "Done"}]);
+  assert.equal(sentMessages.length, 1);
 });
 
 test("thinking command turns only the thinking tool on and off", () => {

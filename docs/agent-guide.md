@@ -179,7 +179,7 @@ Use `/model-profiles` without arguments to inspect current resolution. Prefer `a
 
 ## Thinking tool
 
-The `thinking` tool lets the agent share concise thoughts or reasoning before it continues. At session start, it is active by default only when the active model uses the `openai-codex` provider. While active, it tells the agent to call it after internal reasoning and before an answer or any other tool. The agent should provide the closest precise account it can share, paraphrasing or summarizing when instructions limit disclosure while preserving key considerations and decisions. Thoughts should use multiple short lines, stay within the TUI width, and wrap at roughly 160 characters when that width is unknown.
+The `thinking` tool lets the agent share thoughts or reasoning before it continues. At session start, it is active by default only when the active model uses the `openai-codex` provider. While active, it tells the agent to call it after internal reasoning and before an answer or any other tool. If Pi reports that internal thinking completed but the response omitted the tool call, the extension queues one hidden reminder for the next turn. The agent should copy those internal thoughts verbatim when available and permitted. It should paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure, while preserving key considerations and decisions. Thoughts should use multiple short lines, stay within the TUI width, and wrap at roughly 160 characters when that width is unknown.
 
 The user controls it with:
 
