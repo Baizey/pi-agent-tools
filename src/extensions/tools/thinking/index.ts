@@ -10,7 +10,7 @@ export enum ThinkingMode {
 }
 
 const THINKING_REMINDER_TYPE = "thinking-reminder";
-const THINKING_REMINDER = "You completed internal reasoning without calling the thinking tool. Before continuing, call thinking with those internal thoughts verbatim when available and permitted. Paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure, preserving the key considerations and decisions.";
+const THINKING_REMINDER = "You completed internal reasoning without sharing it through the thinking tool. When exposing that reasoning would help the user inspect or correct assumptions, consider calling thinking. Prefer those internal thoughts verbatim when available and permitted; paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure.";
 
 export function registerThinkingTool(pi: PiExtensionApi): void {
   pi.registerTool?.({
@@ -19,7 +19,7 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
     description: "Share thoughts or reasoning before continuing with the task.",
     promptSnippet: "Share thoughts or reasoning",
     promptGuidelines: [
-      "After reasoning internally, always call thinking before any answer or other tool. Share those internal thoughts verbatim when available and permitted. Paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure, preserving the key considerations and decisions.",
+      "Use thinking to expose internal reasoning when it would help the user inspect or correct assumptions, decisions, or changes in direction. Prefer those internal thoughts verbatim when available and permitted. Paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure.",
       "Format thinking as multiple short lines rather than one long paragraph. Keep each line within the TUI width; when that width is unknown, wrap at roughly 160 characters.",
     ],
     parameters: {
@@ -84,11 +84,12 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
 
 function registerThinkingReminder(pi: PiExtensionApi): void {
   let thinkingCompletedThisTurn = false;
-  let reminderSentThisRun = false;
+  let thinkingHandledForCurrentInput = false;
 
-  pi.on("agent_start", () => {
+  pi.on("input", (event) => {
+    if (event.source === "extension") return;
     thinkingCompletedThisTurn = false;
-    reminderSentThisRun = false;
+    thinkingHandledForCurrentInput = false;
   });
   pi.on("turn_start", () => {
     thinkingCompletedThisTurn = false;
@@ -99,15 +100,18 @@ function registerThinkingReminder(pi: PiExtensionApi): void {
   pi.on("turn_end", (event) => {
     const shouldConsiderReminder = thinkingCompletedThisTurn;
     thinkingCompletedThisTurn = false;
+    if (messageCallsThinkingTool(event.message)) {
+      thinkingHandledForCurrentInput = true;
+      return;
+    }
     if (
       !shouldConsiderReminder
-      || reminderSentThisRun
+      || thinkingHandledForCurrentInput
       || isThinkingToolEnabled(pi) !== true
-      || messageCallsThinkingTool(event.message)
       || !pi.sendMessage
     ) return;
 
-    reminderSentThisRun = true;
+    thinkingHandledForCurrentInput = true;
     pi.sendMessage({
       customType: THINKING_REMINDER_TYPE,
       content: THINKING_REMINDER,
