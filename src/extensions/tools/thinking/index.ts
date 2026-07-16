@@ -96,13 +96,13 @@ function registerThinkingReminder(pi: PiExtensionApi): void {
     if (event.toolName === ToolName.thinking) reset();
   });
   pi.on("message_update", (event) => {
-    if (
-      !isThinkingEndEvent(event.assistantMessageEvent)
-      || isThinkingToolEnabled(pi) !== true
-      || !pi.sendMessage
-    ) return;
+    if (isThinkingEndEvent(event.assistantMessageEvent) && isThinkingToolEnabled(pi) === true) {
+      completedThinkingBlocks++;
+    }
+  });
+  pi.on("turn_end", () => {
+    if (isThinkingToolEnabled(pi) !== true || !pi.sendMessage) return;
 
-    completedThinkingBlocks++;
     const now = Date.now();
     if (
       completedThinkingBlocks < THINKING_BLOCKS_PER_REMINDER
