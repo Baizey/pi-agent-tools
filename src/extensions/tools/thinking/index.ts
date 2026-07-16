@@ -10,6 +10,7 @@ export enum ThinkingMode {
 }
 
 const THINKING_REMINDER_TYPE = "thinking-reminder";
+const THINKING_REMINDER_INTERVAL_MS = 60_000;
 const THINKING_REMINDER = "You completed internal reasoning without sharing it through the thinking tool. When exposing that reasoning would help the user inspect or correct assumptions, consider calling thinking. Prefer those internal thoughts verbatim when available and permitted; paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure.";
 
 export function registerThinkingTool(pi: PiExtensionApi): void {
@@ -83,56 +84,29 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
 }
 
 function registerThinkingReminder(pi: PiExtensionApi): void {
-  let thinkingCompletedThisTurn = false;
-  let thinkingHandledForCurrentInput = false;
+  let lastReminderAt: number | undefined;
 
-  pi.on("input", (event) => {
-    if (event.source === "extension") return;
-    thinkingCompletedThisTurn = false;
-    thinkingHandledForCurrentInput = false;
-  });
-  pi.on("turn_start", () => {
-    thinkingCompletedThisTurn = false;
-  });
   pi.on("message_update", (event) => {
-    if (isThinkingEndEvent(event.assistantMessageEvent)) thinkingCompletedThisTurn = true;
-  });
-  pi.on("turn_end", (event) => {
-    const shouldConsiderReminder = thinkingCompletedThisTurn;
-    thinkingCompletedThisTurn = false;
-    if (messageCallsThinkingTool(event.message)) {
-      thinkingHandledForCurrentInput = true;
-      return;
-    }
     if (
-      !shouldConsiderReminder
-      || thinkingHandledForCurrentInput
+      !isThinkingEndEvent(event.assistantMessageEvent)
       || isThinkingToolEnabled(pi) !== true
       || !pi.sendMessage
     ) return;
 
-    thinkingHandledForCurrentInput = true;
+    const now = Date.now();
+    if (lastReminderAt !== undefined && now - lastReminderAt < THINKING_REMINDER_INTERVAL_MS) return;
+
     pi.sendMessage({
       customType: THINKING_REMINDER_TYPE,
       content: THINKING_REMINDER,
       display: false,
     }, {deliverAs: "steer", triggerTurn: true});
+    lastReminderAt = now;
   });
 }
 
 function isThinkingEndEvent(event: unknown): boolean {
   return typeof event === "object" && event !== null && "type" in event && event.type === "thinking_end";
-}
-
-function messageCallsThinkingTool(message: {content?: unknown}): boolean {
-  return Array.isArray(message.content) && message.content.some((part) => (
-    typeof part === "object"
-    && part !== null
-    && "type" in part
-    && part.type === "toolCall"
-    && "name" in part
-    && part.name === ToolName.thinking
-  ));
 }
 
 export function isThinkingToolEnabled(pi: PiExtensionApi): boolean | undefined {

@@ -87,7 +87,7 @@ test("thinking tool defaults on only when the session starts with an OpenAI Code
   assert.deepEqual(activeTools, ["read", ToolName.thinking]);
 });
 
-test("thinking tool nudges at most once per user input when internal thinking was not shared", () => {
+test("thinking tool nudges after thinking ends at most once per minute", () => {
   type EventHandler = (event: Record<string, unknown>, ctx: ExtensionContext) => void;
 
   const handlers = new Map<string, EventHandler>();
@@ -104,50 +104,37 @@ test("thinking tool nudges at most once per user input when internal thinking wa
     },
   } as unknown as PiExtensionApi;
   const ctx = {cwd: process.cwd()};
-  const emit = (name: string, event: Record<string, unknown>) => handlers.get(name)?.(event, ctx);
+  const emitMessageUpdate = (assistantMessageEvent: Record<string, unknown>) => handlers.get("message_update")?.({
+    type: "message_update",
+    message: {role: "assistant", content: []},
+    assistantMessageEvent,
+  }, ctx);
+  const now = jest.spyOn(Date, "now").mockReturnValue(1_000);
 
-  const completeThinkingTurn = (turnIndex: number, content: Array<Record<string, unknown>>) => {
-    emit("turn_start", {type: "turn_start", turnIndex, timestamp: Date.now()});
-    emit("message_update", {
-      type: "message_update",
-      message: {role: "assistant", content: []},
-      assistantMessageEvent: {type: "thinking_end"},
-    });
-    emit("turn_end", {
-      type: "turn_end",
-      turnIndex,
-      message: {role: "assistant", content},
-      toolResults: [],
-    });
-  };
+  try {
+    registerThinkingTool(pi);
+    emitMessageUpdate({type: "thinking_end"});
+    assert.equal(sentMessages.length, 1);
+    assert.deepEqual(sentMessages[0].options, {deliverAs: "steer", triggerTurn: true});
+    assert.equal(sentMessages[0].message.display, false);
+    assert.match(String(sentMessages[0].message.content), /help the user inspect or correct assumptions/);
+    assert.match(String(sentMessages[0].message.content), /internal thoughts verbatim when available and permitted/);
 
-  registerThinkingTool(pi);
-  emit("input", {type: "input", text: "Do work", source: "interactive"});
-  completeThinkingTurn(0, [{
-    type: "toolCall",
-    id: "thinking-1",
-    name: ToolName.thinking,
-    arguments: {thoughts: "Verbatim thoughts"},
-  }]);
-  completeThinkingTurn(1, [{type: "text", text: "Done"}]);
-  assert.equal(sentMessages.length, 0);
+    emitMessageUpdate({type: "text_end"});
+    emitMessageUpdate({type: "thinking_end"});
+    assert.equal(sentMessages.length, 1);
 
-  emit("input", {type: "input", text: "Do more work", source: "interactive"});
-  completeThinkingTurn(0, [{type: "text", text: "Done"}]);
-  assert.equal(sentMessages.length, 1);
-  assert.deepEqual(sentMessages[0].options, {deliverAs: "steer", triggerTurn: true});
-  assert.equal(sentMessages[0].message.display, false);
-  assert.match(String(sentMessages[0].message.content), /help the user inspect or correct assumptions/);
-  assert.match(String(sentMessages[0].message.content), /internal thoughts verbatim when available and permitted/);
+    now.mockReturnValue(61_000);
+    emitMessageUpdate({type: "thinking_end"});
+    assert.equal(sentMessages.length, 2);
 
-  emit("agent_start", {type: "agent_start"});
-  completeThinkingTurn(1, [{type: "text", text: "Still done"}]);
-  assert.equal(sentMessages.length, 1);
-
-  activeTools = ["read"];
-  emit("input", {type: "input", text: "Do work without thinking", source: "interactive"});
-  completeThinkingTurn(0, [{type: "text", text: "Done"}]);
-  assert.equal(sentMessages.length, 1);
+    activeTools = ["read"];
+    now.mockReturnValue(121_000);
+    emitMessageUpdate({type: "thinking_end"});
+    assert.equal(sentMessages.length, 2);
+  } finally {
+    now.mockRestore();
+  }
 });
 
 test("thinking command turns only the thinking tool on and off", () => {
