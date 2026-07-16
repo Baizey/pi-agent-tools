@@ -10,6 +10,7 @@ export enum ThinkingMode {
 }
 
 const THINKING_REMINDER_TYPE = "thinking-reminder";
+const THINKING_BLOCKS_PER_REMINDER = 5;
 const THINKING_REMINDER_INTERVAL_MS = 60_000;
 const THINKING_REMINDER = "You completed internal reasoning without sharing it through the thinking tool. When exposing that reasoning would help the user inspect or correct assumptions, consider calling thinking. Prefer those internal thoughts verbatim when available and permitted; paraphrase or summarize only when instructions or system limitations prevent verbatim disclosure.";
 
@@ -84,8 +85,16 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
 }
 
 function registerThinkingReminder(pi: PiExtensionApi): void {
-  let lastReminderAt: number | undefined;
+  let completedThinkingBlocks = 0;
+  let cycleStartedAt = Date.now();
+  const reset = (now = Date.now()) => {
+    completedThinkingBlocks = 0;
+    cycleStartedAt = now;
+  };
 
+  pi.on("tool_execution_start", (event) => {
+    if (event.toolName === ToolName.thinking) reset();
+  });
   pi.on("message_update", (event) => {
     if (
       !isThinkingEndEvent(event.assistantMessageEvent)
@@ -93,15 +102,19 @@ function registerThinkingReminder(pi: PiExtensionApi): void {
       || !pi.sendMessage
     ) return;
 
+    completedThinkingBlocks++;
     const now = Date.now();
-    if (lastReminderAt !== undefined && now - lastReminderAt < THINKING_REMINDER_INTERVAL_MS) return;
+    if (
+      completedThinkingBlocks < THINKING_BLOCKS_PER_REMINDER
+      || now - cycleStartedAt < THINKING_REMINDER_INTERVAL_MS
+    ) return;
 
     pi.sendMessage({
       customType: THINKING_REMINDER_TYPE,
       content: THINKING_REMINDER,
       display: false,
     }, {deliverAs: "steer", triggerTurn: true});
-    lastReminderAt = now;
+    reset(now);
   });
 }
 

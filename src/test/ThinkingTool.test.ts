@@ -87,7 +87,7 @@ test("thinking tool defaults on only when the session starts with an OpenAI Code
   assert.deepEqual(activeTools, ["read", ToolName.thinking]);
 });
 
-test("thinking tool nudges after thinking ends at most once per minute", () => {
+test("thinking tool nudges after five thinking blocks and one minute, resetting when thinking is called", () => {
   type EventHandler = (event: Record<string, unknown>, ctx: ExtensionContext) => void;
 
   const handlers = new Map<string, EventHandler>();
@@ -109,28 +109,44 @@ test("thinking tool nudges after thinking ends at most once per minute", () => {
     message: {role: "assistant", content: []},
     assistantMessageEvent,
   }, ctx);
+  const emitThinkingEnds = (count: number) => {
+    for (let index = 0; index < count; index++) emitMessageUpdate({type: "thinking_end"});
+  };
   const now = jest.spyOn(Date, "now").mockReturnValue(1_000);
 
   try {
     registerThinkingTool(pi);
-    emitMessageUpdate({type: "thinking_end"});
+    emitMessageUpdate({type: "text_end"});
+    emitThinkingEnds(4);
+    assert.equal(sentMessages.length, 0);
+
+    now.mockReturnValue(61_000);
+    emitThinkingEnds(1);
     assert.equal(sentMessages.length, 1);
     assert.deepEqual(sentMessages[0].options, {deliverAs: "steer", triggerTurn: true});
     assert.equal(sentMessages[0].message.display, false);
     assert.match(String(sentMessages[0].message.content), /help the user inspect or correct assumptions/);
     assert.match(String(sentMessages[0].message.content), /internal thoughts verbatim when available and permitted/);
 
-    emitMessageUpdate({type: "text_end"});
-    emitMessageUpdate({type: "thinking_end"});
+    now.mockReturnValue(121_000);
+    emitThinkingEnds(4);
     assert.equal(sentMessages.length, 1);
+    handlers.get("tool_execution_start")?.({
+      type: "tool_execution_start",
+      toolCallId: "thinking-1",
+      toolName: ToolName.thinking,
+      args: {thoughts: "Verbatim thoughts"},
+    }, ctx);
 
-    now.mockReturnValue(61_000);
-    emitMessageUpdate({type: "thinking_end"});
+    now.mockReturnValue(181_000);
+    emitThinkingEnds(4);
+    assert.equal(sentMessages.length, 1);
+    emitThinkingEnds(1);
     assert.equal(sentMessages.length, 2);
 
     activeTools = ["read"];
-    now.mockReturnValue(121_000);
-    emitMessageUpdate({type: "thinking_end"});
+    now.mockReturnValue(241_000);
+    emitThinkingEnds(5);
     assert.equal(sentMessages.length, 2);
   } finally {
     now.mockRestore();
