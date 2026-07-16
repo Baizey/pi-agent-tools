@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import {CommandDefinition, PiExtensionApi, ToolDefinition} from "../pi/types";
+import {
+  CommandDefinition,
+  ExtensionContext,
+  PiExtensionApi,
+  SessionStartEvent,
+  ToolDefinition,
+} from "../pi/types";
 import {
   registerThinkingTool,
   thinkingCommandCompletions,
@@ -48,6 +54,36 @@ test("thinking tool folds calls from the tail", () => {
 
   const expandedCall = tool?.renderCall?.({thoughts}, undefined as never, {expanded: true} as never).render(120) ?? [];
   assert.match(expandedCall.join("\n"), /thought 1/);
+});
+
+test("thinking tool defaults on only when the session starts with an OpenAI Codex model", () => {
+  type SessionStartHandler = (event: SessionStartEvent, ctx: ExtensionContext) => void;
+
+  let sessionStartHandler: SessionStartHandler | undefined;
+  let activeTools = ["read", ToolName.thinking];
+  const pi = {
+    on(event: string, handler: unknown) {
+      if (event === "session_start") sessionStartHandler = handler as SessionStartHandler;
+    },
+    registerTool() {},
+    registerCommand() {},
+    getActiveTools: () => activeTools,
+    setActiveTools: (names: string[]) => { activeTools = names; },
+  } as PiExtensionApi;
+
+  registerThinkingTool(pi);
+
+  sessionStartHandler?.(
+    {type: "session_start", reason: "startup"},
+    {cwd: process.cwd(), model: {provider: "anthropic", id: "claude-sonnet"}},
+  );
+  assert.deepEqual(activeTools, ["read"]);
+
+  sessionStartHandler?.(
+    {type: "session_start", reason: "startup"},
+    {cwd: process.cwd(), model: {provider: "openai-codex", id: "gpt-codex"}},
+  );
+  assert.deepEqual(activeTools, ["read", ToolName.thinking]);
 });
 
 test("thinking command turns only the thinking tool on and off", () => {

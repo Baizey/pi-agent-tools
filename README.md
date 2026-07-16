@@ -72,7 +72,7 @@ Supported language adapters: `javascript`, `typescript`, `python`, `powershell`,
 | --- | --- |
 | `thinking` | Share concise thoughts or reasoning before continuing. |
 
-The tool is active by default and, while active, instructs the agent to call it after internal reasoning and before an answer or any other tool, sharing the closest precise account it can provide or a faithful summary when disclosure is limited. Thoughts use multiple short lines and wrap to the TUI width, or roughly 160 characters when unknown. Use `/thinking` to flip its state, or `/thinking on` and `/thinking off` to set it explicitly, without affecting other tools.
+At session start, the tool is active by default only when the active model uses the `openai-codex` provider. While active, it instructs the agent to call it after internal reasoning and before an answer or any other tool, sharing the closest precise account it can provide or a faithful summary when disclosure is limited. Thoughts use multiple short lines and wrap to the TUI width, or roughly 160 characters when unknown. Use `/thinking` to flip its state, or `/thinking on` and `/thinking off` to set it explicitly, without affecting other tools.
 
 ### MCP tools
 

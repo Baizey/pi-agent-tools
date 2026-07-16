@@ -45,6 +45,10 @@ export function registerThinkingTool(pi: PiExtensionApi): void {
     },
   });
 
+  pi.on("session_start", (_event, ctx) => {
+    setThinkingToolEnabled(pi, ctx.model?.provider === "openai-codex");
+  });
+
   pi.registerCommand?.("thinking", {
     description: "Toggle the thinking tool, or explicitly turn it on or off: /thinking [on|off]",
     getArgumentCompletions: thinkingCommandCompletions,
